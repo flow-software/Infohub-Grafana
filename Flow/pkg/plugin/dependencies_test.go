@@ -31,7 +31,7 @@ import (
 var depMetadata = map[int][]map[string]any{
 	10: {{"type": "calculation", "data": map[string]any{"1970/01/01 00:00:00": "Good / Planned", "2026/01/01 00:00:00": "Good / Planned * 100", "dependents": []int{11, 12}}}},
 	11: {{"type": "aggregation", "data": map[string]any{"type": "sum", "interval": "hourly", "measure": 13, "scaling": 1}}},
-	12: {{"type": "manual", "data": map[string]any{"type": "SetToMeasure", "id": 13}}},
+	12: {{"type": "manual", "data": map[string]any{"type": "SetToMeasure", "id": 13}}, {"type": "context", "data": map[string]any{"calendars": []int{1}}}},
 	13: {{"type": "retrieval", "data": map[string]any{"source": "Sim", "tag": "FQ.PV", "aggregation": "Average"}}},
 	15: {{"type": "aggregation", "data": map[string]any{"type": "sum", "interval": "daily", "event": 7}}},
 	16: {{"type": "calculation", "data": map[string]any{"dependents": []int{17}}}},
@@ -102,7 +102,7 @@ func depServer(t *testing.T) (*fakeFlow, *Datasource) {
 		if r.URL.Query().Get("users") == "true" {
 			user = map[string]any{"username": "charl", "name": "Charl"}
 		}
-		writeJSON(w, 200, map[string]any{"values": []map[string]any{
+		all := []map[string]any{
 			// 12: entered at 00:00, then filled in by Flow (no user) at 01:00.
 			{"id": 12, "data": []map[string]any{
 				{"start": "2026-10-06T00:00:00Z", "value": 8, "user": user},
@@ -114,7 +114,19 @@ func depServer(t *testing.T) (*fakeFlow, *Datasource) {
 				{"start": "2026-10-06T02:00:00Z"},
 			}},
 			{"id": 11, "data": []map[string]any{{"start": "2026-10-06T01:00:00Z"}}},
-		}})
+		}
+		// Answer only for the ids asked for, as Flow does.
+		asked := map[string]bool{}
+		for _, id := range r.URL.Query()["id"] {
+			asked[id] = true
+		}
+		values := []map[string]any{}
+		for _, v := range all {
+			if asked[strconv.Itoa(v["id"].(int))] {
+				values = append(values, v)
+			}
+		}
+		writeJSON(w, 200, map[string]any{"values": values})
 	}
 	f.handlers["/api/v1/model/metrics/5/measures"] = func(w http.ResponseWriter, r *http.Request) {
 		var out []map[string]any
@@ -386,5 +398,33 @@ func TestDependenciesOwnNames(t *testing.T) {
 	// The click menu still has the id, whatever the title.
 	if got := nodeCol(t, frames, "detail__measureId")["model:measure:19"]; got != "19" {
 		t.Errorf("measure id = %q", got)
+	}
+}
+
+// A period measure without the query's calendar as context has no value
+// there: it is marked on its node and not asked for.
+func TestDependenciesCalendar(t *testing.T) {
+	f, d := depServer(t)
+	frames := runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, CalendarID: 2})
+	if got := nodeCol(t, frames, "mainstat")[m12]; got != "–" {
+		t.Errorf("mainstat of 12 = %q", got)
+	}
+	if got := nodeCol(t, frames, "detail__note")[m12]; got != "Not in calendar 2 in Flow, so it has no value here." {
+		t.Errorf("note of 12 = %q", got)
+	}
+	// 10 has no context metadata, so it is still read, in calendar 2.
+	if got := nodeCol(t, frames, "mainstat")[m10]; got != "81.50" {
+		t.Errorf("mainstat of 10 = %q", got)
+	}
+	for _, r := range f.requests {
+		if strings.HasPrefix(r, "/api/v1/data/measures") && (!strings.Contains(r, "calendarid=2") || strings.Contains(r, "id=12")) {
+			t.Errorf("data request %s, want calendar 2 and no measure 12", r)
+		}
+	}
+
+	// In its own calendar, 12 has its value.
+	frames = runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, CalendarID: 1})
+	if got := nodeCol(t, frames, "mainstat")[m12]; got != "8" {
+		t.Errorf("mainstat of 12 in calendar 1 = %q", got)
 	}
 }

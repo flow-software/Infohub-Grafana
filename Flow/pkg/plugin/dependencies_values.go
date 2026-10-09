@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -25,6 +26,8 @@ type depValue struct {
 	// LastEntry is the latest value in range that someone entered, when
 	// the latest value has no user (Flow filled it in, e.g. a default).
 	LastEntry *depEntry
+	// Note says why a measure has no value, e.g. it is not in the calendar.
+	Note string
 }
 
 type depEntry struct {
@@ -102,6 +105,19 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 		if err != nil {
 			notices = append(notices, "Values of period measures: "+err.Error())
 		} else {
+			// Flow only has values for a measure in the calendars it has as
+			// context; the rest are marked rather than left blank.
+			var inCalendar []int
+			for _, id := range periodIDs {
+				if inCalendarContext(g.measures[id], calendarID) {
+					inCalendar = append(inCalendar, id)
+					continue
+				}
+				values[depKey(flow.TreeModel, "measure", id)] = depValue{Note: fmt.Sprintf("Not in %s in Flow, so it has no value here.", d.calendarLabel(ctx, calendarID))}
+			}
+			periodIDs = inCalendar
+		}
+		if err == nil && len(periodIDs) > 0 {
 			res, err := d.client.MeasureData(ctx, flow.MeasureDataRequest{
 				IDs: periodIDs, CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit, Users: true,
 			})
@@ -167,4 +183,36 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 // period, then its retrieval type, e.g. "hourly · calculated".
 func depStats(m flow.Measure) string {
 	return strings.Trim(fmt.Sprintf("%s · %s", m.Interval, m.Retrieval), " ·")
+}
+
+// inCalendarContext reports whether a measure has the calendar as context.
+// Without context metadata it is given the benefit of the doubt.
+func inCalendarContext(m flow.Measure, calendarID int) bool {
+	for _, md := range m.Metadata {
+		if !strings.EqualFold(md.Type, "context") {
+			continue
+		}
+		var ids []int
+		_ = json.Unmarshal(md.Data["calendars"], &ids)
+		for _, id := range ids {
+			if id == calendarID {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
+// calendarLabel names a calendar for messages: the "finance" calendar, or
+// calendar 4 when Flow does not list it.
+func (d *Datasource) calendarLabel(ctx context.Context, id int) string {
+	if list, err := d.listCalendars(ctx); err == nil {
+		for _, c := range list {
+			if c.ID == id {
+				return fmt.Sprintf("the %q calendar", c.Name)
+			}
+		}
+	}
+	return fmt.Sprintf("calendar %d", id)
 }

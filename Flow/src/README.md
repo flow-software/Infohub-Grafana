@@ -63,7 +63,7 @@ Pick measures with **Browse**; each becomes the root of a tree (a metric adds a 
 - **set to measure**: the measure a manual measure's default copies,
 - **retrieval**: the Flow tag (a timestamp measure) a retrieved measure reads.
 
-**Values**: each model measure's latest value in the dashboard's time range is included (the latest period with a value for period measures, in the datasource's default calendar; the last value for tags), in Flow's own format with the unit. Turn **Latest values** off to leave them out. Template measures hold no values.
+**Values**: each model measure's latest value in the dashboard's time range is included (the latest period with a value for period measures, in the chosen **Calendar** or the datasource's default; the last value for tags), in Flow's own format with the unit. Turn **Latest values** off to leave them out. Template measures hold no values. The calendar matters for weekly, monthly and yearly measures, whose periods depend on where the calendar's weeks and months start. A period measure that does not have the calendar as context in Flow shows a dash; click it for why.
 
 **Names**: *Full name* titles each node with Flow's full name (*Metric.Parent.Measure*); *Measure name* with the measure's own name only (*WTD*), which keeps nested measures short.
 

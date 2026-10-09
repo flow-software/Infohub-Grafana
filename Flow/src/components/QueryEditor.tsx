@@ -160,20 +160,6 @@ function useSummary(datasource: DataSource, items: QueryItem[]): SelectionSummar
 }
 
 function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
-  const [calendars, setCalendars] = useState<Calendar[]>([]);
-  const [calendarError, setCalendarError] = useState<string>();
-
-  useEffect(() => {
-    let cancelled = false;
-    datasource
-      .getCalendars()
-      .then((list) => !cancelled && setCalendars(list))
-      .catch((err) => !cancelled && setCalendarError(err?.data?.message ?? err?.message ?? 'Could not load calendars'));
-    return () => {
-      cancelled = true;
-    };
-  }, [datasource]);
-
   const items = useMemo(() => query.items ?? [], [query.items]);
   const summary = useSummary(datasource, items);
   const showPeriods = items.length > 0 && (!summary || summary.periodMeasures > 0);
@@ -187,14 +173,6 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
     onChange({ ...query, ...patch });
     onRunQuery();
   };
-
-  const calendarOptions = useMemo<Array<ComboboxOption<number>>>(
-    () => [
-      { label: 'Datasource default', value: 0 },
-      ...calendars.map((c) => ({ label: c.name, value: c.id, description: c.description })),
-    ],
-    [calendars]
-  );
 
   const aggregationOptions = useMemo<Array<ComboboxOption<string>>>(
     () => [
@@ -216,21 +194,12 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
 
       {showPeriods && <GroupHeading title="Period measures" count={summary?.periodMeasures} />}
       {showCalendar && (
-        <InlineField
-          label="Calendar"
-          labelWidth={LABEL_WIDTH}
-          invalid={!!calendarError}
-          error={calendarError}
+        <CalendarField
+          datasource={datasource}
+          value={query.calendarId}
+          onChange={(calendarId) => update({ calendarId })}
           tooltip="Period measures (hourly, shift, daily, ...) are read in this calendar; the measure must have it as context in Flow. Calendar buckets of tag aggregations use it too."
-        >
-          <Combobox
-            id="query-editor-calendar"
-            width={30}
-            options={calendarOptions}
-            value={query.calendarId ?? 0}
-            onChange={(o) => update({ calendarId: o?.value || undefined })}
-          />
-        </InlineField>
+        />
       )}
       {showPeriods && (
         <InlineField label="Time at" labelWidth={LABEL_WIDTH} tooltip="Place each period's value at the start or the end of the period.">
@@ -427,6 +396,14 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
           onChange={(e) => update({ depValues: e.currentTarget.checked ? undefined : 'none' })}
         />
       </InlineField>
+      {query.depValues !== 'none' && (
+        <CalendarField
+          datasource={datasource}
+          value={query.calendarId}
+          onChange={(calendarId) => update({ calendarId })}
+          tooltip="Period measures show their latest value in this calendar. A measure that does not have the calendar as context in Flow shows a dash; click it for why. Tags do not use a calendar."
+        />
+      )}
       <InlineField
         label="Names"
         labelWidth={LABEL_WIDTH}
@@ -442,6 +419,53 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
         />
       </InlineField>
     </>
+  );
+}
+
+/** Picks the Flow calendar period measures are read in; unset is the datasource default. */
+function CalendarField({
+  datasource,
+  value,
+  onChange,
+  tooltip,
+}: {
+  datasource: DataSource;
+  value?: number;
+  onChange: (calendarId: number | undefined) => void;
+  tooltip: string;
+}) {
+  const [calendars, setCalendars] = useState<Calendar[]>([]);
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    let cancelled = false;
+    datasource
+      .getCalendars()
+      .then((list) => !cancelled && setCalendars(list))
+      .catch((err) => !cancelled && setError(err?.data?.message ?? err?.message ?? 'Could not load calendars'));
+    return () => {
+      cancelled = true;
+    };
+  }, [datasource]);
+
+  const options = useMemo<Array<ComboboxOption<number>>>(
+    () => [
+      { label: 'Datasource default', value: 0 },
+      ...calendars.map((c) => ({ label: c.name, value: c.id, description: c.description })),
+    ],
+    [calendars]
+  );
+
+  return (
+    <InlineField label="Calendar" labelWidth={LABEL_WIDTH} invalid={!!error} error={error} tooltip={tooltip}>
+      <Combobox
+        id="query-editor-calendar"
+        width={30}
+        options={options}
+        value={value ?? 0}
+        onChange={(o) => onChange(o?.value || undefined)}
+      />
+    </InlineField>
   );
 }
 

@@ -642,8 +642,8 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		key := depKey(tree, r.Type, r.MeasureID)
 		nodeIDOf[r.ID] = key
 		if i, ok := seen[key]; ok {
-			if r.Truncated {
-				nodes[i].note = depTruncatedNote(direction)
+			if r.Truncated && !strings.Contains(nodes[i].note, depTruncatedNote(direction)) {
+				nodes[i].note = strings.TrimSpace(nodes[i].note + " " + depTruncatedNote(direction))
 			}
 		} else {
 			seen[key] = len(nodes)
@@ -662,12 +662,15 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 				n.subtitle = depStats(m)
 				info := depInfoOf(m)
 				n.calculation, n.aggregation, n.source = info.Calculation, info.Aggregation, depSource(info, tree, names)
-				if v, ok := values[key]; ok {
+				if v, ok := values[key]; ok && v.Value != nil {
 					n.mainstat = v.Text
 					n.valueAt = v.Time.UTC().Format(time.RFC3339)
 					if strings.EqualFold(m.Retrieval, "manual") {
 						n.enteredBy = v.enteredBy()
 					}
+				} else if ok {
+					n.mainstat = "–"
+					n.note = v.Note
 				}
 				if c, ok := retrievalColors[strings.ToLower(m.Retrieval)]; ok {
 					n.color = c
@@ -680,7 +683,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 				n.subtitle = strings.TrimSpace(n.subtitle + " (template)")
 			}
 			if r.Truncated {
-				n.note = depTruncatedNote(direction)
+				n.note = strings.TrimSpace(n.note + " " + depTruncatedNote(direction))
 			}
 			nodes = append(nodes, n)
 		}

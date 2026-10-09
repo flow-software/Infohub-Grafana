@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Dependency queries have a Calendar picker: period measures show their latest value in that calendar. Measures that do not have the calendar as context in Flow show a dash, and their node says why.
+
 ## 1.0.0
 
 First release.
