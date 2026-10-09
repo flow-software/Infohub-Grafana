@@ -1,0 +1,21 @@
+name: Flow CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Flow/**'
+      - '.github/workflows/flow-*.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Flow/**'
+      - '.github/workflows/flow-*.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/flow-build.yml

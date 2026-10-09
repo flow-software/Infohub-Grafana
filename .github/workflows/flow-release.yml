@@ -1,0 +1,72 @@
+# Publishes a GitHub Release with the Flow plugin zips.
+#
+# Bump "version" in Flow/package.json and add a CHANGELOG.md section for
+# it, then push a matching tag:
+#
+#   git tag flow-v1.0.1 && git push origin flow-v1.0.1
+name: Flow release
+
+on:
+  push:
+    tags:
+      - 'flow-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/flow-build.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: flow-plugin
+          path: artifacts
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#flow-v}"
+          pkg_version=$(jq -r .version Flow/package.json)
+          if [ "$version" != "$pkg_version" ]; then
+            echo "::error::Tag $TAG does not match Flow/package.json version $pkg_version"
+            exit 1
+          fi
+
+          # Release notes: this version's CHANGELOG section, then how to install.
+          awk -v v="$version" '
+            /^## / { if (found) exit; if (index($0, "## " v) == 1) { found = 1; next } }
+            found
+          ' Flow/CHANGELOG.md > notes.md
+          cat >> notes.md <<'EOF'
+
+          ## Install
+
+          Unsigned build: Grafana must list `flowsoftware-flow-datasource` in `allow_loading_unsigned_plugins`. Self-hosted Grafana only, not Grafana Cloud.
+
+          | Zip | For |
+          | --- | --- |
+          | `…windows_amd64.zip` | Grafana installed on Windows |
+          | `…linux_amd64.zip` | Grafana in Docker, or on Linux |
+          | `…linux_arm64.zip`, `…linux_arm.zip` | ARM hardware |
+          | `…darwin_amd64.zip`, `…darwin_arm64.zip` | macOS |
+          | `…any.zip` | Any platform (larger) |
+
+          Step-by-step instructions are in `INSTALL.md`, attached below and included in every zip.
+          EOF
+
+          gh release create "$TAG" artifacts/*.zip artifacts/SHA256SUMS.txt Flow/INSTALL.md \
+            --title "Flow data source $version" \
+            --notes-file notes.md

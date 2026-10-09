@@ -1,0 +1,71 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+
+import { DataSource } from '../datasource';
+import { BrowseNode, QueryItem } from '../types';
+import { ModelBrowser } from './ModelBrowser';
+
+const nodes: Record<string, BrowseNode[]> = {
+  'model:root': [{ tree: 'model', type: 'folder', id: 1, name: 'Site' }],
+  'model:folder:1': [{ tree: 'model', type: 'metric', id: 20, name: 'Production', fromTemplate: true }],
+  'model:metric:20': [
+    { tree: 'model', type: 'measure', id: 200, name: 'Good', interval: 'hourly', uom: 'units' },
+    { tree: 'model', type: 'measure', id: 201, name: 'Speed', interval: 'timestamp' },
+  ],
+  'template:root': [{ tree: 'template', type: 'folder', id: 90, name: 'Line' }],
+};
+
+function fakeDatasource() {
+  return {
+    browse: jest.fn((tree: string, parent?: { type: string; id: number }) =>
+      Promise.resolve(nodes[parent ? `${tree}:${parent.type}:${parent.id}` : `${tree}:root`] ?? [])
+    ),
+    search: jest.fn(() => Promise.resolve([])),
+  } as unknown as DataSource;
+}
+
+describe('ModelBrowser', () => {
+  it('loads levels on demand and labels picks with their path', async () => {
+    const ds = fakeDatasource();
+    const onApply = jest.fn();
+    const existing: QueryItem = { tree: 'template', type: 'measure', id: 9000, label: 'Line/Production/Good' };
+    render(<ModelBrowser datasource={ds} selected={[existing]} onApply={onApply} onDismiss={() => {}} />);
+
+    // The existing pick is a template item, so the Templates tab opens first.
+    expect(await screen.findByText('Line')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Model'));
+
+    fireEvent.click(await screen.findByLabelText('Expand Site'));
+    fireEvent.click(await screen.findByLabelText('Expand Production'));
+    expect(await screen.findByText('tag')).toBeInTheDocument();
+    expect(screen.getByText('hourly')).toBeInTheDocument();
+    // Measures show their id, to match what Flow and the node graph show.
+    expect(screen.getByText('#200')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Select Speed'));
+    fireEvent.click(screen.getByLabelText('Select Production'));
+    fireEvent.click(screen.getByText('Apply'));
+
+    await waitFor(() => expect(onApply).toHaveBeenCalled());
+    expect(onApply.mock.calls[0][0]).toEqual([
+      existing,
+      { tree: 'model', type: 'measure', id: 201, label: 'Site/Production/Speed', interval: 'timestamp' },
+      { tree: 'model', type: 'metric', id: 20, label: 'Site/Production' },
+    ]);
+    // Each level was fetched once.
+    expect(ds.browse).toHaveBeenCalledTimes(4);
+  });
+
+  it('unticking removes an existing pick', async () => {
+    const ds = fakeDatasource();
+    const onApply = jest.fn();
+    const existing: QueryItem = { tree: 'model', type: 'metric', id: 20, label: 'Site/Production' };
+    render(<ModelBrowser datasource={ds} selected={[existing]} onApply={onApply} onDismiss={() => {}} />);
+
+    fireEvent.click(await screen.findByLabelText('Expand Site'));
+    fireEvent.click(await screen.findByLabelText('Select Production'));
+    fireEvent.click(screen.getByText('Apply'));
+
+    expect(onApply).toHaveBeenCalledWith([]);
+  });
+});

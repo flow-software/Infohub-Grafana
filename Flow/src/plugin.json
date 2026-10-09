@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "datasource",
+  "name": "Flow",
+  "id": "flowsoftware-flow-datasource",
+  "metrics": true,
+  "alerting": true,
+  "backend": true,
+  "executable": "gpx_flow",
+  "info": {
+    "description": "Browse the Flow model by folder and metric and chart measure and tag data, for model measures or every instance of a template measure.",
+    "author": {
+      "name": "Flow Software",
+      "url": "https://www.flow-software.com"
+    },
+    "keywords": ["datasource", "flow", "kpi", "manufacturing", "industrial", "iiot", "time series"],
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "links": [{ "name": "Flow Software", "url": "https://www.flow-software.com" }],
+    "screenshots": [],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=12.3.0",
+    "plugins": []
+  }
+}

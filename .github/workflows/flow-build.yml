@@ -1,0 +1,68 @@
+# Builds, tests and packages the Flow plugin. Called by flow-ci.yml
+# and flow-release.yml; the zips are uploaded as the "flow-plugin"
+# workflow artifact.
+name: Flow build
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, lint, test and package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Flow
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: Flow/.nvmrc
+          cache: npm
+          cache-dependency-path: Flow/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Check types
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm run test:ci
+      - name: Build frontend
+        run: npm run build
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: Flow/go.mod
+          cache-dependency-path: Flow/go.sum
+
+      - name: Lint backend
+        uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9.2.1
+        with:
+          version: latest
+          working-directory: Flow
+          args: ./...
+
+      - name: Test backend
+        run: go test ./...
+
+      - name: Build backend (all platforms)
+        run: |
+          go install github.com/magefile/mage@v1.15.0
+          mage -v buildAll
+
+      - name: Package zips
+        run: python3 scripts/package.py
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: flow-plugin
+          path: Flow/artifacts
+          retention-days: 30

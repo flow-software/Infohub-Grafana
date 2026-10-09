@@ -1,0 +1,157 @@
+import { DataSourceJsonData } from '@grafana/data';
+import { DataQuery } from '@grafana/schema';
+
+/** Which half of the Flow model an id belongs to. */
+export type Tree = 'model' | 'template';
+
+/** A metric stands for all of its measures, resolved when the query runs. */
+export type ItemType = 'metric' | 'measure';
+
+export interface QueryItem {
+  tree: Tree;
+  type: ItemType;
+  id: number;
+  /** Shown in the editor, e.g. "Site/Line 1/Production/Good". */
+  label: string;
+  /** Measures only, as browsed: "timestamp" (a tag) or a period such as "hourly". Display only. */
+  interval?: string;
+}
+
+export type TagBucket = 'auto' | 'fixed' | 'calendar';
+
+export type QueryType = 'measures' | 'chart' | 'dependencies';
+
+/** inputs: what a measure is built from. usedBy: what is built from it. */
+export type DepDirection = 'inputs' | 'usedBy';
+
+export interface FlowQuery extends DataQuery {
+  /** Unset means measures. */
+  queryType?: QueryType;
+
+  /** Chart queries: a Flow chart shown as a table, over the dashboard's time range. */
+  chartId?: number;
+  /** Shown in the editor. */
+  chartLabel?: string;
+
+  /** Dependency queries; they pick measures with items too. */
+  depDirection?: DepDirection;
+  /** Levels to follow; unset is 10. */
+  depDepth?: number;
+  /** "none" leaves out each measure's latest value; unset shows it. */
+  depValues?: 'none';
+  /** "measure" titles nodes by the measure's own name ("WTD"); unset uses Flow's full Metric.Measure name. */
+  depNames?: 'measure';
+
+  /** Measure queries. */
+  items?: QueryItem[];
+  /** Calendar for period measures; unset uses the datasource default. */
+  calendarId?: number;
+  /**
+   * Tags (timestamp measures): unset is auto (raw values while they fit the
+   * panel, else averages per panel interval), "raw" forces every raw value,
+   * anything else is a Flow aggregation.
+   */
+  aggregation?: string;
+  bucket?: TagBucket;
+  /** Bucket size when bucket is "fixed", e.g. "15m". */
+  resolution?: string;
+  /** Calendar period when bucket is "calendar", e.g. "shiftly". */
+  tagInterval?: string;
+  /** Place period values at the period start (default) or end. */
+  timeAt?: 'start' | 'end';
+  includeQuality?: boolean;
+  badQualityAsNull?: boolean;
+  /** Series name pattern: {{path}}, {{folder}}, {{metric}}, {{measure}}, {{id}}, {{uom}}. */
+  legend?: string;
+}
+
+export const DEFAULT_QUERY: Partial<FlowQuery> = {
+  items: [],
+  bucket: 'auto',
+  timeAt: 'start',
+};
+
+/** Settings stored in jsonData. The Flow Server base URL is the datasource's top-level url. */
+export interface FlowOptions extends DataSourceJsonData {
+  defaultCalendarId?: number;
+  /** Standard Grafana TLS keys, read by the backend's HTTP client. */
+  tlsSkipVerify?: boolean;
+  tlsAuthWithCACert?: boolean;
+}
+
+/** Secrets: write-only from the browser, decrypted only in the backend. */
+export interface FlowSecureJsonData {
+  token?: string;
+  tlsCACert?: string;
+}
+
+/** One row from the backend's browse and search resources. */
+export interface BrowseNode {
+  tree: Tree;
+  type: 'folder' | ItemType;
+  id: number;
+  name: string;
+  /** Measures only: timestamp (a tag) or a period such as hourly. */
+  interval?: string;
+  uom?: string;
+  description?: string;
+  /** A model object created from a template. */
+  fromTemplate?: boolean;
+}
+
+/** One row from the backend's charts resource. */
+export interface ChartNode {
+  type: 'folder' | 'chart';
+  id: number;
+  name: string;
+  /** Charts only, e.g. "Time Based Table". */
+  chartType?: string;
+  /** Charts the plugin can turn into a table. */
+  supported?: boolean;
+}
+
+/** What a selection holds, so the editor shows only the options that apply. */
+export interface SelectionSummary {
+  periodMeasures: number;
+  tags: number;
+  warnings?: string[];
+}
+
+export interface Calendar {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+/** Flow's tag aggregations, as data/tags names them. */
+export const AGGREGATIONS: Array<{ value: string; label: string }> = [
+  { value: 'average', label: 'Average' },
+  { value: 'minimum', label: 'Minimum' },
+  { value: 'maximum', label: 'Maximum' },
+  { value: 'sum', label: 'Sum' },
+  { value: 'first', label: 'First' },
+  { value: 'last', label: 'Last' },
+  { value: 'count', label: 'Count' },
+  { value: 'delta', label: 'Delta' },
+  { value: 'range', label: 'Range' },
+  { value: 'counter', label: 'Counter' },
+  { value: 'timeInState', label: 'Time in state' },
+  { value: 'variance', label: 'Variance' },
+  { value: 'standardDeviation', label: 'Standard deviation' },
+];
+
+/** Calendar periods a tag aggregation can be bucketed into. */
+export const CALENDAR_INTERVALS: Array<{ value: string; label: string }> = [
+  { value: 'minutely', label: 'Minute' },
+  { value: 'hourly', label: 'Hour' },
+  { value: 'shiftly', label: 'Shift' },
+  { value: 'daily', label: 'Day' },
+  { value: 'weekly', label: 'Week' },
+  { value: 'monthly', label: 'Month' },
+  { value: 'quarterly', label: 'Quarter' },
+  { value: 'yearly', label: 'Year' },
+];
+
+export function itemKey(item: Pick<QueryItem, 'tree' | 'type' | 'id'>): string {
+  return `${item.tree}:${item.type}:${item.id}`;
+}
