@@ -13,7 +13,7 @@ Each release has a zip per platform (Windows, Linux, macOS), one for any platfor
 Set `version` in `Flow/package.json`, add a matching section to `Flow/CHANGELOG.md`, then push a tag:
 
 ```sh
-git tag flow-v2.0.1 && git push origin flow-v2.0.1
+git tag flow-v1.0.1 && git push origin flow-v1.0.1
 ```
 
 GitHub Actions builds and tests the plugin, then publishes the release with the zips and the changelog section as notes.
