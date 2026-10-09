@@ -4,8 +4,12 @@ import { DataQuery } from '@grafana/schema';
 /** Which half of the Flow model an id belongs to. */
 export type Tree = 'model' | 'template';
 
-/** A metric stands for all of its measures, resolved when the query runs. */
-export type ItemType = 'metric' | 'measure';
+/**
+ * A metric stands for all of its measures, resolved when the query runs.
+ * Events are picked in events queries; a template event stands for every
+ * event created from it.
+ */
+export type ItemType = 'metric' | 'measure' | 'event';
 
 export interface QueryItem {
   tree: Tree;
@@ -19,7 +23,10 @@ export interface QueryItem {
 
 export type TagBucket = 'auto' | 'fixed' | 'calendar';
 
-export type QueryType = 'measures' | 'chart' | 'dependencies';
+export type QueryType = 'measures' | 'chart' | 'dependencies' | 'events';
+
+/** How an events query lays out event periods. */
+export type EventFormat = 'table' | 'timeline' | 'annotations';
 
 /** inputs: what a measure is built from. usedBy: what is built from it. */
 export type DepDirection = 'inputs' | 'usedBy';
@@ -41,6 +48,23 @@ export interface FlowQuery extends DataQuery {
   depValues?: 'none';
   /** "measure" titles nodes by the measure's own name ("WTD"); unset uses Flow's full Metric.Measure name. */
   depNames?: 'measure';
+
+  /** Events queries: table (default), state timeline, or annotations. */
+  eventFormat?: EventFormat;
+
+  /**
+   * Measure queries: "event" reads period measures per period of eventId
+   * instead of per calendar period.
+   */
+  context?: 'event';
+  eventId?: number;
+  /** Shown in the editor. */
+  eventLabel?: string;
+  /** With eventValues, keep only periods whose attribute has one of them. */
+  eventAttribute?: string;
+  eventValues?: string[];
+  /** One series per value of eventAttribute. */
+  eventSplit?: boolean;
 
   /** Measure queries. */
   items?: QueryItem[];
@@ -115,6 +139,22 @@ export interface SelectionSummary {
   periodMeasures: number;
   tags: number;
   warnings?: string[];
+}
+
+/** An event the selected measures can be read in. */
+export interface ContextEvent {
+  id: number;
+  /** Folder path, e.g. "Site/Line 1/Run". */
+  name: string;
+  attributes?: string[] | null;
+  /** How many of the selected measures have it as context. */
+  measures: number;
+}
+
+/** A value of an event attribute, with its colour in Flow. */
+export interface AttributeValueOption {
+  value: string;
+  color?: string;
 }
 
 export interface Calendar {

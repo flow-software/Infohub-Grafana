@@ -153,6 +153,33 @@ func (x *modelIndex) describe(ctx context.Context, ids []int) (map[int]seriesInf
 	return out, nil
 }
 
+// eventPaths names events by folder path, "Site/Line 1/Trigger2", so
+// instances of one template event stay apart.
+func (x *modelIndex) eventPaths(ctx context.Context, events []flow.Event) (map[int]string, error) {
+	x.mu.Lock()
+	x.expireLocked()
+	folders := x.folders
+	x.mu.Unlock()
+	if folders == nil {
+		list, err := x.client.Folders(ctx, flow.TreeModel)
+		if err != nil {
+			return nil, err
+		}
+		folders = make(map[int]flow.Folder, len(list))
+		for _, f := range list {
+			folders[f.ID] = f
+		}
+		x.mu.Lock()
+		x.folders = folders
+		x.mu.Unlock()
+	}
+	out := make(map[int]string, len(events))
+	for _, e := range events {
+		out[e.ID] = joinPath(folderPath(folders, refID(e.Folder)), e.Name)
+	}
+	return out, nil
+}
+
 // wholeNames fixes the names of nested measures. Flow builds a measure's
 // name by walking its parents, but only as far as the parents it loaded for
 // that request, so a measure fetched by id two levels down comes back as

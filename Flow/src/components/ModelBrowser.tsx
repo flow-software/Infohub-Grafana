@@ -16,7 +16,7 @@ import {
   useStyles2,
 } from '@grafana/ui';
 
-import { DataSource } from '../datasource';
+import { BrowseKind, DataSource } from '../datasource';
 import { BrowseNode, itemKey, QueryItem, Tree } from '../types';
 
 interface Props {
@@ -25,6 +25,8 @@ interface Props {
   selected: QueryItem[];
   onApply: (items: QueryItem[]) => void;
   onDismiss: () => void;
+  /** "events" lists folders and events, for events queries. */
+  kind?: BrowseKind;
 }
 
 type Children = { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; nodes: BrowseNode[] };
@@ -45,7 +47,8 @@ function errorText(err: unknown): string {
  * level on demand. Metrics and measures can be ticked: a metric stands for
  * all its measures, and a template item for every instance of it.
  */
-export function ModelBrowser({ datasource, selected, onApply, onDismiss }: Props) {
+export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 'measures' }: Props) {
+  const events = kind === 'events';
   const styles = useStyles2(getStyles);
   const [tree, setTree] = useState<Tree>(() => selected[0]?.tree ?? 'model');
   const [children, setChildren] = useState<Record<string, Children>>({});
@@ -65,11 +68,11 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss }: Props
       const key = parentKey(t, parent);
       requested.current.add(key);
       datasource
-        .browse(t, parent)
+        .browse(t, parent, kind)
         .then((nodes) => setChildren((prev) => ({ ...prev, [key]: { state: 'done', nodes } })))
         .catch((err) => setChildren((prev) => ({ ...prev, [key]: { state: 'error', message: errorText(err) } })));
     },
-    [datasource]
+    [datasource, kind]
   );
 
   // Root folders of the open tab, loaded the first time the tab is shown.
@@ -88,7 +91,7 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss }: Props
     let cancelled = false;
     const timer = setTimeout(() => {
       datasource
-        .search(tree, q)
+        .search(tree, q, kind)
         .then((nodes) => !cancelled && setResults({ q, tree, children: { state: 'done', nodes } }))
         .catch((err) => !cancelled && setResults({ q, tree, children: { state: 'error', message: errorText(err) } }));
     }, SEARCH_DELAY_MS);
@@ -96,7 +99,7 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss }: Props
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [q, tree, datasource]);
+  }, [q, tree, datasource, kind]);
   const current: Children =
     results && results.q === q && results.tree === tree ? results.children : { state: 'loading' };
 
@@ -139,7 +142,7 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss }: Props
   const renderRow = (node: BrowseNode, depth: number, path: string) => {
     const label = path ? `${path}/${node.name}` : node.name;
     const key = parentKey(node.tree, node);
-    const canExpand = node.type !== 'measure';
+    const canExpand = node.type === 'folder' || node.type === 'metric';
     const isOpen = expanded.has(key);
     const isChecked = node.type !== 'folder' && checked.has(itemKey({ tree: node.tree, type: node.type, id: node.id }));
     return (
@@ -165,7 +168,11 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss }: Props
           {node.type === 'folder' ? (
             <span className={styles.checkboxSpace} />
           ) : (
-            <Checkbox value={isChecked} aria-label={`Select ${node.name}`} onChange={() => toggleChecked(node, label)} />
+            <Checkbox
+              value={isChecked}
+              aria-label={`Select ${node.name}`}
+              onChange={() => toggleChecked(node, label)}
+            />
           )}
           <Icon name={iconFor(node, isOpen)} className={styles.icon} />
           <span
@@ -235,16 +242,22 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss }: Props
 
       {tree === 'template' && (
         <Alert severity="info" title="" className={styles.hint}>
-          A template metric or measure returns one series for every model measure created from it.
+          {events
+            ? 'A template event returns the periods of every model event created from it.'
+            : 'A template metric or measure returns one series for every model measure created from it.'}
         </Alert>
       )}
 
       <div className={styles.search}>
         <FilterInput
           placeholder={
-            tree === 'model'
-              ? 'Search metrics and measures by name, or a measure by ID'
-              : 'Search template metrics and measures by name, or a measure by ID'
+            events
+              ? tree === 'model'
+                ? 'Search events by name'
+                : 'Search template events by name'
+              : tree === 'model'
+                ? 'Search metrics and measures by name, or a measure by ID'
+                : 'Search template metrics and measures by name, or a measure by ID'
           }
           value={search}
           onChange={setSearch}
@@ -272,6 +285,8 @@ function iconFor(node: BrowseNode, isOpen: boolean): IconName {
       return isOpen ? 'folder-open' : 'folder';
     case 'metric':
       return 'apps';
+    case 'event':
+      return 'bolt';
     default:
       return node.interval === 'timestamp' ? 'chart-line' : 'clock-nine';
   }
@@ -292,9 +307,7 @@ function NodeBadges({ node }: { node: BrowseNode }) {
         #{node.id}
       </span>
       {node.uom && <span className={styles.count}>{node.uom}</span>}
-      {node.interval && (
-        <span className={styles.badge}>{node.interval === 'timestamp' ? 'tag' : node.interval}</span>
-      )}
+      {node.interval && <span className={styles.badge}>{node.interval === 'timestamp' ? 'tag' : node.interval}</span>}
     </>
   );
 }

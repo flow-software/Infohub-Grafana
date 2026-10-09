@@ -70,12 +70,59 @@ type Measure struct {
 //	             the date it applies from
 //	aggregation: "measure" or "event" (the source), "type", "interval", "scaling"
 //	manual:      "type"; with "SetToMeasure", "id" is the measure copied
+//	context:     "calendars" and "events", the ids the measure has as context
 //	retrieval:   "source" is the connection name, or "Tag" with "id" the tag
 //	             measure read from; then the connection's properties by
 //	             lower-cased label ("tag", "aggregation", ...)
 type MeasureMetadata struct {
 	Type string                     `json:"type"`
 	Data map[string]json.RawMessage `json:"data"`
+}
+
+// Event is a Flow event (an event scheme in Flow's own terms): periods that
+// start and end on triggers, each with attribute values such as a product.
+type Event struct {
+	ID       int    `json:"id"`
+	Folder   *Ref   `json:"folder"`
+	Name     string `json:"name"`
+	Order    *int   `json:"order"`
+	Template *Ref   `json:"template"`
+	// Attributes are only filled when asked for (attributes=true).
+	Attributes []EventAttribute `json:"attributes"`
+}
+
+type EventAttribute struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// AttributeValue is one attribute's value on one event period. Color is
+// the value's colour in Flow, e.g. "#59A14F".
+type AttributeValue struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
+	Value string `json:"value"`
+}
+
+// EventPeriod is one occurrence of an event. End is nil while it runs.
+type EventPeriod struct {
+	PeriodID   int64            `json:"periodid"`
+	Start      *Time            `json:"start"`
+	End        *Time            `json:"end"`
+	Attributes []AttributeValue `json:"attributes"`
+}
+
+type EventSeries struct {
+	ID   int           `json:"id"`
+	Name string        `json:"name"`
+	Data []EventPeriod `json:"data"`
+}
+
+type EventData struct {
+	Errors       []string      `json:"errors"`
+	Continuation *Time         `json:"continuation"`
+	Values       []EventSeries `json:"values"`
 }
 
 // IsTag reports whether the measure holds raw timestamped values.
@@ -112,6 +159,9 @@ type PeriodValue struct {
 	} `json:"detail"`
 	// User is who entered the value; only sent when asked for (users=true).
 	User *User `json:"user"`
+	// Attributes are the event period's attribute values, for values read
+	// per event period (eventPeriods=true, attributes=true).
+	Attributes []AttributeValue `json:"attributes"`
 }
 
 type User struct {

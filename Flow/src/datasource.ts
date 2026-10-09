@@ -2,9 +2,11 @@ import { CoreApp, DataSourceInstanceSettings, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 
 import {
+  AttributeValueOption,
   BrowseNode,
   Calendar,
   ChartNode,
+  ContextEvent,
   DEFAULT_QUERY,
   FlowOptions,
   FlowQuery,
@@ -14,9 +16,25 @@ import {
   Tree,
 } from './types';
 
+/** What the model browser lists: metrics and measures, or events. */
+export type BrowseKind = 'measures' | 'events';
+
 export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<FlowOptions>) {
     super(instanceSettings);
+    // Events as annotations on any panel: the annotation editor is the
+    // query editor, started on an events query, and always asks for the
+    // annotation layout.
+    this.annotations = {
+      getDefaultQuery: () => ({ queryType: 'events', eventFormat: 'annotations', items: [] }),
+      prepareQuery: (anno) => {
+        const target = anno.target;
+        if (!target || target.queryType !== 'events' || !(target.items?.length ?? 0)) {
+          return undefined;
+        }
+        return { ...target, eventFormat: 'annotations' };
+      },
+    };
   }
 
   getDefaultQuery(_: CoreApp): Partial<FlowQuery> {
@@ -44,18 +62,34 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
     return this.getResource<Calendar[]>('calendars');
   }
 
-  /** Children of a folder or metric; no parent lists the root folders. */
-  browse(tree: Tree, parent?: Pick<BrowseNode, 'type' | 'id'>): Promise<BrowseNode[]> {
+  /**
+   * Children of a folder or metric; no parent lists the root folders. With
+   * kind "events", folders hold events instead of metrics.
+   */
+  browse(tree: Tree, parent?: Pick<BrowseNode, 'type' | 'id'>, kind?: BrowseKind): Promise<BrowseNode[]> {
     const params: Record<string, string | number> = { tree };
     if (parent) {
       params.type = parent.type;
       params.id = parent.id;
     }
+    if (kind === 'events') {
+      params.kind = kind;
+    }
     return this.getResource<BrowseNode[]>('browse', params);
   }
 
-  search(tree: Tree, q: string): Promise<BrowseNode[]> {
-    return this.getResource<BrowseNode[]>('search', { tree, q });
+  search(tree: Tree, q: string, kind?: BrowseKind): Promise<BrowseNode[]> {
+    return this.getResource<BrowseNode[]>('search', kind === 'events' ? { tree, q, kind } : { tree, q });
+  }
+
+  /** Events the selected model measures have as context. */
+  getContextEvents(items: QueryItem[]): Promise<ContextEvent[]> {
+    return this.getResource<ContextEvent[]>('contextEvents', { item: items.map(itemKey) });
+  }
+
+  /** Values of an event attribute seen recently, with their colours. */
+  getEventValues(eventId: number, attribute: string): Promise<AttributeValueOption[]> {
+    return this.getResource<AttributeValueOption[]>('eventValues', { event: eventId, attribute });
   }
 
   /** Root chart folders, or a folder's folders and charts. */

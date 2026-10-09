@@ -4,8 +4,9 @@ Chart [Flow](https://www.flow-software.com) measures and tags in Grafana. Browse
 
 - **Model browser.** Walk the model folder by folder, or search by name or measure ID (`4304`, `#4304` or `id:4304`). Each measure shows its ID. Each level loads when you open it, so large models stay quick.
 - **Templates.** Pick a template metric or measure to get one series for every model measure created from it. Series are named by their folder path, so `Line 1/Production/Good` and `Line 2/Production/Good` stay apart. New instances appear without editing the panel.
-- **Measures and tags.** Period measures (hourly, shift, daily, ...) are read per calendar period. Tags (timestamp measures) are read raw or aggregated: by the panel interval, a fixed bucket, or calendar periods such as shifts.
+- **Measures and tags.** Period measures (hourly, shift, daily, ...) are read per calendar period, or per period of an event such as a product run. Tags (timestamp measures) are read raw or aggregated: by the panel interval, a fixed bucket, or calendar periods such as shifts.
 - **Flow charts as tables.** Pick a time-based chart, such as a time-based table, and see it in Grafana as Flow lays it out: sections, measures, limits, one column per period, and cells coloured by the chart's limit colours.
+- **Events.** Event periods and their attributes as a table, a state timeline, or annotations on any panel, coloured as in Flow.
 - **Dependencies.** See how a measure is built: the measures it is calculated, aggregated or set from, and theirs in turn, or the other way round, what is built from it. Shown in Grafana's Node Graph panel.
 - **Grafana alerting.** Queries run in the plugin backend, so they work in alert rules. Each measure is its own series labelled with its path and id, so one rule produces one alert instance per instance.
 
@@ -38,11 +39,23 @@ Select **Browse** to open the model browser. The **Model** tab shows the folders
 - A **template** metric or measure returns every model measure created from it.
 The options below the selection depend on what it holds. **Period measures** options appear only when it contains period measures, and **Tags** options only when it contains tags; each heading shows how many. Each chip shows what the item is (tag, hourly, daily, metric) and whether it comes from a template.
 
+- **Context**: *Calendar* reads period measures per calendar period; *Event* reads them per period of an event (see below).
 - **Calendar**: period measures are read in this calendar. The measure must have the calendar as context in Flow; measures that do not are listed as a warning on the panel. Choose whether each value is placed at the **period start** or **end**.
+- **Event** (event context): the event whose periods the measures are read in. The list holds the events the selected model measures have as context in Flow. Optionally pick an **Attribute** to keep only periods with some of its values (the values seen in the last 90 days are suggested; others can be typed), and turn on **Series per value** to get a series per value, coloured as in Flow. Template measures are not read in event context, because each instance has its own event. Measures that belong to an event themselves (rather than to a metric) are not supported yet.
 - **Tags** applies to timestamp measures only. *Auto* (the default) returns raw values when the panel can show them all. A tag with more values than that is averaged per panel interval, and the panel says so. *Raw values* returns every stored value. An aggregation (average, maximum, delta, time in state, ...) buckets values by the panel interval (**Auto**), a **Fixed** size such as `15m`, or **Calendar** periods such as shifts.
 - **Legend** names each series. Pick a preset (*Full path*, the default; *Full path and unit*; *Folder and measure*; *Metric and measure*; *Measure*; *Measure and unit*; *Folder*), or type your own pattern with `{{path}}`, `{{folder}}`, `{{metric}}`, `{{measure}}`, `{{id}}` and `{{uom}}`. An empty unit or folder is left out cleanly. Template instances share their metric and measure names, so keep the folder or path in the name to tell them apart.
 - **Quality field** adds each value's quality (Good, Uncertain, Bad). Leave it off for alert rules.
 - **Bad quality as gaps** blanks values whose quality is not Good.
+
+### Events
+
+Pick events with **Browse** (folders hold the events; a template event returns the periods of every event created from it), then a **Format**:
+
+- *Table*: one row per event period, newest first: event, start, end (empty while it runs), duration (to now while it runs) and a column per attribute, with cells coloured by the attribute value's colour in Flow. Use the Table panel.
+- *Timeline*: a band per attribute, showing each period's value from its start to its end; use the State timeline panel. An event without attributes shows when it ran.
+- *Annotations*: to shade event periods on other panels, add an annotation query in the dashboard settings (Annotations) with this data source. It starts as an events query; each period becomes a region titled with the event, with its attributes as text and tags.
+
+Up to 10,000 event periods are read per query; past that the panel warns.
 
 ### Chart
 

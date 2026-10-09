@@ -1,0 +1,203 @@
+package plugin
+
+import (
+	"context"
+	"encoding/json"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
+)
+
+// browseEvents is the browser for events queries: folders, and the events
+// in them. Metrics are left out; events are what can be picked.
+func (d *Datasource) browseEvents(ctx context.Context, tree flow.Tree, typ string, id int) ([]browseNode, error) {
+	if typ != "folder" {
+		return d.browse(ctx, tree, typ, id)
+	}
+	folders, err := d.client.ChildFolders(ctx, tree, id)
+	if err != nil {
+		return nil, err
+	}
+	events, err := d.client.FolderEvents(ctx, tree, id)
+	if err != nil {
+		return nil, err
+	}
+	nodes := []browseNode{}
+	for _, f := range folders {
+		nodes = append(nodes, folderNode(tree, f))
+	}
+	for _, e := range events {
+		nodes = append(nodes, browseNode{Tree: tree, Type: itemEvent, ID: e.ID, Name: e.Name, FromTemplate: e.Template != nil, order: e.Order})
+	}
+	sortNodes(nodes)
+	return nodes, nil
+}
+
+// searchEvents finds events by name; model events are named by folder path.
+func (d *Datasource) searchEvents(ctx context.Context, tree flow.Tree, text string) ([]browseNode, error) {
+	text = strings.TrimSpace(text)
+	nodes := []browseNode{}
+	if text == "" {
+		return nodes, nil
+	}
+	typ := "Event"
+	if tree == flow.TreeTemplate {
+		typ = "TemplateEvent"
+	}
+	found, err := d.client.Search(ctx, text, []string{typ}, searchLimit)
+	if err != nil {
+		return nil, err
+	}
+	var ids []int
+	for _, o := range found {
+		nodes = append(nodes, browseNode{Tree: tree, Type: itemEvent, ID: o.ID, Name: o.Name})
+		ids = append(ids, o.ID)
+	}
+	if tree == flow.TreeModel && len(ids) > 0 {
+		if events, err := d.client.Events(ctx, tree, ids); err == nil {
+			if paths, err := d.index.eventPaths(ctx, events); err == nil {
+				for i, n := range nodes {
+					if p := paths[n.ID]; p != "" {
+						nodes[i].Name = p
+					}
+				}
+			}
+		}
+	}
+	sortNodes(nodes)
+	return nodes, nil
+}
+
+// eventChoice is an event that selected measures can be read in.
+type eventChoice struct {
+	ID         int      `json:"id"`
+	Name       string   `json:"name"`
+	Attributes []string `json:"attributes"`
+	// Measures is how many of the selected measures have it as context.
+	Measures int `json:"measures"`
+}
+
+// contextEvents lists the events the selected model period measures have
+// as context, most shared first, for the measures editor's event picker.
+func (d *Datasource) contextEvents(ctx context.Context, keys []string) ([]eventChoice, error) {
+	items, err := parseItems(keys)
+	if err != nil {
+		return nil, err
+	}
+	sel, err := d.resolve(ctx, items)
+	if err != nil {
+		return nil, err
+	}
+	out := []eventChoice{}
+	if len(sel.periodIDs) == 0 {
+		return out, nil
+	}
+	measures, _, err := d.client.MeasuresWithMetadata(ctx, flow.TreeModel, sel.periodIDs)
+	if err != nil {
+		return nil, err
+	}
+	count := map[int]int{}
+	var ids []int
+	for _, m := range measures {
+		for _, id := range contextEventIDs(m) {
+			count[id]++
+			ids = appendUnique(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	events, err := d.client.Events(ctx, flow.TreeModel, ids)
+	if err != nil {
+		return nil, err
+	}
+	paths, _ := d.index.eventPaths(ctx, events)
+	for _, e := range events {
+		ce := eventChoice{ID: e.ID, Name: e.Name, Measures: count[e.ID]}
+		if p := paths[e.ID]; p != "" {
+			ce.Name = p
+		}
+		for _, a := range e.Attributes {
+			ce.Attributes = append(ce.Attributes, a.Name)
+		}
+		out = append(out, ce)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Measures != out[j].Measures {
+			return out[i].Measures > out[j].Measures
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out, nil
+}
+
+// contextEventIDs are the events a measure has as context, from its
+// metadata.
+func contextEventIDs(m flow.Measure) []int {
+	for _, md := range m.Metadata {
+		if strings.EqualFold(md.Type, "context") {
+			var ids []int
+			_ = json.Unmarshal(md.Data["events"], &ids)
+			return ids
+		}
+	}
+	return nil
+}
+
+// attributeValue is one value of an event attribute, with its colour.
+type attributeValue struct {
+	Value string `json:"value"`
+	Color string `json:"color,omitempty"`
+}
+
+// eventValuesWindow is how far back eventValues looks. Flow's public API
+// does not list an attribute's possible values, so the editor suggests the
+// ones that occurred recently; others can still be typed.
+const eventValuesWindow = 90 * 24 * time.Hour
+
+func (d *Datasource) eventValues(ctx context.Context, eventID int, attribute string) ([]attributeValue, error) {
+	if eventID == 0 || attribute == "" {
+		return nil, &badRequest{"event and attribute are required"}
+	}
+	now := time.Now()
+	res, err := d.client.EventData(ctx, flow.EventDataRequest{IDs: []int{eventID}, From: now.Add(-eventValuesWindow), To: now, Limit: eventPeriodLimit})
+	out := []attributeValue{}
+	if flow.IsNoData(err) || (err == nil && res == nil) {
+		return out, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	for _, s := range res.Values {
+		for _, p := range s.Data {
+			if a, ok := attributeOf(p, attribute); ok && a.Value != "" && !seen[a.Value] {
+				seen[a.Value] = true
+				out = append(out, attributeValue{Value: a.Value, Color: a.Color})
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Value) < strings.ToLower(out[j].Value) })
+	return out, nil
+}
+
+// parseItems reads "<tree>:<type>:<id>" item keys of metrics and measures.
+func parseItems(keys []string) ([]queryItem, error) {
+	var items []queryItem
+	for _, k := range keys {
+		parts := strings.Split(k, ":")
+		if len(parts) != 3 {
+			return nil, &badRequest{"item must be <tree>:<type>:<id>, got " + k}
+		}
+		id, err := strconv.Atoi(parts[2])
+		it := queryItem{Tree: flow.Tree(parts[0]), Type: parts[1], ID: id}
+		if err != nil || !it.Tree.Valid() || (it.Type != itemMetric && it.Type != itemMeasure) {
+			return nil, &badRequest{"invalid item " + k}
+		}
+		items = append(items, it)
+	}
+	return items, nil
+}

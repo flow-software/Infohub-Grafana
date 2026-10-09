@@ -18,6 +18,9 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 
 	var value *data.Field
 	labels := seriesLabels(info)
+	if s.attribute != "" {
+		labels[s.attribute] = s.value
+	}
 	if text {
 		vals := make([]*string, n)
 		for i, p := range s.points {
@@ -48,12 +51,21 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 		DisplayNameFromDS: legendName(qm.Legend, info),
 		Description:       info.Description,
 	}
+	name := info.Path
+	if s.attribute != "" {
+		value.Config.DisplayNameFromDS += " · " + s.value
+		name += " · " + s.value
+	}
+	if s.color != "" {
+		// Coloured as the attribute value is in Flow, like event tables and timelines.
+		value.Config.Color = map[string]any{"mode": "fixed", "fixedColor": s.color}
+	}
 	if info.UOM != "" {
 		// Grafana's custom-unit syntax; the space keeps "12 kg" readable.
 		value.Config.Unit = "suffix: " + info.UOM
 	}
 
-	frame := data.NewFrame(info.Path, data.NewField("Time", nil, times), value)
+	frame := data.NewFrame(name, data.NewField("Time", nil, times), value)
 	if qm.IncludeQuality {
 		frame.Fields = append(frame.Fields, data.NewField("Quality", labels, qualities))
 	} else if !text {

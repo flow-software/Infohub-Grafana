@@ -10,14 +10,18 @@ import {
   InlineField,
   InlineSwitch,
   Input,
+  MultiCombobox,
   RadioButtonGroup,
   Stack,
   useStyles2,
 } from '@grafana/ui';
 
-import { DataSource } from '../datasource';
+import { BrowseKind, DataSource } from '../datasource';
 import {
   AGGREGATIONS,
+  AttributeValueOption,
+  ContextEvent,
+  EventFormat,
   DepDirection,
   Calendar,
   CALENDAR_INTERVALS,
@@ -39,7 +43,16 @@ const LABEL_WIDTH = 14;
 const queryTypeOptions: Array<{ label: string; value: QueryType; description: string }> = [
   { label: 'Measures', value: 'measures', description: 'Pick metrics, measures and tags from the model or templates' },
   { label: 'Chart', value: 'chart', description: 'Show a Flow chart as a table, with its limits' },
-  { label: 'Dependencies', value: 'dependencies', description: 'How measures are built from each other, as a node graph' },
+  {
+    label: 'Dependencies',
+    value: 'dependencies',
+    description: 'How measures are built from each other, as a node graph',
+  },
+  {
+    label: 'Events',
+    value: 'events',
+    description: 'Event periods and their attributes, as a table, timeline or annotations',
+  },
 ];
 
 /**
@@ -48,11 +61,23 @@ const queryTypeOptions: Array<{ label: string; value: QueryType; description: st
  */
 const legendOptions: Array<ComboboxOption<string>> = [
   { label: 'Full path', value: '', description: 'Site/Area/Line 1/Production/Good Count' },
-  { label: 'Full path and unit', value: '{{path}} ({{uom}})', description: 'Site/Area/Line 1/Production/Good Count (kg)' },
+  {
+    label: 'Full path and unit',
+    value: '{{path}} ({{uom}})',
+    description: 'Site/Area/Line 1/Production/Good Count (kg)',
+  },
   { label: 'Folder and measure', value: '{{folder}} · {{measure}}', description: 'Site/Area/Line 1 · Good Count' },
-  { label: 'Metric and measure', value: '{{metric}}.{{measure}}', description: 'Production.Good Count; the same on every template instance' },
+  {
+    label: 'Metric and measure',
+    value: '{{metric}}.{{measure}}',
+    description: 'Production.Good Count; the same on every template instance',
+  },
   { label: 'Measure', value: '{{measure}}', description: 'Good Count; the same on every template instance' },
-  { label: 'Measure and unit', value: '{{measure}} ({{uom}})', description: 'Good Count (kg); the same on every template instance' },
+  {
+    label: 'Measure and unit',
+    value: '{{measure}} ({{uom}})',
+    description: 'Good Count (kg); the same on every template instance',
+  },
   { label: 'Folder', value: '{{folder}}', description: 'Site/Area/Line 1' },
 ];
 
@@ -73,7 +98,9 @@ export function QueryEditor(props: Props) {
           options={queryTypeOptions}
           value={queryType}
           onChange={(v) => {
-            onChange({ ...query, queryType: v });
+            // Events and measures cannot be mixed, so crossing over clears the picks.
+            const crossing = (v === 'events') !== (queryType === 'events');
+            onChange({ ...query, queryType: v, ...(crossing ? { items: [] } : {}) });
             onRunQuery();
           }}
         />
@@ -81,6 +108,7 @@ export function QueryEditor(props: Props) {
       {queryType === 'chart' && <ChartQueryEditor {...props} />}
       {queryType === 'dependencies' && <DependenciesQueryEditor {...props} />}
       {queryType === 'measures' && <MeasuresQueryEditor {...props} />}
+      {queryType === 'events' && <EventsQueryEditor {...props} />}
     </Stack>
   );
 }
@@ -103,7 +131,12 @@ function ChartQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
         tooltip="A time-based Flow chart, such as a time-based table, shown as Flow lays it out for the periods in the dashboard's time range. Its measures, sections and limits come from the chart as it is set up in Flow. Values outside a limit are coloured with the limit's colours; values within it are green."
       >
         <div className={styles.itemsRow}>
-          <Button variant="secondary" icon="folder-open" className={styles.browseButton} onClick={() => setBrowsing(true)}>
+          <Button
+            variant="secondary"
+            icon="folder-open"
+            className={styles.browseButton}
+            onClick={() => setBrowsing(true)}
+          >
             Choose chart
           </Button>
           <div className={styles.chips}>
@@ -166,8 +199,9 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
   const showTags = items.length > 0 && (!summary || summary.tags > 0);
   const aggregated = !!query.aggregation && query.aggregation !== 'raw';
   const bucket = query.bucket ?? 'auto';
+  const eventContext = query.context === 'event';
   // Calendar buckets for tags read the query's calendar too.
-  const showCalendar = showPeriods || (showTags && aggregated && bucket === 'calendar');
+  const showCalendar = (showPeriods && !eventContext) || (showTags && aggregated && bucket === 'calendar');
 
   const update = (patch: Partial<FlowQuery>) => {
     onChange({ ...query, ...patch });
@@ -176,7 +210,11 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
 
   const aggregationOptions = useMemo<Array<ComboboxOption<string>>>(
     () => [
-      { label: 'Auto', value: '', description: 'Raw values while they fit the panel, else averages per panel interval' },
+      {
+        label: 'Auto',
+        value: '',
+        description: 'Raw values while they fit the panel, else averages per panel interval',
+      },
       { label: 'Raw values', value: 'raw', description: 'Every stored value; slow over long ranges' },
       ...AGGREGATIONS,
     ],
@@ -193,6 +231,25 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
       />
 
       {showPeriods && <GroupHeading title="Period measures" count={summary?.periodMeasures} />}
+      {showPeriods && (
+        <InlineField
+          label="Context"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Calendar: a value per calendar period (hour, shift, day, ...). Event: a value per period of an event the measures have as context in Flow, such as a batch or a product run."
+        >
+          <RadioButtonGroup<'calendar' | 'event'>
+            options={[
+              { label: 'Calendar', value: 'calendar' },
+              { label: 'Event', value: 'event' },
+            ]}
+            value={eventContext ? 'event' : 'calendar'}
+            onChange={(v) => update({ context: v === 'event' ? 'event' : undefined })}
+          />
+        </InlineField>
+      )}
+      {showPeriods && eventContext && (
+        <EventContextFields datasource={datasource} query={query} items={items} update={update} />
+      )}
       {showCalendar && (
         <CalendarField
           datasource={datasource}
@@ -202,7 +259,11 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
         />
       )}
       {showPeriods && (
-        <InlineField label="Time at" labelWidth={LABEL_WIDTH} tooltip="Place each period's value at the start or the end of the period.">
+        <InlineField
+          label="Time at"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Place each period's value at the start or the end of the period. A running event period has no end yet, so its value stays at the start."
+        >
           <RadioButtonGroup<'start' | 'end'>
             options={[
               { label: 'Period start', value: 'start' },
@@ -299,25 +360,34 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
   );
 }
 
-/** The Browse button and the chips of the picked metrics and measures. */
+/** The Browse button and the chips of the picked metrics and measures, or events. */
 function ItemsPicker({
   datasource,
   items,
   onChange,
   tooltip,
+  label = 'Measures',
+  kind,
 }: {
   datasource: DataSource;
   items: QueryItem[];
   onChange: (items: QueryItem[]) => void;
   tooltip: string;
+  label?: string;
+  kind?: BrowseKind;
 }) {
   const styles = useStyles2(getStyles);
   const [browsing, setBrowsing] = useState(false);
   return (
     <>
-      <InlineField label="Measures" labelWidth={LABEL_WIDTH} grow tooltip={tooltip}>
+      <InlineField label={label} labelWidth={LABEL_WIDTH} grow tooltip={tooltip}>
         <div className={styles.itemsRow}>
-          <Button variant="secondary" icon="folder-open" className={styles.browseButton} onClick={() => setBrowsing(true)}>
+          <Button
+            variant="secondary"
+            icon="folder-open"
+            className={styles.browseButton}
+            onClick={() => setBrowsing(true)}
+          >
             Browse
           </Button>
           <div className={styles.chips}>
@@ -332,6 +402,7 @@ function ItemsPicker({
         // Mounted only while open, so it starts from the query's current items each time.
         <ModelBrowser
           datasource={datasource}
+          kind={kind}
           selected={items}
           onDismiss={() => setBrowsing(false)}
           onApply={(next) => {
@@ -339,6 +410,211 @@ function ItemsPicker({
             onChange(next);
           }}
         />
+      )}
+    </>
+  );
+}
+
+const eventFormatOptions: Array<{ label: string; value: EventFormat; description: string }> = [
+  { label: 'Table', value: 'table', description: 'One row per event period, attribute cells in Flow colours' },
+  { label: 'Timeline', value: 'timeline', description: 'A band per attribute for the State timeline panel' },
+  { label: 'Annotations', value: 'annotations', description: 'Regions for annotations on other panels' },
+];
+
+function EventsQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
+  const items = useMemo(() => query.items ?? [], [query.items]);
+  const update = (patch: Partial<FlowQuery>) => {
+    onChange({ ...query, ...patch });
+    onRunQuery();
+  };
+  return (
+    <>
+      <ItemsPicker
+        datasource={datasource}
+        items={items}
+        label="Events"
+        kind="events"
+        onChange={(next) => update({ items: next })}
+        tooltip="Pick events from the model or from templates. A template event returns the periods of every event created from it."
+      />
+      <InlineField
+        label="Format"
+        labelWidth={LABEL_WIDTH}
+        tooltip="Table: one row per event period with its start, end, duration and attributes, coloured as in Flow; use the Table panel. Timeline: a band per attribute; use the State timeline panel. Annotations: the shape Grafana draws as regions; to show events on other panels, add an annotation query (dashboard settings, Annotations) with this data source."
+      >
+        <RadioButtonGroup<EventFormat>
+          options={eventFormatOptions}
+          value={query.eventFormat ?? 'table'}
+          onChange={(v) => update({ eventFormat: v })}
+        />
+      </InlineField>
+    </>
+  );
+}
+
+/**
+ * Picks the event that period measures are read in, and optionally an
+ * attribute to filter periods by or to split series on.
+ */
+function EventContextFields({
+  datasource,
+  query,
+  items,
+  update,
+}: {
+  datasource: DataSource;
+  query: FlowQuery;
+  items: QueryItem[];
+  update: (patch: Partial<FlowQuery>) => void;
+}) {
+  // Answers are kept with the request they answer, so a stale one never shows.
+  const [eventsAnswer, setEventsAnswer] = useState<{ key: string; list?: ContextEvent[]; error?: string }>();
+  const [valuesAnswer, setValuesAnswer] = useState<{ key: string; list: AttributeValueOption[] }>();
+
+  const modelItems = useMemo(() => items.filter((it) => it.tree === 'model'), [items]);
+  const modelKey = modelItems.map(itemKey).join(',');
+  useEffect(() => {
+    if (!modelKey) {
+      return;
+    }
+    let cancelled = false;
+    datasource
+      .getContextEvents(modelItems)
+      .then((list) => !cancelled && setEventsAnswer({ key: modelKey, list }))
+      .catch(
+        (err) =>
+          !cancelled &&
+          setEventsAnswer({ key: modelKey, error: err?.data?.message ?? err?.message ?? 'Could not load events' })
+      );
+    return () => {
+      cancelled = true;
+    };
+    // modelKey stands for modelItems, whose identity changes with every new query object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasource, modelKey]);
+  const answered = eventsAnswer?.key === modelKey ? eventsAnswer : undefined;
+  const events = useMemo<ContextEvent[] | undefined>(() => (!modelKey ? [] : answered?.list), [modelKey, answered]);
+  const error = answered?.error;
+
+  const event = events?.find((e) => e.id === query.eventId);
+  const attributes = event?.attributes ?? [];
+  const valuesKey = query.eventId && query.eventAttribute ? `${query.eventId}:${query.eventAttribute}` : '';
+  useEffect(() => {
+    if (!valuesKey || !query.eventId || !query.eventAttribute) {
+      return;
+    }
+    let cancelled = false;
+    datasource
+      .getEventValues(query.eventId, query.eventAttribute)
+      .then((list) => !cancelled && setValuesAnswer({ key: valuesKey, list }))
+      .catch(() => !cancelled && setValuesAnswer({ key: valuesKey, list: [] }));
+    return () => {
+      cancelled = true;
+    };
+  }, [datasource, valuesKey, query.eventId, query.eventAttribute]);
+  const values = useMemo(() => (valuesAnswer?.key === valuesKey ? valuesAnswer.list : []), [valuesAnswer, valuesKey]);
+
+  const eventOptions = useMemo<Array<ComboboxOption<number>>>(() => {
+    const opts = (events ?? []).map((e) => ({
+      label: e.name,
+      value: e.id,
+      description: `Context of ${e.measures} of the selected measures`,
+    }));
+    // Keep a saved event visible before the list loads, or when it is no longer context.
+    if (query.eventId && !opts.some((o) => o.value === query.eventId)) {
+      opts.unshift({ label: query.eventLabel ?? `Event ${query.eventId}`, value: query.eventId, description: '' });
+    }
+    return opts;
+  }, [events, query.eventId, query.eventLabel]);
+
+  const valueOptions = useMemo<Array<ComboboxOption<string>>>(() => {
+    const opts: Array<ComboboxOption<string>> = values.map((v) => ({ label: v.value, value: v.value }));
+    for (const v of query.eventValues ?? []) {
+      if (!opts.some((o) => o.value === v)) {
+        opts.push({ label: v, value: v });
+      }
+    }
+    return opts;
+  }, [values, query.eventValues]);
+
+  const noEvents = events !== undefined && events.length === 0 && !error && modelItems.length > 0;
+  const templateOnly = items.length > 0 && modelItems.length === 0;
+  let problem = error;
+  if (!problem && templateOnly) {
+    problem = 'Event context reads model measures only; each template instance has its own event';
+  } else if (!problem && noEvents) {
+    problem = 'None of the selected measures has an event as context in Flow';
+  }
+  return (
+    <>
+      <InlineField
+        label="Event"
+        labelWidth={LABEL_WIDTH}
+        invalid={!!problem}
+        error={problem}
+        tooltip="The event whose periods the measures are read in. Listed: events the selected model measures have as context in Flow, most shared first."
+      >
+        <Combobox
+          id="query-editor-event"
+          width={40}
+          options={eventOptions}
+          value={query.eventId ?? null}
+          placeholder={events === undefined && !error ? 'Loading events...' : 'Pick an event'}
+          onChange={(o) =>
+            update({
+              eventId: o?.value,
+              eventLabel: o?.label,
+              eventAttribute: undefined,
+              eventValues: undefined,
+              eventSplit: undefined,
+            })
+          }
+        />
+      </InlineField>
+      {query.eventId !== undefined && attributes.length > 0 && (
+        <InlineField
+          label="Attribute"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Keep only periods whose attribute has one of the picked values, and/or give each value its own series. The values listed are those seen in the last 90 days; others can be typed."
+        >
+          <Stack gap={1} wrap="wrap" alignItems="center">
+            <Combobox
+              id="query-editor-event-attribute"
+              width={20}
+              isClearable
+              placeholder="None"
+              options={attributes.map((a) => ({ label: a, value: a }))}
+              value={query.eventAttribute ?? null}
+              onChange={(o) =>
+                update({
+                  eventAttribute: o?.value,
+                  eventValues: undefined,
+                  eventSplit: o ? query.eventSplit : undefined,
+                })
+              }
+            />
+            {query.eventAttribute && (
+              <MultiCombobox
+                id="query-editor-event-values"
+                width={40}
+                placeholder="All values"
+                createCustomValue
+                options={valueOptions}
+                value={query.eventValues ?? []}
+                onChange={(opts) => update({ eventValues: opts.length ? opts.map((o) => o.value) : undefined })}
+              />
+            )}
+            {query.eventAttribute && (
+              <InlineSwitch
+                id="query-editor-event-split"
+                label="Series per value"
+                showLabel
+                value={!!query.eventSplit}
+                onChange={(e) => update({ eventSplit: e.currentTarget.checked || undefined })}
+              />
+            )}
+          </Stack>
+        </InlineField>
       )}
     </>
   );
@@ -372,7 +648,11 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
           onChange={(v) => update({ depDirection: v })}
         />
       </InlineField>
-      <InlineField label="Depth" labelWidth={LABEL_WIDTH} tooltip="How many levels to follow from each measure. Default 10.">
+      <InlineField
+        label="Depth"
+        labelWidth={LABEL_WIDTH}
+        tooltip="How many levels to follow from each measure. Default 10."
+      >
         <Input
           id="query-editor-dep-depth"
           type="number"
@@ -481,8 +761,8 @@ function GroupHeading({ title, count }: { title: string; count?: number }) {
 
 /** What an item is, for its chip: tag, a period such as hourly, or metric. */
 function itemKind(item: QueryItem): string {
-  if (item.type === 'metric') {
-    return 'metric';
+  if (item.type === 'metric' || item.type === 'event') {
+    return item.type;
   }
   if (item.interval === 'timestamp') {
     return 'tag';
@@ -494,7 +774,10 @@ function ItemChip({ item, onRemove }: { item: QueryItem; onRemove: () => void })
   const styles = useStyles2(getStyles);
   const kind = itemKind(item);
   return (
-    <span className={styles.chip} title={`${item.tree === 'template' ? 'Template ' : ''}${item.type} ${item.id}: ${item.label}`}>
+    <span
+      className={styles.chip}
+      title={`${item.tree === 'template' ? 'Template ' : ''}${item.type} ${item.id}: ${item.label}`}
+    >
       <Icon name={item.type === 'metric' ? 'apps' : kind === 'tag' ? 'chart-line' : 'clock-nine'} size="sm" />
       {item.tree === 'template' && <span className={styles.chipTag}>template</span>}
       <span className={styles.chipLabel}>{item.label}</span>

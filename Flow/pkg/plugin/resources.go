@@ -26,7 +26,9 @@ type browseNode struct {
 	Description string `json:"description,omitempty"`
 	// FromTemplate marks model objects created from a template.
 	FromTemplate bool `json:"fromTemplate,omitempty"`
-	order        *int
+	// Attributes are an event's attribute names.
+	Attributes []string `json:"attributes,omitempty"`
+	order      *int
 }
 
 // CallResource serves the query editor:
@@ -35,7 +37,11 @@ type browseNode struct {
 //	GET browse?tree=model|template         root folders
 //	GET browse?tree=..&type=folder&id=N    a folder's folders and metrics
 //	GET browse?tree=..&type=metric&id=N    a metric's measures
+//	GET browse?..&type=folder&id=N&kind=events  a folder's folders and events
 //	GET search?tree=..&q=text              metrics and measures by name, or a measure by id
+//	GET search?tree=..&q=text&kind=events  events by name
+//	GET contextEvents?item=<tree>:<type>:<id>..  events the selected model measures have as context
+//	GET eventValues?event=N&attribute=Name  values of an event attribute seen in the last 90 days
 //	GET charts                             root chart folders
 //	GET charts?id=N                        a chart folder's folders and charts
 //	GET summary?item=<tree>:<type>:<id>..  how many period measures and tags a selection holds
@@ -80,17 +86,30 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 			return fail(http.StatusBadRequest, "tree must be model or template")
 		}
 		id, _ := strconv.Atoi(params.Get("id"))
-		body, err = d.browse(ctx, tree, params.Get("type"), id)
+		if params.Get("kind") == "events" {
+			body, err = d.browseEvents(ctx, tree, params.Get("type"), id)
+		} else {
+			body, err = d.browse(ctx, tree, params.Get("type"), id)
+		}
 	case "search":
 		if !tree.Valid() {
 			return fail(http.StatusBadRequest, "tree must be model or template")
 		}
-		body, err = d.search(ctx, tree, params.Get("q"))
+		if params.Get("kind") == "events" {
+			body, err = d.searchEvents(ctx, tree, params.Get("q"))
+		} else {
+			body, err = d.search(ctx, tree, params.Get("q"))
+		}
 	case "charts":
 		id, _ := strconv.Atoi(params.Get("id"))
 		body, err = d.browseCharts(ctx, id)
 	case "summary":
 		body, err = d.summary(ctx, params["item"])
+	case "contextEvents":
+		body, err = d.contextEvents(ctx, params["item"])
+	case "eventValues":
+		id, _ := strconv.Atoi(params.Get("event"))
+		body, err = d.eventValues(ctx, id, params.Get("attribute"))
 	default:
 		return fail(http.StatusNotFound, "not found")
 	}

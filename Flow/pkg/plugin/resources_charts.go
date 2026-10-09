@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
@@ -87,18 +86,9 @@ type selectionSummary struct {
 
 // summary resolves items given as "<tree>:<type>:<id>", the editor's keys.
 func (d *Datasource) summary(ctx context.Context, keys []string) (*selectionSummary, error) {
-	var items []queryItem
-	for _, k := range keys {
-		parts := strings.Split(k, ":")
-		if len(parts) != 3 {
-			return nil, &badRequest{"item must be <tree>:<type>:<id>, got " + k}
-		}
-		id, err := strconv.Atoi(parts[2])
-		it := queryItem{Tree: flow.Tree(parts[0]), Type: parts[1], ID: id}
-		if err != nil || !it.Tree.Valid() || (it.Type != itemMetric && it.Type != itemMeasure) {
-			return nil, &badRequest{"invalid item " + k}
-		}
-		items = append(items, it)
+	items, err := parseItems(keys)
+	if err != nil {
+		return nil, err
 	}
 	sel, err := d.resolve(ctx, items)
 	if err != nil {

@@ -151,6 +151,8 @@ func (d *Datasource) query(ctx context.Context, q backend.DataQuery) backend.Dat
 		return backend.DataResponse{}
 	case qm.QueryType == queryTypeDeps:
 		resp, err = d.runDependencies(ctx, qm, q)
+	case qm.QueryType == queryTypeEvents:
+		resp, err = d.runEvents(ctx, qm, q)
 	default:
 		resp, err = d.run(ctx, qm, q)
 	}

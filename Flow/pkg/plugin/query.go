@@ -40,7 +40,11 @@ const (
 	queryTypeMeasures = "measures"
 	queryTypeChart    = "chart"
 	queryTypeDeps     = "dependencies"
+	queryTypeEvents   = "events"
 )
+
+// Measure query contexts: calendar periods (the default) or event periods.
+const contextEvent = "event"
 
 type queryModel struct {
 	QueryType string `json:"queryType"`
@@ -56,6 +60,19 @@ type queryModel struct {
 	// DepNames "measure" titles nodes by the measure's own name ("WTD")
 	// rather than Flow's full Metric.Parent.Measure name.
 	DepNames string `json:"depNames"`
+
+	// Events queries (items are events): table, timeline or annotations.
+	EventFormat string `json:"eventFormat"`
+
+	// Context "event" reads period measures per period of EventID instead
+	// of per calendar period. EventAttribute with EventValues keeps only
+	// periods with one of those values; EventSplit gives each value of
+	// EventAttribute its own series.
+	Context        string   `json:"context"`
+	EventID        int      `json:"eventId"`
+	EventAttribute string   `json:"eventAttribute"`
+	EventValues    []string `json:"eventValues"`
+	EventSplit     bool     `json:"eventSplit"`
 
 	// Measure queries.
 	Items []queryItem `json:"items"`
@@ -92,6 +109,18 @@ func (qm *queryModel) validate() error {
 	case "", queryTypeMeasures:
 	case queryTypeChart:
 		return nil
+	case queryTypeEvents:
+		switch qm.EventFormat {
+		case "", eventFormatTable, eventFormatTimeline, eventFormatAnnotations:
+		default:
+			return fmt.Errorf("unknown event format %q", qm.EventFormat)
+		}
+		for _, it := range qm.Items {
+			if !it.Tree.Valid() || it.Type != itemEvent {
+				return fmt.Errorf("item %d: an events query takes events, not %s %s", it.ID, it.Tree, it.Type)
+			}
+		}
+		return nil
 	case queryTypeDeps:
 		if qm.DepDirection != "" && qm.DepDirection != depInputs && qm.DepDirection != depUsedBy {
 			return fmt.Errorf("unknown dependency direction %q", qm.DepDirection)
@@ -109,6 +138,9 @@ func (qm *queryModel) validate() error {
 		if it.Type != itemMetric && it.Type != itemMeasure {
 			return fmt.Errorf("item %d: unknown type %q", it.ID, it.Type)
 		}
+	}
+	if qm.Context != "" && qm.Context != contextEvent {
+		return fmt.Errorf("unknown context %q", qm.Context)
 	}
 	if qm.Aggregation != "" && qm.Aggregation != aggregationRaw && !aggregations[qm.Aggregation] {
 		return fmt.Errorf("unknown aggregation %q", qm.Aggregation)
@@ -208,6 +240,9 @@ type series struct {
 	id     int
 	points []point
 	tag    bool
+	// attribute and value name a series split by an event attribute, and
+	// color is the value's colour in Flow.
+	attribute, value, color string
 }
 
 type point struct {
@@ -225,7 +260,14 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 	notices := append([]string(nil), sel.warnings...)
 	var all []series
 
-	if len(sel.periodIDs)+len(sel.periodTemplateIDs) > 0 {
+	if qm.Context == contextEvent && len(sel.periodIDs)+len(sel.periodTemplateIDs) > 0 {
+		got, warn, err := d.readEventPeriods(ctx, sel, qm, q.TimeRange)
+		if err != nil {
+			return backend.DataResponse{}, err
+		}
+		all = append(all, got...)
+		notices = append(notices, warn...)
+	} else if len(sel.periodIDs)+len(sel.periodTemplateIDs) > 0 {
 		calendarID, err := d.calendarFor(ctx, qm.CalendarID)
 		if err != nil {
 			return backend.DataResponse{}, err
@@ -259,7 +301,10 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 	}
 
 	sort.SliceStable(all, func(i, j int) bool {
-		return pathOf(infos, all[i].id) < pathOf(infos, all[j].id)
+		if a, b := pathOf(infos, all[i].id), pathOf(infos, all[j].id); a != b {
+			return a < b
+		}
+		return all[i].value < all[j].value
 	})
 	var resp backend.DataResponse
 	for _, s := range all {

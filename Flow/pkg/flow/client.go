@@ -152,6 +152,64 @@ func (c *Client) FolderMetrics(ctx context.Context, tree Tree, folderID int) ([]
 	return r.Metrics, err
 }
 
+func (c *Client) FolderEvents(ctx context.Context, tree Tree, folderID int) ([]Event, error) {
+	var r struct {
+		Events []Event `json:"events"`
+	}
+	err := c.get(ctx, fmt.Sprintf("v1/%s/folders/%d/events", tree, folderID), nil, &r)
+	return r.Events, err
+}
+
+// Events looks events up by id, with their attributes. Ids Flow does not
+// know are left out.
+func (c *Client) Events(ctx context.Context, tree Tree, ids []int) ([]Event, error) {
+	var all []Event
+	for _, chunk := range chunks(ids, idChunk) {
+		var r struct {
+			Events []Event `json:"events"`
+		}
+		q := idValues("id", chunk)
+		q.Set("attributes", "true")
+		if err := c.get(ctx, fmt.Sprintf("v1/%s/events", tree), q, &r); err != nil {
+			return nil, err
+		}
+		all = append(all, r.Events...)
+	}
+	return all, nil
+}
+
+// EventDataRequest reads event periods with their attribute values. Template
+// ids expand on the server to every model event created from that template.
+type EventDataRequest struct {
+	IDs, TemplateIDs []int
+	From, To         time.Time
+	// Limit caps periods across all events; Flow sets Continuation past it.
+	Limit int
+}
+
+// EventData reads event periods. Flow answers 204 (nil, nil) when there are
+// none in the range.
+func (c *Client) EventData(ctx context.Context, r EventDataRequest) (*EventData, error) {
+	q := url.Values{
+		"start":      {formatTime(r.From)},
+		"end":        {formatTime(r.To)},
+		"attributes": {"true"},
+	}
+	addIDs(q, "id", r.IDs)
+	addIDs(q, "templateid", r.TemplateIDs)
+	if r.Limit > 0 {
+		q.Set("limit", strconv.Itoa(r.Limit))
+	}
+	var out EventData
+	if err := c.get(ctx, "v1/data/events", q, &out); err != nil {
+		return nil, err
+	}
+	if out.Values == nil && out.Errors == nil {
+		return nil, nil
+	}
+	return &out, nil
+}
+
 func (c *Client) MetricMeasures(ctx context.Context, tree Tree, metricID int) ([]Measure, error) {
 	var r struct {
 		Measures []Measure `json:"measures"`
@@ -295,13 +353,22 @@ type MeasureDataRequest struct {
 	Limit int
 	// Users asks for the user who entered each value (manual measures).
 	Users bool
+	// EventID reads one value per period of this event instead of per
+	// calendar period, with each period's attributes. CalendarID is unused.
+	EventID int
 }
 
 func (c *Client) MeasureData(ctx context.Context, r MeasureDataRequest) (*MeasureData, error) {
 	q := url.Values{
-		"start":      {formatTime(r.From)},
-		"end":        {formatTime(r.To)},
-		"calendarid": {strconv.Itoa(r.CalendarID)},
+		"start": {formatTime(r.From)},
+		"end":   {formatTime(r.To)},
+	}
+	if r.EventID > 0 {
+		q.Set("eventPeriods", "true")
+		q.Set("eventid", strconv.Itoa(r.EventID))
+		q.Set("attributes", "true")
+	} else {
+		q.Set("calendarid", strconv.Itoa(r.CalendarID))
 	}
 	addIDs(q, "id", r.IDs)
 	addIDs(q, "templateid", r.TemplateIDs)
