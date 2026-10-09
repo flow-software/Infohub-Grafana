@@ -274,3 +274,31 @@ func TestBrowseEventsOnlyFoldersWithEvents(t *testing.T) {
 		t.Errorf("Site = %+v, %v (Line 2 has no events)", site, err)
 	}
 }
+
+// Measures listed under a metric name the events they have as context.
+func TestBrowseMarksEventContext(t *testing.T) {
+	f, d := eventServer(t) // event 2 is "Run"
+	f.handlers["/api/v1/model/metrics/20/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"measures": []any{modelMeasures[200], modelMeasures[201]}})
+	}
+	f.handlers["/api/v1/model/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("metadata") != "true" {
+			t.Errorf("measures without metadata: %s", r.URL.RawQuery)
+		}
+		writeJSON(w, 200, map[string]any{"measures": []map[string]any{
+			{"id": 200, "metadata": []map[string]any{{"type": "context", "data": map[string]any{"calendars": []int{1}, "events": []int{2}}}}},
+			{"id": 201, "metadata": []map[string]any{{"type": "context", "data": map[string]any{"calendars": []int{1}}}}},
+		}})
+	}
+	nodes, err := d.browse(context.Background(), "model", itemMetric, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := map[int]string{}
+	for _, n := range nodes {
+		events[n.ID] = strings.Join(n.Events, ",")
+	}
+	if events[200] != "Run" || events[201] != "" {
+		t.Errorf("events = %v", events)
+	}
+}

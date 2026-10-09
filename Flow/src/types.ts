@@ -124,6 +124,8 @@ export interface BrowseNode {
   description?: string;
   /** A model object created from a template. */
   fromTemplate?: boolean;
+  /** Measures only: the events it has as context, by name. */
+  events?: string[];
 }
 
 /** One row from the backend's charts resource. */

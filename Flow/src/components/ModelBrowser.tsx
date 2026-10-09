@@ -17,6 +17,7 @@ import {
 } from '@grafana/ui';
 
 import { BrowseKind, DataSource } from '../datasource';
+import { hasIntervalIcon, IntervalIcon } from './IntervalIcon';
 import { BrowseNode, itemKey, QueryItem, Tree } from '../types';
 
 interface Props {
@@ -174,12 +175,25 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
               onChange={() => toggleChecked(node, label)}
             />
           )}
-          <Icon name={iconFor(node, isOpen)} className={styles.icon} />
+          {node.type === 'measure' && hasIntervalIcon(node.interval) ? (
+            <IntervalIcon interval={node.interval!} className={styles.icon} />
+          ) : (
+            <Icon name={iconFor(node, isOpen)} className={styles.icon} />
+          )}
           <span
             className={styles.label}
             onClick={() => (node.type === 'folder' ? toggleExpanded(node) : toggleChecked(node, label))}
           >
             {node.name}
+            {!!node.events?.length && (
+              <Icon
+                name="bolt"
+                size="sm"
+                className={styles.eventMark}
+                title={`Event context: ${node.events.join(', ')}`}
+                aria-label={`Has event context: ${node.events.join(', ')}`}
+              />
+            )}
             {node.description && <span className={styles.description}>{node.description}</span>}
           </span>
           <NodeBadges node={node} />
@@ -250,6 +264,8 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
 
       <div className={styles.search}>
         <FilterInput
+          // Names are searched as typed: "110-FQ" must not reach Flow as "110\-FQ".
+          escapeRegex={false}
           placeholder={
             events
               ? tree === 'model'
@@ -335,6 +351,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   chevronSpace: css({ width: theme.spacing(2), flexShrink: 0 }),
   checkboxSpace: css({ width: theme.spacing(2), flexShrink: 0 }),
   icon: css({ color: theme.colors.text.secondary, flexShrink: 0 }),
+  eventMark: css({ marginLeft: theme.spacing(0.75), color: theme.colors.warning.text, verticalAlign: 'text-bottom' }),
   label: css({
     cursor: 'pointer',
     flexGrow: 1,

@@ -175,6 +175,61 @@ func (d *Datasource) contextEvents(ctx context.Context, keys []string) ([]eventC
 	return out, nil
 }
 
+// markEventContext fills Events on the measure nodes that have events as
+// context, and the interval where it is missing (search results have none).
+// The browser listing has no metadata, so it is looked up here; if that
+// fails the nodes go unmarked rather than the listing failing.
+func (d *Datasource) markEventContext(ctx context.Context, tree flow.Tree, nodes []browseNode) {
+	var ids []int
+	for _, n := range nodes {
+		if n.Type == itemMeasure {
+			ids = append(ids, n.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	measures, _, err := d.client.MeasuresWithMetadata(ctx, tree, ids)
+	if err != nil {
+		return
+	}
+	byMeasure := map[int][]int{}
+	interval := map[int]string{}
+	var eventIDs []int
+	for _, m := range measures {
+		interval[m.ID] = m.Interval
+		for _, id := range contextEventIDs(m) {
+			byMeasure[m.ID] = append(byMeasure[m.ID], id)
+			eventIDs = appendUnique(eventIDs, id)
+		}
+	}
+	for i, n := range nodes {
+		if n.Type == itemMeasure && n.Interval == "" {
+			nodes[i].Interval = interval[n.ID]
+		}
+	}
+	if len(eventIDs) == 0 {
+		return
+	}
+	names := map[int]string{}
+	if events, err := d.client.Events(ctx, tree, eventIDs); err == nil {
+		for _, e := range events {
+			names[e.ID] = e.Name
+		}
+	}
+	for i, n := range nodes {
+		for _, id := range byMeasure[n.ID] {
+			name := names[id]
+			if name == "" {
+				name = "event " + strconv.Itoa(id)
+			}
+			if n.Type == itemMeasure {
+				nodes[i].Events = append(nodes[i].Events, name)
+			}
+		}
+	}
+}
+
 // contextEventIDs are the events a measure has as context, from its
 // metadata.
 func contextEventIDs(m flow.Measure) []int {

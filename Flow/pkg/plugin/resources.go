@@ -28,7 +28,10 @@ type browseNode struct {
 	FromTemplate bool `json:"fromTemplate,omitempty"`
 	// Attributes are an event's attribute names.
 	Attributes []string `json:"attributes,omitempty"`
-	order      *int
+	// Events names the events a measure has as context, so the browser can
+	// mark measures that can be read per event period.
+	Events []string `json:"events,omitempty"`
+	order  *int
 }
 
 // CallResource serves the query editor:
@@ -165,6 +168,7 @@ func (d *Datasource) browse(ctx context.Context, tree flow.Tree, typ string, id 
 		for _, m := range measures {
 			nodes = append(nodes, measureNode(tree, m, metricName))
 		}
+		d.markEventContext(ctx, tree, nodes)
 	default:
 		return nil, &badRequest{"type must be root, folder or metric"}
 	}
@@ -280,6 +284,7 @@ func (d *Datasource) search(ctx context.Context, tree flow.Tree, text string) ([
 			}
 		}
 	}
+	d.markEventContext(ctx, tree, nodes)
 	sortNodes(nodes)
 	if byID != nil {
 		// Keep the id match first, above the name matches sortNodes ordered.

@@ -34,6 +34,7 @@ import {
   TagBucket,
 } from '../types';
 import { ChartBrowser } from './ChartBrowser';
+import { hasIntervalIcon, IntervalIcon } from './IntervalIcon';
 import { ModelBrowser } from './ModelBrowser';
 
 type Props = QueryEditorProps<DataSource, FlowQuery, FlowOptions>;
@@ -800,7 +801,22 @@ function ItemChip({ item, onRemove }: { item: QueryItem; onRemove: () => void })
       className={styles.chip}
       title={`${item.tree === 'template' ? 'Template ' : ''}${item.type} ${item.id}: ${item.label}`}
     >
-      <Icon name={item.type === 'metric' ? 'apps' : kind === 'tag' ? 'chart-line' : 'clock-nine'} size="sm" />
+      {item.type === 'measure' && hasIntervalIcon(item.interval) ? (
+        <IntervalIcon interval={item.interval!} size={14} />
+      ) : (
+        <Icon
+          name={
+            item.type === 'metric'
+              ? 'apps'
+              : item.type === 'event'
+                ? 'bolt'
+                : kind === 'tag'
+                  ? 'chart-line'
+                  : 'clock-nine'
+          }
+          size="sm"
+        />
+      )}
       {item.tree === 'template' && <span className={styles.chipTag}>template</span>}
       <span className={styles.chipLabel}>{item.label}</span>
       <span className={styles.chipKind}>{kind}</span>

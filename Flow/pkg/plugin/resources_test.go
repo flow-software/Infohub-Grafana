@@ -45,6 +45,15 @@ func TestSearchByMeasureID(t *testing.T) {
 		t.Errorf("second = %+v", nodes[1])
 	}
 
+	// A measure found by name gets its interval from its metadata, for its icon.
+	f.handlers["/api/v1/search"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"objects": []map[string]any{{"id": 201, "name": "Speed", "type": "Measure"}}})
+	}
+	nodes, err = d.search(context.Background(), flow.TreeModel, "Speed")
+	if err != nil || len(nodes) != 1 || nodes[0].Interval != "timestamp" {
+		t.Errorf("by name = %+v, %v", nodes, err)
+	}
+
 	// Flow cannot name-search "#300"; the id match still answers.
 	f.handlers["/api/v1/search"] = func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 400, map[string]any{}) }
 	nodes, err = d.search(context.Background(), flow.TreeModel, "#300")
