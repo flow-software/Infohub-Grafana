@@ -1,0 +1,7 @@
+Flow data source for Grafana
+Copyright 2026 Flow Software
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product was started from Grafana's create-plugin template and uses
+third-party libraries, which keep their own licenses.

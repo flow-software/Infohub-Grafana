@@ -58,6 +58,8 @@ def main():
             for name in common + bins:
                 add(z, name)
             add_file(z, "INSTALL.md", "INSTALL.md")
+            # Apache-2.0 asks redistributors to pass the NOTICE on.
+            add_file(z, "NOTICE", "NOTICE")
         digest = hashlib.sha256(open(out, "rb").read()).hexdigest()
         sums.append(f"{digest}  {os.path.basename(out)}")
         print(f"{os.path.getsize(out) / 1e6:6.1f} MB  {os.path.basename(out)}")

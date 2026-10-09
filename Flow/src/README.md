@@ -83,3 +83,7 @@ Every series carries the labels `path`, `folder`, `metric`, `measure`, `measureI
 - *Raw values* reads up to 200,000 values per tag, in pages of 10,000. A tag that records every second passes that in a little over two days.
 - Calendar buckets need the calendar to have periods of that size in Flow. On some servers there are no shift periods unless a measure uses them, and the panel then warns that there is nothing to aggregate into.
 - Event-period values are not supported yet.
+
+## License
+
+Apache License 2.0. Copyright 2026 Flow Software.

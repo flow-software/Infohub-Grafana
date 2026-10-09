@@ -8,6 +8,10 @@ Grafana plugins for Flow.
 
 Each release has a zip per platform (Windows, Linux, macOS), one for any platform, checksums and install steps. The plugin is not signed yet, so Grafana must be told to load it; see [`Flow/INSTALL.md`](Flow/INSTALL.md).
 
+## License
+
+The Flow plugin is licensed under the Apache License 2.0, copyright Flow Software: see [`Flow/LICENSE`](Flow/LICENSE) and [`Flow/NOTICE`](Flow/NOTICE).
+
 ## Releasing
 
 Set `version` in `Flow/package.json`, add a matching section to `Flow/CHANGELOG.md`, then push a tag:

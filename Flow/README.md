@@ -80,6 +80,10 @@ To rebuild the backend, stop that Grafana first (`docker stop flowsoftware-timeb
 
 To package shareable zips (with `INSTALL.md` inside each), run `scripts/package.py` after a full build; see the command at the top of that file.
 
+## License
+
+Apache License 2.0: see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) (copyright Flow Software). The license came with Grafana's plugin template and was kept on purpose. Every release zip carries both files.
+
 ## Getting a token
 
 Flow's public API accepts only a bearer JWT. Create a long-lived server token in Flow Config (server settings, or `--create-server-token` on the CLI). It is stored as a `ServerKey` row, and deleting the row revokes it. The key's group scopes which folders the plugin sees.
