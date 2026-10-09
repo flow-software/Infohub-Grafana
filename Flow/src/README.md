@@ -41,7 +41,7 @@ The options below the selection depend on what it holds. **Period measures** opt
 
 - **Context**: *Calendar* reads period measures per calendar period; *Event* reads them per period of an event (see below).
 - **Calendar**: period measures are read in this calendar. The measure must have the calendar as context in Flow; measures that do not are listed as a warning on the panel. Choose whether each value is placed at the **period start** or **end**.
-- **Event** (event context): the event whose periods the measures are read in. The list holds the events the selected model measures have as context in Flow. Optionally pick an **Attribute** to keep only periods with some of its values (the values seen in the last 90 days are suggested; others can be typed), and turn on **Series per value** to get a series per value, coloured as in Flow. Template measures are not read in event context, because each instance has its own event. Measures that belong to an event themselves (rather than to a metric) are not supported yet.
+- **Event** (event context): the event whose periods the measures are read in. The list holds the events the selected model measures have as context in Flow. Optionally pick an **Attribute** to keep only periods with some of its values (the values seen in the last 90 days are suggested; others can be typed), and turn on **Series per value** to get a series per value, coloured as in Flow. **Time at** *Whole period* (the default in event context) draws each value as a line from its event period's start to its end, with a gap until the next period: unlike calendar periods, event periods do not run back to back, so a single timestamp would hide when each one ran. *Period start* or *end* places the value at one of them instead. Template measures are not read in event context, because each instance has its own event. Measures that belong to an event themselves (rather than to a metric) are not supported yet.
 - **Tags** applies to timestamp measures only. *Auto* (the default) returns raw values when the panel can show them all. A tag with more values than that is averaged per panel interval, and the panel says so. *Raw values* returns every stored value. An aggregation (average, maximum, delta, time in state, ...) buckets values by the panel interval (**Auto**), a **Fixed** size such as `15m`, or **Calendar** periods such as shifts.
 - **Legend** names each series. Pick a preset (*Full path*, the default; *Full path and unit*; *Folder and measure*; *Metric and measure*; *Measure*; *Measure and unit*; *Folder*), or type your own pattern with `{{path}}`, `{{folder}}`, `{{metric}}`, `{{measure}}`, `{{id}}` and `{{uom}}`. An empty unit or folder is left out cleanly. Template instances share their metric and measure names, so keep the folder or path in the name to tell them apart.
 - **Quality field** adds each value's quality (Good, Uncertain, Bad). Leave it off for alert rules.
@@ -49,11 +49,12 @@ The options below the selection depend on what it holds. **Period measures** opt
 
 ### Events
 
-Pick events with **Browse** (folders hold the events; a template event returns the periods of every event created from it), then a **Format**:
+Pick events with **Browse** (only folders that hold events, directly or further down, are listed; a template event returns the periods of every event created from it), then a **Format**:
 
 - *Table*: one row per event period, newest first: event, start, end (empty while it runs), duration (to now while it runs) and a column per attribute, with cells coloured by the attribute value's colour in Flow. Use the Table panel.
 - *Timeline*: a band per attribute, showing each period's value from its start to its end; use the State timeline panel. An event without attributes shows when it ran.
-- *Annotations*: to shade event periods on other panels, add an annotation query in the dashboard settings (Annotations) with this data source. It starts as an events query; each period becomes a region titled with the event, with its attributes as text and tags.
+
+To shade event periods on other panels, add an annotation query in the dashboard settings (Annotations) with this data source. It starts as an events query: pick the events, and each period becomes a region on the dashboard's time series panels, titled with the event and labelled with its attributes. The regions take the annotation query's colour.
 
 Up to 10,000 event periods are read per query; past that the panel warns.
 

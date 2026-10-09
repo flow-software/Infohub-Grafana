@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Events query: event periods and their attributes as a table (attribute cells coloured as in Flow), a state timeline, or annotations on other panels. Events can be browsed by folder and searched by name.
-- Measures can be read in event context: a value per period of an event the measures have as context, optionally kept to some values of an attribute and split into a series per value, coloured as in Flow.
+- Events query (second tab): event periods and their attributes as a table (attribute cells coloured as in Flow) or a state timeline, and as annotations on other panels through a dashboard annotation query. The events browser lists only folders that hold events; events can also be searched by name.
+- Measures can be read in event context: a value per period of an event the measures have as context, optionally kept to some values of an attribute and split into a series per value, coloured as in Flow. *Whole period* draws each value from its period's start to its end.
 - Dependency queries have a Calendar picker: period measures show their latest value in that calendar. Measures that do not have the calendar as context in Flow show a dash, and their node says why.
 
 ## 1.0.0

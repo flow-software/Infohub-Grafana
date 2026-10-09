@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
@@ -49,11 +50,25 @@ func (d *Datasource) readEventPeriods(ctx context.Context, sel *selection, qm qu
 	}
 	filter := qm.EventAttribute != "" && len(keep) > 0
 	split := qm.EventAttribute != "" && qm.EventSplit
-	atEnd := qm.TimeAt == "end"
+	// A period still running is drawn up to now, or the range end if sooner.
+	openEnd := time.Now()
+	if tr.To.Before(openEnd) {
+		openEnd = tr.To
+	}
 
+	// periodValue is one event period's value, before it becomes points.
+	type periodValue struct {
+		start, end time.Time
+		running    bool
+		pt         point
+	}
+	type group struct {
+		s       series
+		periods []periodValue
+	}
 	var out []series
 	for _, v := range res.Values {
-		bySplit := map[string]*series{}
+		groups := map[string]*group{}
 		var order []string
 		for _, p := range v.Data {
 			value, color := "", ""
@@ -66,34 +81,33 @@ func (d *Datasource) readEventPeriods(ctx context.Context, sel *selection, qm qu
 			if filter && !keep[value] {
 				continue
 			}
-			t := p.Start
-			if atEnd && p.End != nil {
-				t = p.End
-			}
-			if t == nil {
+			if p.Start == nil {
 				continue
 			}
 			key := ""
 			if split {
 				key = value
 			}
-			s, ok := bySplit[key]
+			g, ok := groups[key]
 			if !ok {
-				s = &series{id: v.ID}
+				g = &group{s: series{id: v.ID}}
 				if split {
-					s.attribute, s.value = qm.EventAttribute, value
+					g.s.attribute, g.s.value = qm.EventAttribute, value
 				}
-				bySplit[key] = s
+				groups[key] = g
 				order = append(order, key)
 			}
-			if split && s.color == "" {
-				s.color = color
+			if split && g.s.color == "" {
+				g.s.color = color
 			}
-			pt := point{t: t.Time, value: p.Value, quality: 192}
+			pv := periodValue{start: p.Start.Time, end: openEnd, running: p.End == nil, pt: point{value: p.Value, quality: 192}}
+			if p.End != nil {
+				pv.end = p.End.Time
+			}
 			if p.Detail != nil {
-				pt.quality = p.Detail.Quality.Value
+				pv.pt.quality = p.Detail.Quality.Value
 			}
-			s.points = append(s.points, pt)
+			g.periods = append(g.periods, pv)
 		}
 		if len(order) == 0 {
 			// Kept as an empty series so the measure still shows.
@@ -101,9 +115,37 @@ func (d *Datasource) readEventPeriods(ctx context.Context, sel *selection, qm qu
 			continue
 		}
 		for _, key := range order {
-			s := bySplit[key]
-			sort.SliceStable(s.points, func(i, j int) bool { return s.points[i].t.Before(s.points[j].t) })
-			out = append(out, *s)
+			g := groups[key]
+			sort.SliceStable(g.periods, func(i, j int) bool { return g.periods[i].start.Before(g.periods[j].start) })
+			for i, pv := range g.periods {
+				switch qm.TimeAt {
+				case timeAtPeriod:
+					// The value held from start to end, then a gap until the
+					// next period starts: event periods do not run back to back
+					// like calendar periods, so one timestamp would hide when
+					// the period ran.
+					a, b := pv.pt, pv.pt
+					a.t, b.t = pv.start, pv.end
+					g.s.points = append(g.s.points, a, b)
+					if i+1 < len(g.periods) && g.periods[i+1].start.After(pv.end) {
+						gap := point{t: pv.end.Add(time.Millisecond), quality: pv.pt.quality}
+						g.s.points = append(g.s.points, gap)
+					}
+				case "end":
+					pt := pv.pt
+					pt.t = pv.end
+					if pv.running {
+						// No end yet: the value stays at the start.
+						pt.t = pv.start
+					}
+					g.s.points = append(g.s.points, pt)
+				default:
+					pt := pv.pt
+					pt.t = pv.start
+					g.s.points = append(g.s.points, pt)
+				}
+			}
+			out = append(out, g.s)
 		}
 	}
 	return out, notices, nil

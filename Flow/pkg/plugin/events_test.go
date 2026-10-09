@@ -213,3 +213,64 @@ func floatColumn(f *data.Frame) []string {
 	}
 	return out
 }
+
+// Whole period draws each value from its period's start to its end, with a
+// gap before the next period; a running period runs to the range end.
+func TestMeasuresInEventContextWholePeriod(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 200, "data": []map[string]any{
+			{"start": "2026-10-06T00:00:00Z", "end": "2026-10-06T00:30:00Z", "value": 5},
+			{"start": "2026-10-06T00:30:00Z", "end": "2026-10-06T00:50:00Z", "value": 6},
+			{"start": "2026-10-06T01:00:00Z", "end": "2026-10-06T01:20:00Z", "value": 7},
+			{"start": "2026-10-06T01:30:00Z", "value": 9},
+		}}}})
+	}
+	d := testDatasource(srv)
+	resp := runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 200}}, Context: contextEvent, EventID: 2, TimeAt: timeAtPeriod})
+	fr := resp.Frames[0]
+	var got []string
+	for i := 0; i < fr.Rows(); i++ {
+		ts := fr.Fields[0].At(i).(time.Time).Format("15:04:05.000")
+		v := "null"
+		if x, ok := fr.Fields[1].ConcreteAt(i); ok {
+			v = strconv.FormatFloat(x.(float64), 'f', -1, 64)
+		}
+		got = append(got, ts+"="+v)
+	}
+	want := []string{
+		"00:00:00.000=5", "00:30:00.000=5", // back to back with the next: no gap
+		"00:30:00.000=6", "00:50:00.000=6", "00:50:00.001=null",
+		"01:00:00.000=7", "01:20:00.000=7", "01:20:00.001=null",
+		"01:30:00.000=9", "02:00:00.000=9", // running: up to the range end
+	}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("points\n got %v\nwant %v", got, want)
+	}
+
+	// Period end: a running period has no end, so its value stays at the start.
+	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 200}}, Context: contextEvent, EventID: 2, TimeAt: "end"})
+	if ts := resp.Frames[0].Fields[0].At(3).(time.Time); ts.Format("15:04") != "01:30" {
+		t.Errorf("running period at end = %v", ts)
+	}
+}
+
+// The events browser leaves out folders with no event anywhere below them.
+func TestBrowseEventsOnlyFoldersWithEvents(t *testing.T) {
+	f, d := eventServer(t) // event 2 sits in folder 2 "Line 1", under 1 "Site"
+	f.handlers["/api/v1/model/folders/1/folders"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"folders": []any{modelFolders[1], modelFolders[2]}})
+	}
+	f.handlers["/api/v1/model/folders/1/events"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"events": []any{}})
+	}
+	ctx := context.Background()
+	root, err := d.browseEvents(ctx, "model", "root", 0)
+	if err != nil || len(root) != 1 || root[0].ID != 1 {
+		t.Fatalf("root = %+v, %v", root, err)
+	}
+	site, err := d.browseEvents(ctx, "model", "folder", 1)
+	if err != nil || len(site) != 1 || site[0].Name != "Line 1" {
+		t.Errorf("Site = %+v, %v (Line 2 has no events)", site, err)
+	}
+}

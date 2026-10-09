@@ -160,6 +160,15 @@ func (c *Client) FolderEvents(ctx context.Context, tree Tree, folderID int) ([]E
 	return r.Events, err
 }
 
+// AllEvents lists every event in the tree the token can read.
+func (c *Client) AllEvents(ctx context.Context, tree Tree) ([]Event, error) {
+	var r struct {
+		Events []Event `json:"events"`
+	}
+	err := c.get(ctx, fmt.Sprintf("v1/%s/events", tree), nil, &r)
+	return r.Events, err
+}
+
 // Events looks events up by id, with their attributes. Ids Flow does not
 // know are left out.
 func (c *Client) Events(ctx context.Context, tree Tree, ids []int) ([]Event, error) {

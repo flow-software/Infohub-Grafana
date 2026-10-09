@@ -46,6 +46,10 @@ const (
 // Measure query contexts: calendar periods (the default) or event periods.
 const contextEvent = "event"
 
+// timeAtPeriod draws each event-period value from the period's start to its
+// end ("whole period"); the other TimeAt values are "start" and "end".
+const timeAtPeriod = "period"
+
 type queryModel struct {
 	QueryType string `json:"queryType"`
 
@@ -84,7 +88,8 @@ type queryModel struct {
 	Bucket      string `json:"bucket"`
 	Resolution  string `json:"resolution"`
 	TagInterval string `json:"tagInterval"`
-	// TimeAt places each period value at the period's "start" (default) or "end".
+	// TimeAt places each period value at the period's "start" (default) or
+	// "end"; in event context "period" draws it from start to end.
 	TimeAt           string `json:"timeAt"`
 	IncludeQuality   bool   `json:"includeQuality"`
 	BadQualityAsNull bool   `json:"badQualityAsNull"`

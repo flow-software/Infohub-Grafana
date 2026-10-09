@@ -42,16 +42,12 @@ const LABEL_WIDTH = 14;
 
 const queryTypeOptions: Array<{ label: string; value: QueryType; description: string }> = [
   { label: 'Measures', value: 'measures', description: 'Pick metrics, measures and tags from the model or templates' },
+  { label: 'Events', value: 'events', description: 'Event periods and their attributes, as a table or a timeline' },
   { label: 'Chart', value: 'chart', description: 'Show a Flow chart as a table, with its limits' },
   {
     label: 'Dependencies',
     value: 'dependencies',
     description: 'How measures are built from each other, as a node graph',
-  },
-  {
-    label: 'Events',
-    value: 'events',
-    description: 'Event periods and their attributes, as a table, timeline or annotations',
   },
 ];
 
@@ -243,7 +239,14 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
               { label: 'Event', value: 'event' },
             ]}
             value={eventContext ? 'event' : 'calendar'}
-            onChange={(v) => update({ context: v === 'event' ? 'event' : undefined })}
+            onChange={(v) =>
+              // Event periods are best drawn whole; calendar periods have no such option.
+              update(
+                v === 'event'
+                  ? { context: 'event', timeAt: 'period' }
+                  : { context: undefined, timeAt: query.timeAt === 'period' ? 'start' : query.timeAt }
+              )
+            }
           />
         </InlineField>
       )}
@@ -262,14 +265,19 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
         <InlineField
           label="Time at"
           labelWidth={LABEL_WIDTH}
-          tooltip="Place each period's value at the start or the end of the period. A running event period has no end yet, so its value stays at the start."
+          tooltip={
+            eventContext
+              ? "Whole period draws each value as a line from its event period's start to its end, with a gap until the next period, so you see when each period ran. Period start or end places the value at one of them; a running period has no end yet, so its value stays at the start."
+              : "Place each period's value at the start or the end of the period."
+          }
         >
-          <RadioButtonGroup<'start' | 'end'>
+          <RadioButtonGroup<'start' | 'end' | 'period'>
             options={[
+              ...(eventContext ? [{ label: 'Whole period', value: 'period' as const }] : []),
               { label: 'Period start', value: 'start' },
               { label: 'Period end', value: 'end' },
             ]}
-            value={query.timeAt ?? 'start'}
+            value={!eventContext && query.timeAt === 'period' ? 'start' : (query.timeAt ?? 'start')}
             onChange={(v) => update({ timeAt: v })}
           />
         </InlineField>
@@ -415,13 +423,18 @@ function ItemsPicker({
   );
 }
 
+// Annotations are not offered here: an annotation query (dashboard settings)
+// asks for that layout itself.
 const eventFormatOptions: Array<{ label: string; value: EventFormat; description: string }> = [
   { label: 'Table', value: 'table', description: 'One row per event period, attribute cells in Flow colours' },
   { label: 'Timeline', value: 'timeline', description: 'A band per attribute for the State timeline panel' },
-  { label: 'Annotations', value: 'annotations', description: 'Regions for annotations on other panels' },
 ];
 
+/** Grafana gives annotation queries this refId. */
+const ANNOTATION_REF_ID = 'Anno';
+
 function EventsQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
+  const styles = useStyles2(getStyles);
   const items = useMemo(() => query.items ?? [], [query.items]);
   const update = (patch: Partial<FlowQuery>) => {
     onChange({ ...query, ...patch });
@@ -437,17 +450,26 @@ function EventsQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
         onChange={(next) => update({ items: next })}
         tooltip="Pick events from the model or from templates. A template event returns the periods of every event created from it."
       />
-      <InlineField
-        label="Format"
-        labelWidth={LABEL_WIDTH}
-        tooltip="Table: one row per event period with its start, end, duration and attributes, coloured as in Flow; use the Table panel. Timeline: a band per attribute; use the State timeline panel. Annotations: the shape Grafana draws as regions; to show events on other panels, add an annotation query (dashboard settings, Annotations) with this data source."
-      >
-        <RadioButtonGroup<EventFormat>
-          options={eventFormatOptions}
-          value={query.eventFormat ?? 'table'}
-          onChange={(v) => update({ eventFormat: v })}
-        />
-      </InlineField>
+      {query.refId === ANNOTATION_REF_ID ? (
+        <InlineField label="Shown as" labelWidth={LABEL_WIDTH}>
+          <span className={styles.hint}>
+            Each event period is shaded on the time series panels of this dashboard, titled with the event and labelled
+            with its attributes.
+          </span>
+        </InlineField>
+      ) : (
+        <InlineField
+          label="Format"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Table: one row per event period with its start, end, duration and attributes, coloured as in Flow; use the Table panel. Timeline: a band per attribute; use the State timeline panel. To shade event periods on other panels, add an annotation query with this data source in the dashboard settings."
+        >
+          <RadioButtonGroup<EventFormat>
+            options={eventFormatOptions}
+            value={query.eventFormat === 'timeline' ? 'timeline' : 'table'}
+            onChange={(v) => update({ eventFormat: v })}
+          />
+        </InlineField>
+      )}
     </>
   );
 }
@@ -805,6 +827,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     minWidth: 0,
   }),
   placeholder: css({ color: theme.colors.text.secondary }),
+  hint: css({ color: theme.colors.text.secondary, alignSelf: 'center', padding: theme.spacing(0, 1) }),
   chip: css({
     display: 'inline-flex',
     alignItems: 'center',

@@ -12,10 +12,25 @@ import (
 )
 
 // browseEvents is the browser for events queries: folders, and the events
-// in them. Metrics are left out; events are what can be picked.
+// in them. Metrics are left out, and so are folders with no event anywhere
+// below them; events are what can be picked.
 func (d *Datasource) browseEvents(ctx context.Context, tree flow.Tree, typ string, id int) ([]browseNode, error) {
+	withEvents, err := d.eventFolders(ctx, tree)
+	if err != nil {
+		return nil, err
+	}
+	keep := func(nodes []browseNode) []browseNode {
+		out := []browseNode{}
+		for _, n := range nodes {
+			if n.Type != "folder" || withEvents[n.ID] {
+				out = append(out, n)
+			}
+		}
+		return out
+	}
 	if typ != "folder" {
-		return d.browse(ctx, tree, typ, id)
+		nodes, err := d.browse(ctx, tree, typ, id)
+		return keep(nodes), err
 	}
 	folders, err := d.client.ChildFolders(ctx, tree, id)
 	if err != nil {
@@ -29,11 +44,37 @@ func (d *Datasource) browseEvents(ctx context.Context, tree flow.Tree, typ strin
 	for _, f := range folders {
 		nodes = append(nodes, folderNode(tree, f))
 	}
+	nodes = keep(nodes)
 	for _, e := range events {
 		nodes = append(nodes, browseNode{Tree: tree, Type: itemEvent, ID: e.ID, Name: e.Name, FromTemplate: e.Template != nil, order: e.Order})
 	}
 	sortNodes(nodes)
 	return nodes, nil
+}
+
+// eventFolders is every folder that holds an event, itself or in a folder
+// below it.
+func (d *Datasource) eventFolders(ctx context.Context, tree flow.Tree) (map[int]bool, error) {
+	events, err := d.client.AllEvents(ctx, tree)
+	if err != nil {
+		return nil, err
+	}
+	folders, err := d.client.Folders(ctx, tree)
+	if err != nil {
+		return nil, err
+	}
+	parent := make(map[int]int, len(folders))
+	for _, f := range folders {
+		parent[f.ID] = refID(f.Parent)
+	}
+	out := map[int]bool{}
+	for _, e := range events {
+		// Walk up to the root; a loop in the data stops at a folder seen before.
+		for id := refID(e.Folder); id != 0 && !out[id]; id = parent[id] {
+			out[id] = true
+		}
+	}
+	return out, nil
 }
 
 // searchEvents finds events by name; model events are named by folder path.

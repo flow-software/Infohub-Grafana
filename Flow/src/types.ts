@@ -81,8 +81,11 @@ export interface FlowQuery extends DataQuery {
   resolution?: string;
   /** Calendar period when bucket is "calendar", e.g. "shiftly". */
   tagInterval?: string;
-  /** Place period values at the period start (default) or end. */
-  timeAt?: 'start' | 'end';
+  /**
+   * Place period values at the period start (default) or end. In event
+   * context, "period" draws each value from its period's start to its end.
+   */
+  timeAt?: 'start' | 'end' | 'period';
   includeQuality?: boolean;
   badQualityAsNull?: boolean;
   /** Series name pattern: {{path}}, {{folder}}, {{metric}}, {{measure}}, {{id}}, {{uom}}. */

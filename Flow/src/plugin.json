@@ -5,6 +5,7 @@
   "id": "flowsoftware-flow-datasource",
   "metrics": true,
   "alerting": true,
+  "annotations": true,
   "backend": true,
   "executable": "gpx_flow",
   "info": {
