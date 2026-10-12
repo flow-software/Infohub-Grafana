@@ -62,7 +62,7 @@ Up to 10,000 event periods are read per query; past that the panel warns.
 
 Select **Choose chart** and pick a chart from Flow's chart folders. Time-based charts can be shown; others (event-based charts, widgets) are listed but greyed out.
 
-The chart is laid out as Flow's time-based table: one row per measure, grouped by section, with the UOM and Low Limit, Limit and High Limit columns the chart shows, then one column per period in the dashboard's time range, labelled as Flow labels it. A value outside its limit takes the limit's high or low colour from the chart, using the exceptions Flow itself records. A value within its limit is green, unless the limit sets a target colour of its own.
+The chart is laid out as Flow's time-based table: one row per measure, grouped by section, with the UOM, model attribute and Low Limit, Limit and High Limit columns the chart shows (a measure without a value for a model attribute gets a blank cell), then one column per period in the dashboard's time range, labelled as Flow labels it. A value outside its limit takes the limit's high or low colour from the chart, using the exceptions Flow itself records. A value within its limit is green, unless the limit sets a target colour of its own.
 
 A value with comments in Flow gets a small marker in the corner of its cell. Hover over the cell, or click the marker, to read the comments, each with who added it and when (in UTC) on the line below. The box grows to fit them.
 

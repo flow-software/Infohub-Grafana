@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -268,5 +269,104 @@ func TestChartFieldDisplayNamesAreUnique(t *testing.T) {
 			t.Errorf("fields %q and %q share display name %q", other, f.Name, name)
 		}
 		seen[name] = f.Name
+	}
+}
+
+// withModelAttributes is the chart 5 definition with model attribute
+// columns added next to its UOM column, as the Flow chart editor adds them:
+// "Line" (attribute 5) twice under the same title, one whose attribute was
+// deleted (no id), and the TRI measure valued for attribute 5 only where
+// set is true.
+func withModelAttributes(t *testing.T, set bool) json.RawMessage {
+	t.Helper()
+	raw, _ := chartFixtures(t)
+	var root map[string]any
+	if err := json.Unmarshal(raw, &root); err != nil {
+		t.Fatal(err)
+	}
+	header := func(title string, id any) map[string]any {
+		return map[string]any{"componentType": "tables-timebased-modelattributeheader", "title": title, "modelAttributeID": id}
+	}
+	added := false
+	var walk func(n any)
+	walk = func(n any) {
+		switch v := n.(type) {
+		case map[string]any:
+			if comps, ok := v["components"].([]any); ok && !added {
+				for _, c := range comps {
+					if cm, ok := c.(map[string]any); ok && cm["componentType"] == "tables-timebased-uomheader" {
+						v["components"] = append(comps, header("Line", 5), header("Area", 4), header("", nil))
+						added = true
+						break
+					}
+				}
+			}
+			if m, ok := v["measure"].(map[string]any); ok {
+				if set {
+					m["modelAttributes"] = map[string]any{"4": "", "5": "Line 1"}
+				} else {
+					delete(m, "modelAttributes")
+				}
+			}
+			for _, c := range v {
+				walk(c)
+			}
+		case []any:
+			for _, c := range v {
+				walk(c)
+			}
+		}
+	}
+	walk(root)
+	if !added {
+		t.Fatal("no UOM header to add model attribute columns next to")
+	}
+	b, _ := json.Marshal(root)
+	return b
+}
+
+func TestChartModelAttributeColumns(t *testing.T) {
+	def, err := parseChartDefinition(withModelAttributes(t, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kinds []string
+	for _, h := range def.Headers {
+		kinds = append(kinds, fmt.Sprintf("%s=%s:%d", h.Kind, h.Title, h.AttributeID))
+	}
+	// After UOM, before the limits; the column without an attribute is left out.
+	want := "name=Measure:0,uom=UOM:0,attribute=Line:5,attribute=Area:4,lowlimit=Low Limit:0,limit=Limit:0,highlimit=High Limit:0"
+	if got := strings.Join(kinds, ","); got != want {
+		t.Errorf("headers\n got %s\nwant %s", got, want)
+	}
+	j := &joined{}
+	frame := j.tableFrame(def)
+	line := fieldByName(t, frame, "Line")
+	if v, ok := line.ConcreteAt(0); !ok || v.(string) != "Line 1" {
+		t.Errorf("Line = %v", v)
+	}
+	// Attribute 4 is empty on the measure: a blank cell, not an error.
+	if _, ok := fieldByName(t, frame, "Area").ConcreteAt(0); ok {
+		t.Error("Area has a value")
+	}
+
+	// A measure without modelAttributes at all: blank cells too.
+	def, err = parseChartDefinition(withModelAttributes(t, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame = (&joined{}).tableFrame(def)
+	if _, ok := fieldByName(t, frame, "Line").ConcreteAt(0); ok {
+		t.Error("Line has a value without modelAttributes")
+	}
+}
+
+func TestChartColumnNamesStayUnique(t *testing.T) {
+	frame := data.NewFrame("", data.NewField("Line", nil, []string{}))
+	if got := uniqueName(frame, "Line"); got != "Line (2)" {
+		t.Errorf("uniqueName = %q", got)
+	}
+	if got := uniqueName(frame, "Area"); got != "Area" {
+		t.Errorf("uniqueName = %q", got)
 	}
 }

@@ -34,12 +34,17 @@ type chartRow struct {
 	MeasureLimitID int
 	LimitID        int
 	Comparator     string
+	// Attributes are the measure's model attribute values by attribute id,
+	// for model attribute columns. A measure may have none.
+	Attributes map[int]string
 }
 
 // chartHeader is one of the row header columns the chart shows, in order.
 type chartHeader struct {
-	Kind  string // name, uom, lowlimit, limit, highlimit
+	Kind  string // name, uom, attribute, lowlimit, limit, highlimit
 	Title string
+	// AttributeID is the model attribute an attribute column shows.
+	AttributeID int
 }
 
 type chartDefinition struct {
@@ -55,15 +60,16 @@ type chartDefinition struct {
 // each becomes. Context, sparkline and link columns have no Grafana
 // equivalent in a table and are left out.
 var headerKinds = map[string]string{
-	"tables-timebased-nameheader":      "name",
-	"tables-timebased-uomheader":       "uom",
-	"tables-timebased-lowlimitheader":  "lowlimit",
-	"tables-timebased-limitheader":     "limit",
-	"tables-timebased-highlimitheader": "highlimit",
+	"tables-timebased-nameheader":           "name",
+	"tables-timebased-uomheader":            "uom",
+	"tables-timebased-modelattributeheader": "attribute",
+	"tables-timebased-lowlimitheader":       "lowlimit",
+	"tables-timebased-limitheader":          "limit",
+	"tables-timebased-highlimitheader":      "highlimit",
 }
 
 var defaultHeaderTitles = map[string]string{
-	"name": "Measure", "uom": "UOM", "lowlimit": "Low Limit", "limit": "Limit", "highlimit": "High Limit",
+	"name": "Measure", "uom": "UOM", "attribute": "Attribute", "lowlimit": "Low Limit", "limit": "Limit", "highlimit": "High Limit",
 }
 
 // parseChartDefinition walks the component tree that the Flow web app draws
@@ -98,13 +104,24 @@ func parseChartDefinition(raw json.RawMessage) (*chartDefinition, error) {
 		if strings.HasSuffix(ct, "sectioncomponent") {
 			section = str(node["title"])
 		}
-		if kind, ok := headerKinds[ct]; ok && !seenHeader[kind] {
-			seenHeader[kind] = true
-			title := str(node["title"])
-			if title == "" {
-				title = defaultHeaderTitles[kind]
+		if kind, ok := headerKinds[ct]; ok {
+			// A chart can show several model attributes, one column each;
+			// the other columns appear once. An attribute column whose
+			// attribute was deleted in Flow has no id and is left out.
+			attrID := 0
+			key := kind
+			if kind == "attribute" {
+				attrID = num(node["modelAttributeID"])
+				key = fmt.Sprintf("attribute:%d", attrID)
 			}
-			def.Headers = append(def.Headers, chartHeader{Kind: kind, Title: title})
+			if !seenHeader[key] && (kind != "attribute" || attrID != 0) {
+				seenHeader[key] = true
+				title := str(node["title"])
+				if title == "" {
+					title = defaultHeaderTitles[kind]
+				}
+				def.Headers = append(def.Headers, chartHeader{Kind: kind, Title: title, AttributeID: attrID})
+			}
 		}
 		for _, it := range list(node["items"]) {
 			item, _ := it.(map[string]any)
@@ -132,7 +149,7 @@ func parseChartDefinition(raw json.RawMessage) (*chartDefinition, error) {
 }
 
 func headerOrder(kind string) int {
-	return map[string]int{"name": 0, "uom": 1, "lowlimit": 2, "limit": 3, "highlimit": 4}[kind]
+	return map[string]int{"name": 0, "uom": 1, "attribute": 2, "lowlimit": 3, "limit": 4, "highlimit": 5}[kind]
 }
 
 // measureRow recognises a chart item that is a measure row: it names a
@@ -148,6 +165,19 @@ func measureRow(item map[string]any, section string) (chartRow, bool) {
 		return chartRow{}, false
 	}
 	row := chartRow{Section: section, Title: str(item["title"]), MeasureID: id, UOM: str(m["uom"])}
+	// Keyed by attribute id as text: {"5": "Line 1"}. Missing or not an
+	// object (older Flow, or no attributes) leaves the row without values.
+	if attrs, ok := m["modelAttributes"].(map[string]any); ok {
+		for k, v := range attrs {
+			var attrID int
+			if _, err := fmt.Sscanf(k, "%d", &attrID); err == nil && str(v) != "" {
+				if row.Attributes == nil {
+					row.Attributes = map[int]string{}
+				}
+				row.Attributes[attrID] = str(v)
+			}
+		}
+	}
 	if row.Title == "" {
 		row.Title = str(m["hierarchicalName"])
 	}
@@ -544,11 +574,15 @@ func (j *joined) tableFrame(def *chartDefinition) *data.Frame {
 					u := r.UOM
 					vals[i] = &u
 				}
+			case "attribute":
+				if v, ok := r.Attributes[h.AttributeID]; ok {
+					vals[i] = &v
+				}
 			default:
 				vals[i] = j.limitText(r, h.Kind)
 			}
 		}
-		f := data.NewField(h.Title, nil, vals)
+		f := data.NewField(uniqueName(frame, h.Title), nil, vals)
 		frame.Fields = append(frame.Fields, f)
 	}
 
@@ -589,4 +623,18 @@ func (j *joined) tableFrame(def *chartDefinition) *data.Frame {
 	}
 	frame.Fields = append(frame.Fields, invisibleStyleField(n))
 	return frame
+}
+
+// uniqueName keeps column names apart: Grafana's table matches values to
+// columns by name, so two columns titled "Attribute" would mix.
+func uniqueName(frame *data.Frame, name string) string {
+	taken := map[string]bool{}
+	for _, f := range frame.Fields {
+		taken[f.Name] = true
+	}
+	out := name
+	for i := 2; taken[out]; i++ {
+		out = fmt.Sprintf("%s (%d)", name, i)
+	}
+	return out
 }
