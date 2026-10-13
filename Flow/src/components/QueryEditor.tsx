@@ -35,7 +35,7 @@ import {
 } from '../types';
 import { AttributeFilterField } from './AttributeFilterField';
 import { ChartBrowser } from './ChartBrowser';
-import { hasIntervalIcon, IntervalIcon } from './IntervalIcon';
+import { MeasureIcon } from './MeasureIcon';
 import { ModelBrowser } from './ModelBrowser';
 
 type Props = QueryEditorProps<DataSource, FlowQuery, FlowOptions>;
@@ -763,7 +763,7 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
       <InlineField
         label="Type as"
         labelWidth={LABEL_WIDTH}
-        tooltip="How each node shows its retrieval type. Colour: the ring's colour (blue calculated, orange aggregated, purple manual, green retrieved, light blue replicated), named in the legend. Symbol: a symbol under the value (ƒx calculated, Σ aggregated, ✎ manual, ⇣ retrieved, ⇄ replicated) with grey rings; the legend lists the symbols. Either way, a node outside its limits is filled red when Show limits is on."
+        tooltip="How each node shows its retrieval type. Colour: the ring's colour (blue calculated, orange aggregated, purple manual, green retrieved, light blue replicated), named in the legend. Symbol: a symbol under the value (= calculated, △ aggregated, ⊎ manual, ▮ retrieved, ⊞ replicated: the text characters nearest Flow's own retrieval marks) with grey rings; the legend lists the symbols. Either way, a node outside its limits is filled red when Show limits is on."
       >
         <RadioButtonGroup<'colour' | 'symbol'>
           options={[
@@ -951,8 +951,8 @@ function ItemChip({ item, onRemove }: { item: QueryItem; onRemove: () => void })
       className={styles.chip}
       title={`${item.tree === 'template' ? 'Template ' : ''}${item.type} ${item.id}: ${item.label}`}
     >
-      {item.type === 'measure' && hasIntervalIcon(item.interval) ? (
-        <IntervalIcon interval={item.interval!} size={14} />
+      {item.type === 'measure' ? (
+        <MeasureIcon interval={item.interval} retrieval={item.retrieval} size={14} />
       ) : (
         <Icon
           name={

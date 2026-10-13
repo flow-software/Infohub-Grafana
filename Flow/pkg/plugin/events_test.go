@@ -301,4 +301,5 @@ func TestBrowseMarksEventContext(t *testing.T) {
 	if events[200] != "Run" || events[201] != "" {
 		t.Errorf("events = %v", events)
 	}
+
 }

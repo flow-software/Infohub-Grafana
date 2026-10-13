@@ -17,7 +17,7 @@ import {
 } from '@grafana/ui';
 
 import type { BrowseKind, DataSource } from '../datasource';
-import { hasIntervalIcon, IntervalIcon } from './IntervalIcon';
+import { MeasureIcon } from './MeasureIcon';
 import { BrowseNode, itemKey, QueryItem, Tree } from '../types';
 
 interface Props {
@@ -122,7 +122,14 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
     if (node.type === 'folder') {
       return;
     }
-    const item: QueryItem = { tree: node.tree, type: node.type, id: node.id, label, interval: node.interval };
+    const item: QueryItem = {
+      tree: node.tree,
+      type: node.type,
+      id: node.id,
+      label,
+      interval: node.interval,
+      retrieval: node.retrieval,
+    };
     const key = itemKey(item);
     setChecked((prev) => {
       const next = new Map(prev);
@@ -175,8 +182,8 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
               onChange={() => toggleChecked(node, label)}
             />
           )}
-          {node.type === 'measure' && hasIntervalIcon(node.interval) ? (
-            <IntervalIcon interval={node.interval!} className={styles.icon} />
+          {node.type === 'measure' ? (
+            <MeasureIcon interval={node.interval} retrieval={node.retrieval} className={styles.icon} />
           ) : (
             <Icon name={iconFor(node, isOpen)} className={styles.icon} />
           )}

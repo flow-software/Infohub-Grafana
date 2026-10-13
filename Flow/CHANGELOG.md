@@ -2,10 +2,11 @@
 
 ## Unreleased
 
+- The model browser and the picked-measure chips show Flow's retrieval marks on each measure's interval icon, as Flow Config does: a triangle for aggregated, an equals sign for calculated, a tray with a plus for manual, a cylinder for retrieved and a boxed cross for replicated, in Flow's blue.
 - Dashboard variables: model attribute values, measures (template instances or a metric's measures, valued by id), events and event attribute values, each optionally narrowed by a model attribute that can use other variables.
 - Measures can be filtered by a model attribute (e.g. Line = `$line`, multi-value and All supported), and taken from a variable of measure ids. Model measures outside the filter are not read.
 - Show limits: the measures' Flow limits for the query's calendar or event as dashed threshold lines, listed in the series description. Pick which limits to draw (e.g. only Site); switching on picks the first. Limits of other calendars are never shown on a period measure.
-- Dependency node graph: with Show limits on, a node whose latest value is outside its limits (as Flow flags it) is filled red, keeping its type colour on the ring, and its click menu names the limit. Type as: Colour (ring colour) or Symbol (ƒx, Σ, ✎, ⇣, ⇄ under the value, grey rings). The panel's legend lists the colours or symbols in the graph and explains the red fill, instead of "mainstat / color".
+- Dependency node graph: with Show limits on, a node whose latest value is outside its limits (as Flow flags it) is filled red, keeping its type colour on the ring, and its click menu names the limit. Type as: Colour (ring colour) or Symbol (=, △, ⊎, ▮, ⊞ under the value, the characters nearest Flow's retrieval marks, grey rings). The panel's legend lists the colours or symbols in the graph and explains the red fill, instead of "mainstat / color".
 - Annotation queries on the Measures tab mark the comments on the measures' values, with who wrote them and when.
 
 ## 1.2.0

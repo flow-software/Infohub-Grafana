@@ -619,12 +619,16 @@ var nodeKinds = []struct{ key, label, color string }{
 // typeSymbols mark the retrieval type under a node's value when the query
 // asks for symbols instead of ring colours. Grafana's node icons cannot be
 // used: a node with an icon shows the icon instead of its value.
+// They are the text characters nearest Flow's own retrieval marks (the
+// node graph cannot draw images): Flow draws a triangle for aggregated,
+// an equals sign for calculated, a tray with a plus for manual, a cylinder
+// for retrieved and a boxed cross for replicated.
 var typeSymbols = map[string]string{
-	"calculated": "ƒx",
-	"aggregated": "Σ",
-	"manual":     "✎",
-	"retrieved":  "⇣",
-	"replicated": "⇄",
+	"calculated": "=",
+	"aggregated": "△",
+	"manual":     "⊎",
+	"retrieved":  "▮",
+	"replicated": "⊞",
 }
 
 // The legend entry explaining the red fill Grafana draws inside a

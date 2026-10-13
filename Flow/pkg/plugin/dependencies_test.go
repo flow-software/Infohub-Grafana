@@ -491,7 +491,7 @@ func TestNodeGraphArcsAndLimits(t *testing.T) {
 
 	// Symbols: the type under the value, a plain grey ring, the fill kept.
 	frames = runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, Limits: limitsLines, DepTypeMark: depTypeSymbol})
-	if got := nodeCol(t, frames, "secondarystat"); got[m10] != "ƒx" || got[m11] != "Σ" || got[m12] != "✎" || got[m13] != "⇣" {
+	if got := nodeCol(t, frames, "secondarystat"); got[m10] != "=" || got[m11] != "△" || got[m12] != "⊎" || got[m13] != "▮" {
 		t.Errorf("symbols = %v", got)
 	}
 	if f, _ := frames[0].FieldByName("arc__calculated"); f != nil {
@@ -506,7 +506,7 @@ func TestNodeGraphArcsAndLimits(t *testing.T) {
 		t.Errorf("ring legend = %q", f.Config.DisplayName)
 	}
 	// The legend is the key to the symbols present.
-	if f, _ := frames[0].FieldByName("secondarystat"); f.Config.DisplayName != "ƒx calculated · Σ aggregated · ✎ manual · ⇣ retrieved" {
+	if f, _ := frames[0].FieldByName("secondarystat"); f.Config.DisplayName != "= calculated · △ aggregated · ⊎ manual · ▮ retrieved" {
 		t.Errorf("symbol key = %q", f.Config.DisplayName)
 	}
 	if got := column(t, frames[0], "highlighted"); got[0] != "true" {

@@ -19,6 +19,8 @@ export interface QueryItem {
   label: string;
   /** Measures only, as browsed: "timestamp" (a tag) or a period such as "hourly". Display only. */
   interval?: string;
+  /** Measures only, as browsed: calculated, manual, ... Display only. */
+  retrieval?: string;
 }
 
 export type TagBucket = 'auto' | 'fixed' | 'calendar';
@@ -145,6 +147,8 @@ export interface BrowseNode {
   name: string;
   /** Measures only: timestamp (a tag) or a period such as hourly. */
   interval?: string;
+  /** Measures only: how it gets its values (calculated, manual, ...). */
+  retrieval?: string;
   uom?: string;
   description?: string;
   /** A model object created from a template. */

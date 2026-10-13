@@ -194,10 +194,10 @@ func (d *Datasource) markEventContext(ctx context.Context, tree flow.Tree, nodes
 		return
 	}
 	byMeasure := map[int][]int{}
-	interval := map[int]string{}
+	interval, retrieval := map[int]string{}, map[int]string{}
 	var eventIDs []int
 	for _, m := range measures {
-		interval[m.ID] = m.Interval
+		interval[m.ID], retrieval[m.ID] = m.Interval, m.Retrieval
 		for _, id := range contextEventIDs(m) {
 			byMeasure[m.ID] = append(byMeasure[m.ID], id)
 			eventIDs = appendUnique(eventIDs, id)
@@ -206,6 +206,9 @@ func (d *Datasource) markEventContext(ctx context.Context, tree flow.Tree, nodes
 	for i, n := range nodes {
 		if n.Type == itemMeasure && n.Interval == "" {
 			nodes[i].Interval = interval[n.ID]
+		}
+		if n.Type == itemMeasure && n.Retrieval == "" {
+			nodes[i].Retrieval = retrieval[n.ID]
 		}
 	}
 	if len(eventIDs) == 0 {

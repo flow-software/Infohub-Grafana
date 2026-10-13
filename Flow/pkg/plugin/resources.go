@@ -18,10 +18,12 @@ import (
 type browseNode struct {
 	Tree flow.Tree `json:"tree"`
 	// Type is folder, metric or measure.
-	Type        string `json:"type"`
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Interval    string `json:"interval,omitempty"`
+	Type     string `json:"type"`
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Interval string `json:"interval,omitempty"`
+	// Retrieval is how a measure gets its values (calculated, manual, ...).
+	Retrieval   string `json:"retrieval,omitempty"`
 	UOM         string `json:"uom,omitempty"`
 	Description string `json:"description,omitempty"`
 	// FromTemplate marks model objects created from a template.
@@ -205,7 +207,7 @@ func measureNode(tree flow.Tree, m flow.Measure, metricName string) browseNode {
 	}
 	return browseNode{
 		Tree: tree, Type: itemMeasure, ID: m.ID, Name: name,
-		Interval: m.Interval, UOM: m.UOM, Description: m.Description, FromTemplate: m.Template != nil,
+		Interval: m.Interval, Retrieval: m.Retrieval, UOM: m.UOM, Description: m.Description, FromTemplate: m.Template != nil,
 	}
 }
 

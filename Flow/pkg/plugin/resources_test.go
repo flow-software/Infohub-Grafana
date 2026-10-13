@@ -67,3 +67,26 @@ func TestSearchByMeasureID(t *testing.T) {
 		t.Errorf("unknown id: nodes = %+v, err %v", nodes, err)
 	}
 }
+
+// Listed measures carry their retrieval type, for Flow's retrieval marks.
+func TestBrowseCarriesRetrieval(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/model/metrics/20/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"measures": []map[string]any{
+			{"id": 200, "name": "Production.Good", "interval": "hourly", "retrieval": "calculated"},
+			{"id": 201, "name": "Production.Speed", "interval": "timestamp", "retrieval": "retrieved"},
+		}})
+	}
+	d := testDatasource(srv)
+	nodes, err := d.browse(context.Background(), flow.TreeModel, itemMetric, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[int]string{}
+	for _, n := range nodes {
+		got[n.ID] = n.Retrieval
+	}
+	if got[200] != "calculated" || got[201] != "retrieved" {
+		t.Errorf("retrieval = %v", got)
+	}
+}
