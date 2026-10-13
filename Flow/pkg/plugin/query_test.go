@@ -231,9 +231,7 @@ func TestTemplateMetricSplitsPeriodMeasuresAndTags(t *testing.T) {
 	d := testDatasource(srv)
 
 	resp := runQuery(t, d, queryModel{
-		Items:       []queryItem{{Tree: flow.TreeTemplate, Type: itemMetric, ID: 900}},
-		Aggregation: "average",
-		Bucket:      bucketAuto,
+		Items: []queryItem{{Tree: flow.TreeTemplate, Type: itemMetric, ID: 900}},
 	})
 	if resp.Error != nil {
 		t.Fatal(resp.Error)
@@ -241,10 +239,9 @@ func TestTemplateMetricSplitsPeriodMeasuresAndTags(t *testing.T) {
 	if len(resp.Frames) != 3 {
 		t.Fatalf("frames = %v, want two period series and one tag", displayNames(resp.Frames))
 	}
-	for _, want := range []string{"templateid=9001", "aggregation=average", "resolution=60000"} {
-		if !strings.Contains(tagQuery, want) {
-			t.Errorf("tag query %q lacks %q", tagQuery, want)
-		}
+	// Auto: one value fits the panel, so it is read raw.
+	if !strings.Contains(tagQuery, "templateid=9001") || strings.Contains(tagQuery, "aggregation") {
+		t.Errorf("tag query = %q", tagQuery)
 	}
 	if strings.Contains(tagQuery, "9000") {
 		t.Errorf("period measure sent to data/tags: %s", tagQuery)
@@ -340,25 +337,6 @@ func TestAutoAveragesOnlyTagsThatOverflowThePanel(t *testing.T) {
 	}
 }
 
-func TestCalendarBucketWithoutPeriodsWarns(t *testing.T) {
-	f, srv := newFakeFlow(t)
-	f.handlers["/api/v1/data/tags"] = func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 400, map[string]any{"errors": []string{"No valid periods for the specified date range. Specify a valid date range or interval parameter"}})
-	}
-	d := testDatasource(srv)
-
-	resp := runQuery(t, d, queryModel{
-		Items:       []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 201}},
-		Aggregation: "maximum", Bucket: bucketCalendar, TagInterval: "shiftly",
-	})
-	if resp.Error != nil {
-		t.Fatal(resp.Error)
-	}
-	if len(resp.Frames) != 1 || !strings.Contains(resp.Frames[0].Meta.Notices[0].Text, "no shiftly periods") {
-		t.Errorf("frames = %+v", resp.Frames)
-	}
-}
-
 func TestShortDuration(t *testing.T) {
 	for d, want := range map[time.Duration]string{time.Hour: "1h", time.Minute: "1m", 90 * time.Minute: "1h30m", 5 * time.Second: "5s"} {
 		if got := shortDuration(d); got != want {
@@ -434,14 +412,25 @@ func TestCheckHealth(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsUnknownAggregation(t *testing.T) {
-	qm := queryModel{Aggregation: "median"}
-	if err := qm.validate(); err == nil {
-		t.Error("median accepted")
+// Panels saved with a tag aggregation from before 1.3.1 read as Auto
+// rather than failing.
+func TestOldTagAggregationsReadAsAuto(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	var tagQuery string
+	f.handlers["/api/v1/data/tags"] = func(w http.ResponseWriter, r *http.Request) {
+		tagQuery = r.URL.RawQuery
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 201, "data": []map[string]any{{"start": "2026-10-06T00:10:00Z", "value": 1.5}}}}})
 	}
-	qm = queryModel{Aggregation: "average", Bucket: bucketFixed, Resolution: "soon"}
-	if err := qm.validate(); err == nil {
-		t.Error("bad resolution accepted")
+	d := testDatasource(srv)
+	saved := []byte(`{"items":[{"tree":"model","type":"measure","id":201}],"aggregation":"maximum","bucket":"calendar","tagInterval":"shiftly","resolution":"soon"}`)
+	resp := d.query(context.Background(), backend.DataQuery{RefID: "A", JSON: saved, TimeRange: backend.TimeRange{
+		From: time.Date(2026, 10, 6, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 10, 6, 2, 0, 0, 0, time.UTC),
+	}})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if strings.Contains(tagQuery, "aggregation") || strings.Contains(tagQuery, "calendarid") {
+		t.Errorf("tag query = %q, want a raw (Auto) read", tagQuery)
 	}
 }
 

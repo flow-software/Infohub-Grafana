@@ -23,8 +23,6 @@ export interface QueryItem {
   retrieval?: string;
 }
 
-export type TagBucket = 'auto' | 'fixed' | 'calendar';
-
 export type QueryType = 'measures' | 'chart' | 'dependencies' | 'events' | 'variable';
 
 /** What a dashboard variable query lists. */
@@ -96,16 +94,11 @@ export interface FlowQuery extends DataQuery {
   /** Calendar for period measures; unset uses the datasource default. */
   calendarId?: number;
   /**
-   * Tags (timestamp measures): unset is auto (raw values while they fit the
-   * panel, else averages per panel interval), "raw" forces every raw value,
-   * anything else is a Flow aggregation.
+   * Tags (timestamp measures): unset is Auto (raw values while they fit the
+   * panel, else averages per panel interval); "raw" reads every raw value.
+   * Queries saved with another value (a former tag aggregation) read as Auto.
    */
   aggregation?: string;
-  bucket?: TagBucket;
-  /** Bucket size when bucket is "fixed", e.g. "15m". */
-  resolution?: string;
-  /** Calendar period when bucket is "calendar", e.g. "shiftly". */
-  tagInterval?: string;
   /**
    * Place period values at the period start (default) or end. In event
    * context, "period" draws each value from its period's start to its end.
@@ -119,7 +112,6 @@ export interface FlowQuery extends DataQuery {
 
 export const DEFAULT_QUERY: Partial<FlowQuery> = {
   items: [],
-  bucket: 'auto',
   timeAt: 'start',
 };
 
@@ -194,35 +186,6 @@ export interface Calendar {
   name: string;
   description?: string;
 }
-
-/** Flow's tag aggregations, as data/tags names them. */
-export const AGGREGATIONS: Array<{ value: string; label: string }> = [
-  { value: 'average', label: 'Average' },
-  { value: 'minimum', label: 'Minimum' },
-  { value: 'maximum', label: 'Maximum' },
-  { value: 'sum', label: 'Sum' },
-  { value: 'first', label: 'First' },
-  { value: 'last', label: 'Last' },
-  { value: 'count', label: 'Count' },
-  { value: 'delta', label: 'Delta' },
-  { value: 'range', label: 'Range' },
-  { value: 'counter', label: 'Counter' },
-  { value: 'timeInState', label: 'Time in state' },
-  { value: 'variance', label: 'Variance' },
-  { value: 'standardDeviation', label: 'Standard deviation' },
-];
-
-/** Calendar periods a tag aggregation can be bucketed into. */
-export const CALENDAR_INTERVALS: Array<{ value: string; label: string }> = [
-  { value: 'minutely', label: 'Minute' },
-  { value: 'hourly', label: 'Hour' },
-  { value: 'shiftly', label: 'Shift' },
-  { value: 'daily', label: 'Day' },
-  { value: 'weekly', label: 'Week' },
-  { value: 'monthly', label: 'Month' },
-  { value: 'quarterly', label: 'Quarter' },
-  { value: 'yearly', label: 'Year' },
-];
 
 export function itemKey(item: Pick<QueryItem, 'tree' | 'type' | 'id'>): string {
   return `${item.tree}:${item.type}:${item.id}`;

@@ -424,10 +424,6 @@ type TagDataRequest struct {
 	Aggregation string
 	// ResolutionMs buckets an aggregation into fixed-size intervals.
 	ResolutionMs int64
-	// CalendarID and Interval bucket an aggregation into calendar periods
-	// instead, e.g. shifts. Used when CalendarID is set.
-	CalendarID int
-	Interval   string
 	// Limit caps values per tag; Flow sets Continuation when it is reached.
 	Limit int
 }
@@ -441,12 +437,7 @@ func (c *Client) TagData(ctx context.Context, r TagDataRequest) (*TagData, error
 	addIDs(q, "templateid", r.TemplateIDs)
 	if r.Aggregation != "" {
 		q.Set("aggregation", r.Aggregation)
-		if r.CalendarID > 0 {
-			q.Set("calendarid", strconv.Itoa(r.CalendarID))
-			if r.Interval != "" {
-				q.Set("interval", r.Interval)
-			}
-		} else if r.ResolutionMs > 0 {
+		if r.ResolutionMs > 0 {
 			q.Set("resolution", strconv.FormatInt(r.ResolutionMs, 10))
 		}
 	}

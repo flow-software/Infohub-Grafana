@@ -18,20 +18,17 @@ import {
 
 import type { BrowseKind, DataSource } from '../datasource';
 import {
-  AGGREGATIONS,
   AttributeValueOption,
   ContextEvent,
   EventFormat,
   DepDirection,
   Calendar,
-  CALENDAR_INTERVALS,
   FlowOptions,
   FlowQuery,
   itemKey,
   QueryItem,
   QueryType,
   SelectionSummary,
-  TagBucket,
 } from '../types';
 import { AttributeFilterField } from './AttributeFilterField';
 import { ChartBrowser } from './ChartBrowser';
@@ -77,12 +74,6 @@ const legendOptions: Array<ComboboxOption<string>> = [
     description: 'Good Count (kg); the same on every template instance',
   },
   { label: 'Folder', value: '{{folder}}', description: 'Site/Area/Line 1' },
-];
-
-const bucketOptions: Array<{ label: string; value: TagBucket; description: string }> = [
-  { label: 'Auto', value: 'auto', description: "The panel's interval" },
-  { label: 'Fixed', value: 'fixed', description: 'A fixed bucket size' },
-  { label: 'Calendar', value: 'calendar', description: 'Calendar periods, such as shifts' },
 ];
 
 export function QueryEditor(props: Props) {
@@ -206,29 +197,13 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
   const fromVariable = !!query.measureVariable;
   const showPeriods = (items.length > 0 && (!summary || summary.periodMeasures > 0)) || fromVariable;
   const showTags = items.length > 0 && (!summary || summary.tags > 0);
-  const aggregated = !!query.aggregation && query.aggregation !== 'raw';
-  const bucket = query.bucket ?? 'auto';
   const eventContext = query.context === 'event';
-  // Calendar buckets for tags read the query's calendar too.
-  const showCalendar = (showPeriods && !eventContext) || (showTags && aggregated && bucket === 'calendar');
+  const showCalendar = showPeriods && !eventContext;
 
   const update = (patch: Partial<FlowQuery>) => {
     onChange({ ...query, ...patch });
     onRunQuery();
   };
-
-  const aggregationOptions = useMemo<Array<ComboboxOption<string>>>(
-    () => [
-      {
-        label: 'Auto',
-        value: '',
-        description: 'Raw values while they fit the panel, else averages per panel interval',
-      },
-      { label: 'Raw values', value: 'raw', description: 'Every stored value; slow over long ranges' },
-      ...AGGREGATIONS,
-    ],
-    []
-  );
 
   return (
     <>
@@ -333,38 +308,15 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
         <InlineField
           label="Values"
           labelWidth={LABEL_WIDTH}
-          tooltip="Auto returns raw values when the panel can show them all, and averages per panel interval when there are more. Raw values returns every stored value. An aggregation buckets values by the panel interval, a fixed size, or calendar periods."
+          tooltip="Off (Auto): raw values when the panel can show them all, and averages per panel interval when there are more, so long ranges stay fast. On: every stored value, which can be slow over long ranges."
         >
-          <Stack gap={1} wrap="wrap">
-            <Combobox
-              id="query-editor-aggregation"
-              width={24}
-              options={aggregationOptions}
-              value={query.aggregation ?? ''}
-              onChange={(o) => update({ aggregation: o?.value || undefined })}
-            />
-            {aggregated && (
-              <RadioButtonGroup options={bucketOptions} value={bucket} onChange={(v) => update({ bucket: v })} />
-            )}
-            {aggregated && bucket === 'fixed' && (
-              <Input
-                id="query-editor-resolution"
-                width={12}
-                placeholder="15m"
-                defaultValue={query.resolution ?? ''}
-                onBlur={(e) => update({ resolution: e.currentTarget.value.trim() || undefined })}
-              />
-            )}
-            {aggregated && bucket === 'calendar' && (
-              <Combobox
-                id="query-editor-tag-interval"
-                width={16}
-                options={CALENDAR_INTERVALS}
-                value={query.tagInterval ?? 'hourly'}
-                onChange={(o) => update({ tagInterval: o?.value })}
-              />
-            )}
-          </Stack>
+          <InlineSwitch
+            id="query-editor-raw"
+            label="All raw values"
+            showLabel
+            value={query.aggregation === 'raw'}
+            onChange={(e) => update({ aggregation: e.currentTarget.checked ? 'raw' : undefined })}
+          />
         </InlineField>
       )}
 

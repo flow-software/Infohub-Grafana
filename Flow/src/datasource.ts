@@ -59,8 +59,7 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
   }
 
   /**
-   * Dashboard variables may be used in the legend, the fixed resolution,
-   * attribute filter values, event attribute values, and as a list of
+   * Dashboard variables may be used in the legend, attribute filter values, event attribute values, and as a list of
    * measure ids. Multi-value and All variables expand to every value.
    */
   applyTemplateVariables(query: FlowQuery, scopedVars: ScopedVars): FlowQuery {
@@ -68,7 +67,6 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
     const out: FlowQuery = {
       ...query,
       legend: query.legend ? srv.replace(query.legend, scopedVars) : query.legend,
-      resolution: query.resolution ? srv.replace(query.resolution, scopedVars) : query.resolution,
       attributeValues: expandValues(query.attributeValues, scopedVars),
       eventValues: expandValues(query.eventValues, scopedVars),
     };

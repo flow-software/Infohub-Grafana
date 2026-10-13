@@ -9,7 +9,6 @@ import (
 
 	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/gtime"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
@@ -18,13 +17,6 @@ import (
 const (
 	itemMetric  = "metric"
 	itemMeasure = "measure"
-)
-
-// Tag bucket modes for aggregated tag queries.
-const (
-	bucketAuto     = "auto"     // the panel's interval
-	bucketFixed    = "fixed"    // Resolution, e.g. "15m"
-	bucketCalendar = "calendar" // calendar periods of TagInterval, e.g. shifts
 )
 
 type queryItem struct {
@@ -99,12 +91,11 @@ type queryModel struct {
 	Items []queryItem `json:"items"`
 	// CalendarID for period measures; zero uses the datasource default.
 	CalendarID int `json:"calendarId"`
-	// Aggregation for tags: empty for auto (raw while it fits the panel,
-	// else averages), "raw" for every raw value, or a Flow AggregationType.
+	// Aggregation "raw" reads every raw tag value. Anything else is Auto:
+	// raw values while they fit the panel, else averages per panel interval.
+	// (Explicit tag aggregations were removed in 1.3.1; queries saved with
+	// one read as Auto.)
 	Aggregation string `json:"aggregation"`
-	Bucket      string `json:"bucket"`
-	Resolution  string `json:"resolution"`
-	TagInterval string `json:"tagInterval"`
 	// TimeAt places each period value at the period's "start" (default) or
 	// "end"; in event context "period" draws it from start to end.
 	TimeAt           string `json:"timeAt"`
@@ -118,13 +109,6 @@ type queryModel struct {
 
 // aggregationRaw forces raw tag values however many there are.
 const aggregationRaw = "raw"
-
-// aggregations are Flow's AggregationType names accepted by data/tags.
-var aggregations = map[string]bool{
-	"sum": true, "average": true, "minimum": true, "maximum": true, "counter": true,
-	"range": true, "delta": true, "first": true, "last": true, "count": true,
-	"timeInState": true, "variance": true, "standardDeviation": true,
-}
 
 func (qm *queryModel) validate() error {
 	switch qm.QueryType {
@@ -176,14 +160,6 @@ func (qm *queryModel) validate() error {
 	}
 	if qm.Annotate != "" && qm.Annotate != annotateComments {
 		return fmt.Errorf("unknown annotation kind %q", qm.Annotate)
-	}
-	if qm.Aggregation != "" && qm.Aggregation != aggregationRaw && !aggregations[qm.Aggregation] {
-		return fmt.Errorf("unknown aggregation %q", qm.Aggregation)
-	}
-	if aggregations[qm.Aggregation] && qm.Bucket == bucketFixed {
-		if _, err := gtime.ParseDuration(qm.Resolution); err != nil {
-			return fmt.Errorf("invalid resolution %q: use a duration such as 30s, 15m or 1h", qm.Resolution)
-		}
 	}
 	return nil
 }
@@ -465,28 +441,7 @@ func (d *Datasource) readTagSelection(ctx context.Context, sel *selection, qm qu
 	}
 	interval := max(q.Interval.Milliseconds(), 1000)
 
-	switch {
-	case qm.Aggregation == aggregationRaw:
-		return d.readTags(ctx, req, tagMaxPages)
-
-	case qm.Aggregation != "":
-		req.Aggregation = qm.Aggregation
-		switch qm.Bucket {
-		case bucketCalendar:
-			calendarID, err := d.calendarFor(ctx, qm.CalendarID)
-			if err != nil {
-				return nil, nil, err
-			}
-			req.CalendarID, req.Interval = calendarID, qm.TagInterval
-			if req.Interval == "" {
-				req.Interval = "hourly"
-			}
-		case bucketFixed:
-			res, _ := gtime.ParseDuration(qm.Resolution)
-			req.ResolutionMs = max(res.Milliseconds(), 1)
-		default:
-			req.ResolutionMs = interval
-		}
+	if qm.Aggregation == aggregationRaw {
 		return d.readTags(ctx, req, tagMaxPages)
 	}
 
@@ -527,7 +482,7 @@ func (d *Datasource) readTagSelection(ctx context.Context, sel *selection, qm qu
 		}
 	}
 	warnings = append(warnings, avgWarnings...)
-	warnings = append(warnings, fmt.Sprintf("%d tag(s) have more raw values in this range than the panel can show, so they are averaged per %s. Pick Raw values under Tags to get every value.",
+	warnings = append(warnings, fmt.Sprintf("%d tag(s) have more raw values in this range than the panel can show, so they are averaged per %s. Turn on All raw values under Tags to get every value.",
 		len(full), shortDuration(time.Duration(interval)*time.Millisecond)))
 	return raw, warnings, nil
 }
@@ -545,11 +500,6 @@ func (d *Datasource) readTags(ctx context.Context, req flow.TagDataRequest, maxP
 	for page := 0; ; page++ {
 		res, err := d.client.TagData(ctx, req)
 		if flow.IsNoData(err) {
-			if req.CalendarID > 0 {
-				// Not always an empty range: Flow keeps no shift periods
-				// unless a measure uses them, for example.
-				warnings = append(warnings, fmt.Sprintf("Flow has no %s periods in this calendar for the time range, so there is nothing to aggregate into.", req.Interval))
-			}
 			break
 		}
 		if err != nil {
