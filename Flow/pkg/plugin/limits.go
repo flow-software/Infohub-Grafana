@@ -47,10 +47,12 @@ type limitProps struct {
 }
 
 // measureLimits reads a measure's limits for one calendar or event (by
-// name) from its metadata. If the measure has limits in only one context
-// those are used whatever the name, as with tags, which are read without a
-// calendar. Of a limit's dated settings the latest applies.
-func measureLimits(m flow.Measure, context string) []measureLimit {
+// name) from its metadata: limits belong to a calendar in Flow, and a
+// period measure read in one calendar must not show another's. Tags are
+// read without a calendar, so for a tag (anyContext) whose limits are all
+// in one context, those are used whatever the name. Of a limit's dated
+// settings the latest applies.
+func measureLimits(m flow.Measure, context string, anyContext bool) []measureLimit {
 	byContext := map[string]map[string]map[string]limitProps{}
 	for _, md := range m.Metadata {
 		if !strings.EqualFold(md.Type, "limit") {
@@ -77,7 +79,7 @@ func measureLimits(m flow.Measure, context string) []measureLimit {
 			}
 		}
 	}
-	if !ok && len(byContext) == 1 {
+	if !ok && anyContext && len(byContext) == 1 {
 		for _, limits := range byContext {
 			chosen = limits
 		}
@@ -227,7 +229,8 @@ func (d *Datasource) applyLimits(ctx context.Context, frames data.Frames, series
 		notices = append(notices, fmt.Sprintf("Flow could not return the limits of %d measure(s), so they are not drawn.", len(failed)))
 	}
 	for i, s := range series {
-		limits := measureLimits(byID[s.id], context)
+		m := byID[s.id]
+		limits := pickLimits(measureLimits(m, context, m.IsTag()), qm.LimitNames)
 		if len(limits) == 0 {
 			continue
 		}
@@ -275,4 +278,76 @@ func (d *Datasource) limitContext(ctx context.Context, qm queryModel) (string, e
 		}
 	}
 	return "", nil
+}
+
+// pickLimits keeps the named limits; no names keeps them all.
+func pickLimits(limits []measureLimit, names []string) []measureLimit {
+	if len(names) == 0 {
+		return limits
+	}
+	var out []measureLimit
+	for _, l := range limits {
+		for _, n := range names {
+			if strings.EqualFold(l.Name, n) {
+				out = append(out, l)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// limitNamesCap bounds how many measures the editor's limit list reads.
+const limitNamesCap = 500
+
+// limitNames lists the limits the selected measures have in the query's
+// calendar or event, for the editor's limit picker. Template items stand
+// for their model instances.
+func (d *Datasource) limitNames(ctx context.Context, qm queryModel) ([]string, error) {
+	sel, err := d.resolve(ctx, qm.Items)
+	if err != nil {
+		return nil, err
+	}
+	ids := append(append([]int(nil), sel.periodIDs...), sel.tagIDs...)
+	if len(sel.periodTemplateIDs)+len(sel.tagTemplateIDs) > 0 {
+		all, err := d.modelMeasures(ctx)
+		if err != nil {
+			return nil, err
+		}
+		templates := map[int]bool{}
+		for _, id := range append(append([]int(nil), sel.periodTemplateIDs...), sel.tagTemplateIDs...) {
+			templates[id] = true
+		}
+		for id, m := range all {
+			if m.Template != nil && templates[m.Template.ID] {
+				ids = appendUnique(ids, id)
+			}
+		}
+	}
+	if len(ids) > limitNamesCap {
+		ids = ids[:limitNamesCap]
+	}
+	names := []string{}
+	if len(ids) == 0 {
+		return names, nil
+	}
+	measures, _, err := d.client.MeasuresWithMetadata(ctx, flow.TreeModel, ids)
+	if err != nil {
+		return nil, err
+	}
+	context, err := d.limitContext(ctx, qm)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	for _, m := range measures {
+		for _, l := range measureLimits(m, context, m.IsTag()) {
+			if !seen[strings.ToLower(l.Name)] {
+				seen[strings.ToLower(l.Name)] = true
+				names = append(names, l.Name)
+			}
+		}
+	}
+	sort.Strings(names)
+	return names, nil
 }

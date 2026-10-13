@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
@@ -182,6 +183,23 @@ func TestMeasureLimitsAsThresholds(t *testing.T) {
 		t.Errorf("description = %q", value.Config.Description)
 	}
 
+	// Picking limits draws only those.
+	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}, Limits: limitsLines, LimitNames: []string{"site"}})
+	value = resp.Frames[0].Fields[1]
+	var picked []string
+	for _, s := range value.Config.Thresholds.Steps {
+		picked = append(picked, strconv.FormatFloat(float64(s.Value), 'f', -1, 64)+"="+s.Color)
+	}
+	if got := strings.Join(picked, ","); got != "4=green,5=red" || !strings.HasSuffix(value.Config.Description, "Limits: Site < 5, target 4") {
+		t.Errorf("Site only: steps %s, description %q", got, value.Config.Description)
+	}
+
+	// The editor's list: the limit names in the query's calendar.
+	names, err := d.limitNames(context.Background(), queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}})
+	if err != nil || strings.Join(names, ",") != "Moonshot,Site,Spec" {
+		t.Errorf("limit names = %v, %v", names, err)
+	}
+
 	// Without the option, nothing is drawn.
 	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}})
 	if resp.Frames[0].Fields[1].Config.Thresholds != nil {
@@ -233,4 +251,23 @@ func TestCommentsAsAnnotations(t *testing.T) {
 		t.Errorf("title = %q", got)
 	}
 	_ = data.Frames{}
+}
+
+// A period measure read in one calendar shows only that calendar's limits,
+// even when it has limits in no other; a tag, read without a calendar,
+// falls back to the only limits it has.
+func TestLimitsBelongToTheirCalendar(t *testing.T) {
+	m := flow.Measure{Interval: "hourly", Metadata: []flow.MeasureMetadata{{Type: "Limit", Data: map[string]json.RawMessage{
+		"Production": json.RawMessage(`{"Site":{"9/8/2025 4:00:00 AM":{"comparator":"<","high":5}}}`),
+	}}}}
+	if got := measureLimits(m, "finance", m.IsTag()); len(got) != 0 {
+		t.Errorf("finance limits = %+v, want none", got)
+	}
+	if got := measureLimits(m, "Production", m.IsTag()); len(got) != 1 {
+		t.Errorf("Production limits = %+v", got)
+	}
+	m.Interval = flow.IntervalTimestamp
+	if got := measureLimits(m, "finance", m.IsTag()); len(got) != 1 {
+		t.Errorf("tag limits = %+v, want the only set", got)
+	}
 }

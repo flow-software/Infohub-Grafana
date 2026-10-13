@@ -79,6 +79,8 @@ export interface FlowQuery extends DataQuery {
   measureVariable?: string;
   /** "lines" draws each measure's Flow limits as threshold lines. */
   limits?: 'lines';
+  /** Which limits to draw, by name (e.g. Site); none draws them all. */
+  limitNames?: string[];
   /** Annotation queries on measures: "comments" shows their value comments. */
   annotate?: 'comments';
 

@@ -98,6 +98,18 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
     }
   }
 
+  /** Limit names the items have in a calendar, or in an event (context "event"). */
+  getLimitNames(items: QueryItem[], calendarId?: number, eventId?: number): Promise<string[]> {
+    const params: Record<string, string | number | string[]> = { item: items.map(itemKey) };
+    if (eventId) {
+      params.context = 'event';
+      params.eventId = eventId;
+    } else if (calendarId) {
+      params.calendarId = calendarId;
+    }
+    return this.getResource<string[]>('limits', params);
+  }
+
   /** Model attribute names the model's measures carry. */
   getAttributes(): Promise<string[]> {
     return this.getResource<string[]>('attributes');

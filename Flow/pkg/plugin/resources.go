@@ -45,6 +45,7 @@ type browseNode struct {
 //	GET search?tree=..&q=text&kind=events  events by name
 //	GET contextEvents?item=<tree>:<type>:<id>..  events the selected model measures have as context
 //	GET eventValues?event=N&attribute=Name  values of an event attribute seen in the last 90 days
+//	GET limits?item=..&calendarId=N&context=event&eventId=N  limit names of the items in that calendar or event
 //	GET attributes                         model attribute names on measures
 //	GET attributeValues?attribute=Name     values of a model attribute on measures
 //	GET charts                             root chart folders
@@ -112,6 +113,15 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 		body, err = d.summary(ctx, params["item"])
 	case "contextEvents":
 		body, err = d.contextEvents(ctx, params["item"])
+	case "limits":
+		items, perr := parseItems(params["item"])
+		if perr != nil {
+			return fail(http.StatusBadRequest, perr.Error())
+		}
+		qm := queryModel{Items: items, Context: params.Get("context")}
+		qm.CalendarID, _ = strconv.Atoi(params.Get("calendarId"))
+		qm.EventID, _ = strconv.Atoi(params.Get("eventId"))
+		body, err = d.limitNames(ctx, qm)
 	case "attributes":
 		body, err = d.attributeNamesResource(ctx)
 	case "attributeValues":

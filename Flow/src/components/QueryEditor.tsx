@@ -400,19 +400,7 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
               />
             </Stack>
           </InlineField>
-          <InlineField
-            label="Limits"
-            labelWidth={LABEL_WIDTH}
-            tooltip="Draw each measure's limits from Flow as dashed lines: bounds red, targets green. The limits are those for the query's calendar (or event) as they apply now; limits that take their value from another measure are listed in the series description but not drawn. Hover the legend for the list."
-          >
-            <InlineSwitch
-              id="query-editor-limits"
-              label="Show limits"
-              showLabel
-              value={query.limits === 'lines'}
-              onChange={(e) => update({ limits: e.currentTarget.checked ? 'lines' : undefined })}
-            />
-          </InlineField>
+          <LimitsField datasource={datasource} query={query} items={items} update={update} />
         </>
       )}
     </>
@@ -772,6 +760,89 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
         />
       </InlineField>
     </>
+  );
+}
+
+/**
+ * Shows the measures' Flow limits as dashed lines. Limits belong to a
+ * calendar (or event) in Flow, so only those of the query's calendar are
+ * offered. A measure can have several (Site, Zone, ...), and drawing every
+ * set at once is hard to read, so they are picked by name; switching on
+ * picks the first.
+ */
+function LimitsField({
+  datasource,
+  query,
+  items,
+  update,
+}: {
+  datasource: DataSource;
+  query: FlowQuery;
+  items: QueryItem[];
+  update: (patch: Partial<FlowQuery>) => void;
+}) {
+  const eventId = query.context === 'event' ? query.eventId : undefined;
+  const key = [items.map(itemKey).join(','), query.calendarId ?? 0, eventId ?? 0].join('|');
+  const [answer, setAnswer] = useState<{ key: string; names: string[] }>();
+  useEffect(() => {
+    if (!items.length) {
+      return;
+    }
+    let cancelled = false;
+    datasource
+      .getLimitNames(items, query.calendarId, eventId)
+      .then((names) => !cancelled && setAnswer({ key, names }))
+      .catch(() => !cancelled && setAnswer({ key, names: [] }));
+    return () => {
+      cancelled = true;
+    };
+    // key stands for items, calendar and event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasource, key]);
+  const names = useMemo(() => (answer?.key === key ? answer.names : undefined), [answer, key]);
+
+  const on = query.limits === 'lines';
+  const options = useMemo<Array<ComboboxOption<string>>>(() => {
+    const opts: Array<ComboboxOption<string>> = (names ?? []).map((n) => ({ label: n, value: n }));
+    for (const n of query.limitNames ?? []) {
+      if (!opts.some((o) => o.value === n)) {
+        opts.push({ label: n, value: n, description: 'Not set for these measures in this calendar' });
+      }
+    }
+    return opts;
+  }, [names, query.limitNames]);
+
+  return (
+    <InlineField
+      label="Limits"
+      labelWidth={LABEL_WIDTH}
+      tooltip="Draw the measures' limits from Flow as dashed lines: bounds red, targets green. Only the limits of the query's calendar (or event) are offered, as they apply now. Pick which limits to draw; with none picked, all are drawn. Limits that take their value from another measure are listed in the series description but not drawn."
+    >
+      <Stack gap={1} wrap="wrap" alignItems="center">
+        <InlineSwitch
+          id="query-editor-limits"
+          label="Show limits"
+          showLabel
+          value={on}
+          onChange={(e) =>
+            update(
+              e.currentTarget.checked
+                ? { limits: 'lines', limitNames: names?.length ? [names[0]] : undefined }
+                : { limits: undefined, limitNames: undefined }
+            )
+          }
+        />
+        {on && (
+          <MultiCombobox
+            width={40}
+            placeholder={names !== undefined && names.length === 0 ? 'No limits in this calendar' : 'All limits'}
+            options={options}
+            value={query.limitNames ?? []}
+            onChange={(opts) => update({ limitNames: opts.length ? opts.map((o) => o.value) : undefined })}
+          />
+        )}
+      </Stack>
+    </InlineField>
   );
 }
 

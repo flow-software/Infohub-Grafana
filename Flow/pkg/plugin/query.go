@@ -83,8 +83,10 @@ type queryModel struct {
 	// variables are replaced in the frontend). No values keeps all.
 	AttributeFilter string   `json:"attributeFilter"`
 	AttributeValues []string `json:"attributeValues"`
-	// Limits "lines" draws each measure's Flow limits as threshold lines.
-	Limits string `json:"limits"`
+	// Limits "lines" draws each measure's Flow limits as threshold lines;
+	// LimitNames keeps only those limits (no names draws them all).
+	Limits     string   `json:"limits"`
+	LimitNames []string `json:"limitNames"`
 	// Annotate "comments" returns the measures' value comments as
 	// annotations instead of their values (annotation queries).
 	Annotate string `json:"annotate"`
