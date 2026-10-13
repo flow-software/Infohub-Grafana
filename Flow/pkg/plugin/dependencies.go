@@ -364,7 +364,7 @@ func (d *Datasource) runDependencies(ctx context.Context, qm queryModel, q backe
 		notices = append(notices, "Could not read full measure names: "+err.Error())
 	}
 
-	frames := depNodeGraph(rows, names, values, treeOf, graphs, direction, qm.DepNames == depNamesMeasure, qm.DepTypeMark == depTypeSymbol, qm.Limits == limitsLines)
+	frames := depNodeGraph(rows, names, values, treeOf, graphs, direction, qm.DepNames == depNamesMeasure, qm.Limits == limitsLines)
 	if len(notices) > 0 {
 		frames[0].Meta.Notices = append(frames[0].Meta.Notices, noticesOf(notices)...)
 	}
@@ -616,30 +616,12 @@ var nodeKinds = []struct{ key, label, color string }{
 	{"other", "Other", "#8E8E8E"},
 }
 
-// typeSymbols mark the retrieval type under a node's value when the query
-// asks for symbols instead of ring colours. Grafana's node icons cannot be
-// used: a node with an icon shows the icon instead of its value.
-// They are the text characters nearest Flow's own retrieval marks (the
-// node graph cannot draw images): Flow draws a triangle for aggregated,
-// an equals sign for calculated, a tray with a plus for manual, a cylinder
-// for retrieved and a boxed cross for replicated.
-var typeSymbols = map[string]string{
-	"calculated": "=",
-	"aggregated": "△",
-	"manual":     "⊎",
-	"retrieved":  "▮",
-	"replicated": "⊞",
-}
-
 // The legend entry explaining the red fill Grafana draws inside a
 // highlighted node (an out-of-limit value).
 const (
 	redFillLegend = "Red fill = outside limits"
 	redFillColor  = "#AA0000"
 )
-
-// depTypeSymbol is the query value that asks for symbols.
-const depTypeSymbol = "symbol"
 
 // depSource describes where a measure's values come from: its connection,
 // or the Flow tag it reads, named like its node.
@@ -663,7 +645,7 @@ func depSource(info depInfo, tree flow.Tree, names map[string]depName) string {
 // link, pointing the way values flow. A node shows its latest value, with
 // how the measure is built as its subtitle; the rest (path, formula, source,
 // who entered it) is in the menu a click on the node opens.
-func depNodeGraph(rows []depRow, names map[string]depName, values map[string]depValue, treeOf map[string]flow.Tree, graphs map[flow.Tree]*depGraph, direction string, ownNames, symbols, limits bool) data.Frames {
+func depNodeGraph(rows []depRow, names map[string]depName, values map[string]depValue, treeOf map[string]flow.Tree, graphs map[flow.Tree]*depGraph, direction string, ownNames, limits bool) data.Frames {
 	type node struct {
 		id, title, subtitle, mainstat, kind, measureID             string
 		path, calculation, aggregation, source, enteredBy, valueAt string
@@ -780,37 +762,6 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		highlighted[i] = n.outside
 	}
 	nodeFrame.Fields = append(nodeFrame.Fields, data.NewField("highlighted", nil, highlighted))
-
-	if symbols {
-		// The type as a symbol under the value, and a plain grey ring. The
-		// panel lists both fields in its legend, so the symbol field is
-		// named as the key to the symbols in this graph.
-		var key []string
-		seenKind := map[string]bool{}
-		for _, k := range nodeKinds {
-			for _, n := range nodes {
-				if n.kind == k.key && typeSymbols[k.key] != "" && !seenKind[k.key] {
-					seenKind[k.key] = true
-					key = append(key, typeSymbols[k.key]+" "+strings.ToLower(k.label))
-				}
-			}
-		}
-		symbol := data.NewField("secondarystat", nil, col(func(n node) string { return typeSymbols[n.kind] }))
-		symbol.Config = &data.FieldConfig{DisplayName: strings.Join(key, " · ")}
-		nodeFrame.Fields = append(nodeFrame.Fields, symbol)
-		// Without a colour field Grafana draws grey rings, and the legend
-		// is the value and the symbol key. With limits, a grey colour field
-		// adds a legend entry that explains the red fill. It cannot carry
-		// a red swatch: Grafana colours the rings from the field's config
-		// colour when it has one.
-		if limits {
-			ring := data.NewField("color", nil, col(func(node) string { return "#8E8E8E" }))
-			ring.Config = &data.FieldConfig{DisplayName: redFillLegend}
-			nodeFrame.Fields = append(nodeFrame.Fields, ring)
-		}
-		nodeFrame.Meta = &data.FrameMeta{PreferredVisualization: data.VisTypeNodeGraph}
-		return data.Frames{nodeFrame, depEdgeFrame(edgeIDs, sources, targets, edgeStats, edgeDetails)}
-	}
 
 	// The ring colour comes from arc fields rather than one colour field:
 	// the panel then lists them as its legend. Only the kinds in this graph

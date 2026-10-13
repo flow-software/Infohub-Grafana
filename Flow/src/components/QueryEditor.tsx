@@ -761,20 +761,6 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
         </InlineField>
       )}
       <InlineField
-        label="Type as"
-        labelWidth={LABEL_WIDTH}
-        tooltip="How each node shows its retrieval type. Colour: the ring's colour (blue calculated, orange aggregated, purple manual, green retrieved, light blue replicated), named in the legend. Symbol: a symbol under the value (= calculated, △ aggregated, ⊎ manual, ▮ retrieved, ⊞ replicated: the text characters nearest Flow's own retrieval marks) with grey rings; the legend lists the symbols. Either way, a node outside its limits is filled red when Show limits is on."
-      >
-        <RadioButtonGroup<'colour' | 'symbol'>
-          options={[
-            { label: 'Colour', value: 'colour' },
-            { label: 'Symbol', value: 'symbol' },
-          ]}
-          value={query.depTypeMark === 'symbol' ? 'symbol' : 'colour'}
-          onChange={(v) => update({ depTypeMark: v === 'symbol' ? 'symbol' : undefined })}
-        />
-      </InlineField>
-      <InlineField
         label="Names"
         labelWidth={LABEL_WIDTH}
         tooltip="Full name: Flow's Metric.Measure name, with any parent measures. Measure name: only the measure's own name, which keeps nested measures short. Click a node for its full path either way."

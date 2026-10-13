@@ -64,9 +64,6 @@ type queryModel struct {
 	// DepNames "measure" titles nodes by the measure's own name ("WTD")
 	// rather than Flow's full Metric.Parent.Measure name.
 	DepNames string `json:"depNames"`
-	// DepTypeMark "symbol" shows the retrieval type as a symbol under the
-	// value (ƒx, Σ, ...) instead of colouring the node's ring by it.
-	DepTypeMark string `json:"depTypeMark"`
 
 	// Events queries (items are events): table, timeline or annotations.
 	EventFormat string `json:"eventFormat"`

@@ -489,27 +489,4 @@ func TestNodeGraphArcsAndLimits(t *testing.T) {
 		t.Errorf("limits detail = %q", got)
 	}
 
-	// Symbols: the type under the value, a plain grey ring, the fill kept.
-	frames = runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, Limits: limitsLines, DepTypeMark: depTypeSymbol})
-	if got := nodeCol(t, frames, "secondarystat"); got[m10] != "=" || got[m11] != "△" || got[m12] != "⊎" || got[m13] != "▮" {
-		t.Errorf("symbols = %v", got)
-	}
-	if f, _ := frames[0].FieldByName("arc__calculated"); f != nil {
-		t.Error("ring colours with symbols")
-	}
-	// Rings stay grey (the colour field's values); its legend entry
-	// explains the red fill.
-	if got := column(t, frames[0], "color"); got[0] != "#8E8E8E" {
-		t.Errorf("ring colours = %v", got)
-	}
-	if f, _ := frames[0].FieldByName("color"); f.Config.DisplayName != redFillLegend {
-		t.Errorf("ring legend = %q", f.Config.DisplayName)
-	}
-	// The legend is the key to the symbols present.
-	if f, _ := frames[0].FieldByName("secondarystat"); f.Config.DisplayName != "= calculated · △ aggregated · ⊎ manual · ▮ retrieved" {
-		t.Errorf("symbol key = %q", f.Config.DisplayName)
-	}
-	if got := column(t, frames[0], "highlighted"); got[0] != "true" {
-		t.Errorf("highlighted with symbols = %v", got)
-	}
 }
