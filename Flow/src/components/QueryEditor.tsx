@@ -745,6 +745,21 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
           tooltip="Period measures show their latest value in this calendar. A measure that does not have the calendar as context in Flow shows a dash; click it for why. Tags do not use a calendar."
         />
       )}
+      {query.depValues !== 'none' && (
+        <InlineField
+          label="Limits"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Turn a node red when its latest value is outside its limits in this calendar, as Flow flags it; click the node for the limit it breaks. Off, nodes keep their retrieval type colour."
+        >
+          <InlineSwitch
+            id="query-editor-dep-limits"
+            label="Show limits"
+            showLabel
+            value={query.limits === 'lines'}
+            onChange={(e) => update({ limits: e.currentTarget.checked ? 'lines' : undefined })}
+          />
+        </InlineField>
+      )}
       <InlineField
         label="Names"
         labelWidth={LABEL_WIDTH}

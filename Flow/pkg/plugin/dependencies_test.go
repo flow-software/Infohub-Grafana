@@ -433,8 +433,19 @@ func TestDependenciesCalendar(t *testing.T) {
 // the panel shows them as its legend; a latest value outside its limits
 // turns its node red, and its click menu says which limit.
 func TestNodeGraphArcsAndLimits(t *testing.T) {
-	_, d := depServer(t)
+	fake, d := depServer(t)
+	// Limits are off by default: no exceptions asked for, no red node.
 	frames := runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}})
+	if got, _ := frames[0].FieldByName("arc__outside"); got != nil {
+		t.Error("outside-limits node without Show limits")
+	}
+	for _, r := range fake.requests {
+		if strings.Contains(r, "exceptions=true") {
+			t.Errorf("exceptions asked for without Show limits: %s", r)
+		}
+	}
+
+	frames = runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, Limits: limitsLines})
 	nodes := frames[0]
 	if f, _ := nodes.FieldByName("color"); f != nil {
 		t.Error("color field still sent; arcs replace it")

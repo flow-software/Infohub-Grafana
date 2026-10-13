@@ -142,7 +142,9 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 		}
 		if err == nil && len(periodIDs) > 0 {
 			res, err := d.client.MeasureData(ctx, flow.MeasureDataRequest{
-				IDs: periodIDs, CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit, Users: true, Exceptions: true,
+				IDs: periodIDs, CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit, Users: true,
+				// Limit exceptions only when the query shows limits.
+				Exceptions: qm.Limits == limitsLines,
 			})
 			switch {
 			case flow.IsNoData(err):
@@ -165,7 +167,7 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 					}
 					if best != nil {
 						put(s.ID, best.Value, best.Formatted, best.Start.Time, best.User)
-						if out := outsideText(best.Limits); out != "" {
+						if out := outsideText(best.Limits); out != "" && qm.Limits == limitsLines {
 							key := depKey(flow.TreeModel, "measure", s.ID)
 							v := values[key]
 							v.Outside = out
