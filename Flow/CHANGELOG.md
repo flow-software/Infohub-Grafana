@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The annotation query editor offers only Measures (value comments) and Events (event periods). Chart and Dependencies were listed but could not produce annotations.
+
 ## 1.3.0
 
 - Dashboard variables: model attribute values, measures (template instances or a metric's measures, valued by id), events and event attribute values, each optionally narrowed by a model attribute that can use other variables.

@@ -88,12 +88,19 @@ const bucketOptions: Array<{ label: string; value: TagBucket; description: strin
 export function QueryEditor(props: Props) {
   const { query, onChange, onRunQuery } = props;
   const queryType = query.queryType ?? 'measures';
+  // An annotation query can only mark value comments (Measures) or event
+  // periods (Events); a chart table or a dependency tree has no times to
+  // mark, so those tabs are not offered there.
+  const annotation = query.refId === ANNOTATION_REF_ID;
+  const options = annotation
+    ? queryTypeOptions.filter((o) => o.value === 'measures' || o.value === 'events')
+    : queryTypeOptions;
 
   return (
     <Stack direction="column" gap={0.5}>
       <InlineField label="Query" labelWidth={LABEL_WIDTH}>
         <RadioButtonGroup
-          options={queryTypeOptions}
+          options={options}
           value={queryType}
           onChange={(v) => {
             // Events and measures cannot be mixed, so crossing over clears the picks.
