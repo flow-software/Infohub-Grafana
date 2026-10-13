@@ -286,6 +286,16 @@ func (c *Client) MeasuresWithMetadata(ctx context.Context, tree Tree, ids []int)
 	return found, failed, nil
 }
 
+// AllMeasuresWithFields lists every measure in the tree the token can read,
+// with its model attributes.
+func (c *Client) AllMeasuresWithFields(ctx context.Context, tree Tree) ([]Measure, error) {
+	var r struct {
+		Measures []Measure `json:"measures"`
+	}
+	err := c.get(ctx, fmt.Sprintf("v1/%s/measures", tree), url.Values{"fields": {"true"}}, &r)
+	return r.Measures, err
+}
+
 // AllMeasureIDs lists every measure in the tree the token can read.
 func (c *Client) AllMeasureIDs(ctx context.Context, tree Tree) ([]int, error) {
 	var r struct {
@@ -365,6 +375,8 @@ type MeasureDataRequest struct {
 	// EventID reads one value per period of this event instead of per
 	// calendar period, with each period's attributes. CalendarID is unused.
 	EventID int
+	// Comments asks for each value's comments, with their users.
+	Comments bool
 }
 
 func (c *Client) MeasureData(ctx context.Context, r MeasureDataRequest) (*MeasureData, error) {
@@ -384,8 +396,11 @@ func (c *Client) MeasureData(ctx context.Context, r MeasureDataRequest) (*Measur
 	if r.Limit > 0 {
 		q.Set("limit", strconv.Itoa(r.Limit))
 	}
-	if r.Users {
+	if r.Users || r.Comments {
 		q.Set("users", "true")
+	}
+	if r.Comments {
+		q.Set("comments", "true")
 	}
 	var out MeasureData
 	if err := c.get(ctx, "v1/data/measures", q, &out); err != nil {

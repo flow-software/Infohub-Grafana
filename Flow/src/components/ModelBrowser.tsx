@@ -16,7 +16,7 @@ import {
   useStyles2,
 } from '@grafana/ui';
 
-import { BrowseKind, DataSource } from '../datasource';
+import type { BrowseKind, DataSource } from '../datasource';
 import { hasIntervalIcon, IntervalIcon } from './IntervalIcon';
 import { BrowseNode, itemKey, QueryItem, Tree } from '../types';
 

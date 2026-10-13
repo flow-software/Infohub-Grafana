@@ -23,7 +23,10 @@ export interface QueryItem {
 
 export type TagBucket = 'auto' | 'fixed' | 'calendar';
 
-export type QueryType = 'measures' | 'chart' | 'dependencies' | 'events';
+export type QueryType = 'measures' | 'chart' | 'dependencies' | 'events' | 'variable';
+
+/** What a dashboard variable query lists. */
+export type VariableKind = 'attributeValues' | 'measures' | 'events' | 'eventValues';
 
 /** How an events query lays out event periods. */
 export type EventFormat = 'table' | 'timeline' | 'annotations';
@@ -65,6 +68,24 @@ export interface FlowQuery extends DataQuery {
   eventValues?: string[];
   /** One series per value of eventAttribute. */
   eventSplit?: boolean;
+
+  /**
+   * Keep only measures whose model attribute has one of the values, e.g.
+   * Line = "Line 1". Values may be dashboard variables ("$line").
+   */
+  attributeFilter?: string;
+  attributeValues?: string[];
+  /** A dashboard variable holding measure ids ("$measure"), added to items. */
+  measureVariable?: string;
+  /** "lines" draws each measure's Flow limits as threshold lines. */
+  limits?: 'lines';
+  /** Annotation queries on measures: "comments" shows their value comments. */
+  annotate?: 'comments';
+
+  /** Variable queries. */
+  variableKind?: VariableKind;
+  /** attributeValues: the model attribute to list the values of. */
+  variableAttribute?: string;
 
   /** Measure queries. */
   items?: QueryItem[];

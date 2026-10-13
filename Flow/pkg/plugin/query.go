@@ -78,6 +78,21 @@ type queryModel struct {
 	EventValues    []string `json:"eventValues"`
 	EventSplit     bool     `json:"eventSplit"`
 
+	// AttributeFilter with AttributeValues keeps only measures whose model
+	// attribute has one of the values, e.g. Line = "Line 1" (dashboard
+	// variables are replaced in the frontend). No values keeps all.
+	AttributeFilter string   `json:"attributeFilter"`
+	AttributeValues []string `json:"attributeValues"`
+	// Limits "lines" draws each measure's Flow limits as threshold lines.
+	Limits string `json:"limits"`
+	// Annotate "comments" returns the measures' value comments as
+	// annotations instead of their values (annotation queries).
+	Annotate string `json:"annotate"`
+
+	// Variable queries: what to list, see variables.go.
+	VariableKind      string `json:"variableKind"`
+	VariableAttribute string `json:"variableAttribute"`
+
 	// Measure queries.
 	Items []queryItem `json:"items"`
 	// CalendarID for period measures; zero uses the datasource default.
@@ -114,6 +129,13 @@ func (qm *queryModel) validate() error {
 	case "", queryTypeMeasures:
 	case queryTypeChart:
 		return nil
+	case queryTypeVariable:
+		for _, it := range qm.Items {
+			if !it.Tree.Valid() || (it.Type != itemMetric && it.Type != itemMeasure && it.Type != itemEvent) {
+				return fmt.Errorf("item %d: unknown %s %s", it.ID, it.Tree, it.Type)
+			}
+		}
+		return nil
 	case queryTypeEvents:
 		switch qm.EventFormat {
 		case "", eventFormatTable, eventFormatTimeline, eventFormatAnnotations:
@@ -146,6 +168,12 @@ func (qm *queryModel) validate() error {
 	}
 	if qm.Context != "" && qm.Context != contextEvent {
 		return fmt.Errorf("unknown context %q", qm.Context)
+	}
+	if qm.Limits != "" && qm.Limits != limitsLines {
+		return fmt.Errorf("unknown limits option %q", qm.Limits)
+	}
+	if qm.Annotate != "" && qm.Annotate != annotateComments {
+		return fmt.Errorf("unknown annotation kind %q", qm.Annotate)
 	}
 	if qm.Aggregation != "" && qm.Aggregation != aggregationRaw && !aggregations[qm.Aggregation] {
 		return fmt.Errorf("unknown aggregation %q", qm.Aggregation)
@@ -258,12 +286,35 @@ type point struct {
 }
 
 func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery) (backend.DataResponse, error) {
+	if qm.Annotate == annotateComments {
+		return d.runComments(ctx, qm, q)
+	}
 	sel, err := d.resolve(ctx, qm.Items)
 	if err != nil {
 		return backend.DataResponse{}, err
 	}
 	notices := append([]string(nil), sel.warnings...)
 	var all []series
+
+	// Model measures outside the attribute filter are not read at all.
+	// Template instances are expanded by Flow, so those are filtered after
+	// reading, below.
+	if qm.AttributeFilter != "" && len(qm.AttributeValues) > 0 {
+		measures, err := d.modelMeasures(ctx)
+		if err != nil {
+			return backend.DataResponse{}, fmt.Errorf("reading model attributes: %w", err)
+		}
+		keep := func(ids []int) []int {
+			var out []int
+			for _, id := range ids {
+				if m, ok := measures[id]; ok && attributeMatch(m, qm.AttributeFilter, qm.AttributeValues) {
+					out = append(out, id)
+				}
+			}
+			return out
+		}
+		sel.periodIDs, sel.tagIDs = keep(sel.periodIDs), keep(sel.tagIDs)
+	}
 
 	if qm.Context == contextEvent && len(sel.periodIDs)+len(sel.periodTemplateIDs) > 0 {
 		got, warn, err := d.readEventPeriods(ctx, sel, qm, q.TimeRange)
@@ -294,6 +345,17 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 		notices = append(notices, warn...)
 	}
 
+	if qm.AttributeFilter != "" && len(qm.AttributeValues) > 0 {
+		var warn string
+		all, warn, err = d.filterByAttribute(ctx, all, qm.AttributeFilter, qm.AttributeValues)
+		if err != nil {
+			return backend.DataResponse{}, err
+		}
+		if warn != "" {
+			notices = append(notices, warn)
+		}
+	}
+
 	ids := make([]int, len(all))
 	for i, s := range all {
 		ids[i] = s.id
@@ -318,6 +380,9 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 			info = seriesInfo{ID: s.id, Path: fmt.Sprintf("measure %d", s.id)}
 		}
 		resp.Frames = append(resp.Frames, buildFrame(s, info, qm))
+	}
+	if qm.Limits == limitsLines && len(all) > 0 {
+		notices = append(notices, d.applyLimits(ctx, resp.Frames, all, qm)...)
 	}
 	if len(notices) > 0 {
 		if len(resp.Frames) == 0 {

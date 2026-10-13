@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Dashboard variables: model attribute values, measures (template instances or a metric's measures, valued by id), events and event attribute values, each optionally narrowed by a model attribute that can use other variables.
+- Measures can be filtered by a model attribute (e.g. Line = `$line`, multi-value and All supported), and taken from a variable of measure ids. Model measures outside the filter are not read.
+- Show limits: each measure's Flow limits for the query's calendar or event as dashed threshold lines, listed in the series description.
+- Annotation queries on the Measures tab mark the comments on the measures' values, with who wrote them and when.
+
 ## 1.2.0
 
 - Chart queries show the chart's model attribute columns (after UOM, titled as in Flow), one per attribute. A measure without a value for the attribute gets a blank cell; charts without model attribute columns are unchanged.

@@ -16,7 +16,7 @@ import {
   useStyles2,
 } from '@grafana/ui';
 
-import { BrowseKind, DataSource } from '../datasource';
+import type { BrowseKind, DataSource } from '../datasource';
 import {
   AGGREGATIONS,
   AttributeValueOption,
@@ -33,13 +33,14 @@ import {
   SelectionSummary,
   TagBucket,
 } from '../types';
+import { AttributeFilterField } from './AttributeFilterField';
 import { ChartBrowser } from './ChartBrowser';
 import { hasIntervalIcon, IntervalIcon } from './IntervalIcon';
 import { ModelBrowser } from './ModelBrowser';
 
 type Props = QueryEditorProps<DataSource, FlowQuery, FlowOptions>;
 
-const LABEL_WIDTH = 14;
+export const LABEL_WIDTH = 14;
 
 const queryTypeOptions: Array<{ label: string; value: QueryType; description: string }> = [
   { label: 'Measures', value: 'measures', description: 'Pick metrics, measures and tags from the model or templates' },
@@ -190,9 +191,13 @@ function useSummary(datasource: DataSource, items: QueryItem[]): SelectionSummar
 }
 
 function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
+  const styles = useStyles2(getStyles);
   const items = useMemo(() => query.items ?? [], [query.items]);
   const summary = useSummary(datasource, items);
-  const showPeriods = items.length > 0 && (!summary || summary.periodMeasures > 0);
+  // Measures from a variable are unknown until the panel runs, so their
+  // period options show too.
+  const fromVariable = !!query.measureVariable;
+  const showPeriods = (items.length > 0 && (!summary || summary.periodMeasures > 0)) || fromVariable;
   const showTags = items.length > 0 && (!summary || summary.tags > 0);
   const aggregated = !!query.aggregation && query.aggregation !== 'raw';
   const bucket = query.bucket ?? 'auto';
@@ -226,6 +231,38 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
         onChange={(next) => update({ items: next })}
         tooltip="Pick metrics and measures from the model or from templates. A metric returns all its measures; a template item returns every instance created from it."
       />
+      <InlineField
+        label="Variable"
+        labelWidth={LABEL_WIDTH}
+        tooltip="A dashboard variable holding measure ids, such as a Measures variable of this data source: $measure. Its measures are added to those picked above; with Multi-value or All, every selected one."
+      >
+        <Input
+          id="query-editor-measure-variable"
+          width={30}
+          placeholder="$measure"
+          defaultValue={query.measureVariable ?? ''}
+          onBlur={(e) => update({ measureVariable: e.currentTarget.value.trim() || undefined })}
+        />
+      </InlineField>
+      {(items.length > 0 || fromVariable) && (
+        <AttributeFilterField
+          datasource={datasource}
+          label="Filter"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Keep only measures whose model attribute has one of these values, e.g. Line = Line 1. Pick a template measure above and a $line variable here to get one dashboard for every line."
+          attribute={query.attributeFilter}
+          values={query.attributeValues}
+          onChange={(attributeFilter, attributeValues) => update({ attributeFilter, attributeValues })}
+        />
+      )}
+      {query.refId === ANNOTATION_REF_ID && (
+        <InlineField label="Shown as" labelWidth={LABEL_WIDTH}>
+          <span className={styles.hint}>
+            The comments on these measures&apos; values are marked on the time series panels of this dashboard, with who
+            wrote them and when.
+          </span>
+        </InlineField>
+      )}
 
       {showPeriods && <GroupHeading title="Period measures" count={summary?.periodMeasures} />}
       {showPeriods && (
@@ -324,8 +361,8 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
         </InlineField>
       )}
 
-      {items.length > 0 && <GroupHeading title="Display" />}
-      {items.length > 0 && (
+      {(items.length > 0 || fromVariable) && query.refId !== ANNOTATION_REF_ID && <GroupHeading title="Display" />}
+      {(items.length > 0 || fromVariable) && query.refId !== ANNOTATION_REF_ID && (
         <>
           <InlineField
             label="Legend"
@@ -363,6 +400,19 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
               />
             </Stack>
           </InlineField>
+          <InlineField
+            label="Limits"
+            labelWidth={LABEL_WIDTH}
+            tooltip="Draw each measure's limits from Flow as dashed lines: bounds red, targets green. The limits are those for the query's calendar (or event) as they apply now; limits that take their value from another measure are listed in the series description but not drawn. Hover the legend for the list."
+          >
+            <InlineSwitch
+              id="query-editor-limits"
+              label="Show limits"
+              showLabel
+              value={query.limits === 'lines'}
+              onChange={(e) => update({ limits: e.currentTarget.checked ? 'lines' : undefined })}
+            />
+          </InlineField>
         </>
       )}
     </>
@@ -370,7 +420,7 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
 }
 
 /** The Browse button and the chips of the picked metrics and measures, or events. */
-function ItemsPicker({
+export function ItemsPicker({
   datasource,
   items,
   onChange,

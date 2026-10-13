@@ -45,6 +45,8 @@ type browseNode struct {
 //	GET search?tree=..&q=text&kind=events  events by name
 //	GET contextEvents?item=<tree>:<type>:<id>..  events the selected model measures have as context
 //	GET eventValues?event=N&attribute=Name  values of an event attribute seen in the last 90 days
+//	GET attributes                         model attribute names on measures
+//	GET attributeValues?attribute=Name     values of a model attribute on measures
 //	GET charts                             root chart folders
 //	GET charts?id=N                        a chart folder's folders and charts
 //	GET summary?item=<tree>:<type>:<id>..  how many period measures and tags a selection holds
@@ -110,6 +112,10 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 		body, err = d.summary(ctx, params["item"])
 	case "contextEvents":
 		body, err = d.contextEvents(ctx, params["item"])
+	case "attributes":
+		body, err = d.attributeNamesResource(ctx)
+	case "attributeValues":
+		body, err = d.attributeValuesResource(ctx, params.Get("attribute"))
 	case "eventValues":
 		id, _ := strconv.Atoi(params.Get("event"))
 		body, err = d.eventValues(ctx, id, params.Get("attribute"))

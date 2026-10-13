@@ -8,6 +8,8 @@ Chart [Flow](https://www.flow-software.com) measures and tags in Grafana. Browse
 - **Flow charts as tables.** Pick a time-based chart, such as a time-based table, and see it in Grafana as Flow lays it out: sections, measures, limits, one column per period, and cells coloured by the chart's limit colours.
 - **Events.** Event periods and their attributes as a table, a state timeline, or annotations on any panel, coloured as in Flow.
 - **Dependencies.** See how a measure is built: the measures it is calculated, aggregated or set from, and theirs in turn, or the other way round, what is built from it. Shown in Grafana's Node Graph panel.
+- **Dashboard variables.** Dropdowns filled from Flow: model attribute values (e.g. every Line), the instances of a template, events, and event attribute values. Panels follow them through an attribute filter (Line = `$line`) or a variable of measure ids.
+- **Limits and comments.** Show each measure's Flow limits as dashed lines on its trend, and the comments on its values as markers on the dashboard.
 - **Grafana alerting.** Queries run in the plugin backend, so they work in alert rules. Each measure is its own series labelled with its path and id, so one rule produces one alert instance per instance.
 
 ## Requirements
@@ -39,6 +41,8 @@ Select **Browse** to open the model browser. The **Model** tab shows the folders
 - A **template** metric or measure returns every model measure created from it.
 The options below the selection depend on what it holds. **Period measures** options appear only when it contains period measures, and **Tags** options only when it contains tags; each heading shows how many. Each chip shows what the item is (tag, hourly, daily, metric) and whether it comes from a template.
 
+- **Variable**: a dashboard variable holding measure ids, such as a *Measures* variable of this data source (`$measure`). Its measures are added to those picked with Browse; with Multi-value or All, every selected one.
+- **Filter**: keep only measures whose model attribute has one of the values, e.g. *Line* = *Line 1*. The values can be dashboard variables: pick a template measure and *Line* = `$line` to get one dashboard for every line.
 - **Context**: *Calendar* reads period measures per calendar period; *Event* reads them per period of an event (see below).
 - **Calendar**: period measures are read in this calendar. The measure must have the calendar as context in Flow; measures that do not are listed as a warning on the panel. Choose whether each value is placed at the **period start** or **end**.
 - **Event** (event context): the event whose periods the measures are read in. The list holds the events the selected model measures have as context in Flow. Optionally pick an **Attribute** to keep only periods with some of its values (the values seen in the last 90 days are suggested; others can be typed), and turn on **Series per value** to get a series per value, coloured as in Flow. **Time at** *Whole period* (the default in event context) draws each value as a line from its event period's start to its end, with a gap until the next period: unlike calendar periods, event periods do not run back to back, so a single timestamp would hide when each one ran. *Period start* or *end* places the value at one of them instead. Template measures are not read in event context, because each instance has its own event. Measures that belong to an event themselves (rather than to a metric) are not supported yet.
@@ -46,6 +50,9 @@ The options below the selection depend on what it holds. **Period measures** opt
 - **Legend** names each series. Pick a preset (*Full path*, the default; *Full path and unit*; *Folder and measure*; *Metric and measure*; *Measure*; *Measure and unit*; *Folder*), or type your own pattern with `{{path}}`, `{{folder}}`, `{{metric}}`, `{{measure}}`, `{{id}}` and `{{uom}}`. An empty unit or folder is left out cleanly. Template instances share their metric and measure names, so keep the folder or path in the name to tell them apart.
 - **Quality field** adds each value's quality (Good, Uncertain, Bad). Leave it off for alert rules.
 - **Bad quality as gaps** blanks values whose quality is not Good.
+- **Show limits** draws each measure's limits from Flow as dashed lines: bounds red, targets green. They are the limits for the query's calendar (or event) as they apply now. The legend's tooltip lists them, e.g. *Moonshot < 3; Site < 5*. A limit that takes its value from another measure is listed but not drawn.
+
+To mark the comments on measures' values on a dashboard, add an annotation query in the dashboard settings (Annotations) with this data source, switch it to **Measures** and pick them. Each comment becomes a marker at its value's time, with who wrote it and when.
 
 ### Events
 
@@ -57,6 +64,17 @@ Pick events with **Browse** (only folders that hold events, directly or further 
 To shade event periods on other panels, add an annotation query in the dashboard settings (Annotations) with this data source. It starts as an events query: pick the events, and each period becomes a region on the dashboard's time series panels, titled with the event and labelled with its attributes. The regions take the annotation query's colour.
 
 Up to 10,000 event periods are read per query; past that the panel warns.
+
+### Variables
+
+Add a *Query* variable with this data source and choose what it lists:
+
+- *Attribute values*: the values of a model attribute, e.g. every *Line*. Optionally only on some measures (template items stand for their instances).
+- *Measures*: measures by folder path, valued by measure id: the instances of template measures or metrics, or a model metric's measures. Use it with a panel's **Variable** field.
+- *Events*: events by folder path, valued by event id; optionally only the instances of template events.
+- *Event values*: the values of an event attribute seen in the last 90 days.
+
+*Attribute values* and *Measures* can be narrowed with **Where** (a model attribute and values), which can use other variables, so lists can follow each other: a *Line* variable, then the measures where *Line* = `$line`. Model attributes are read for the whole model in one call and kept for five minutes.
 
 ### Chart
 

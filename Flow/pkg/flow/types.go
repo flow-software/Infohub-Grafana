@@ -60,6 +60,23 @@ type Measure struct {
 	Template    *Ref   `json:"template"`
 	// Metadata is only filled when asked for (metadata=true).
 	Metadata []MeasureMetadata `json:"metadata"`
+	// Fields are the measure's model attributes, only filled when asked
+	// for (fields=true). Flow resolves values that refer to other
+	// attributes before sending them.
+	Fields []Field `json:"fields"`
+}
+
+// Field is one model attribute value, e.g. Line = "Line 1".
+type Field struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// Comment is a comment on a value, with who wrote it when.
+type Comment struct {
+	Comment  string `json:"comment"`
+	DateTime *Time  `json:"datetime"`
+	User     *User  `json:"user"`
 }
 
 // MeasureMetadata describes how a measure gets its values. Type is
@@ -71,6 +88,10 @@ type Measure struct {
 //	aggregation: "measure" or "event" (the source), "type", "interval", "scaling"
 //	manual:      "type"; with "SetToMeasure", "id" is the measure copied
 //	context:     "calendars" and "events", the ids the measure has as context
+//	limit:       one entry per measure limit: {<calendar or event name>:
+//	             {<limit name>: {<date it applies from>: {comparator, high,
+//	             target, low, highid, targetid, lowid}}}}; an *id is a
+//	             measure the value comes from instead of a constant
 //	retrieval:   "source" is the connection name, or "Tag" with "id" the tag
 //	             measure read from; then the connection's properties by
 //	             lower-cased label ("tag", "aggregation", ...)
@@ -162,6 +183,8 @@ type PeriodValue struct {
 	// Attributes are the event period's attribute values, for values read
 	// per event period (eventPeriods=true, attributes=true).
 	Attributes []AttributeValue `json:"attributes"`
+	// Comments are only sent when asked for (comments=true).
+	Comments []Comment `json:"comments"`
 }
 
 type User struct {

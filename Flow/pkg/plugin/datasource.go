@@ -75,6 +75,7 @@ type Datasource struct {
 
 	charts chartCache
 	deps   depIndex
+	attrs  attributeCache
 }
 
 func (d *Datasource) Dispose() {
@@ -147,6 +148,8 @@ func (d *Datasource) query(ctx context.Context, q backend.DataQuery) backend.Dat
 		return backend.DataResponse{}
 	case qm.QueryType == queryTypeChart:
 		resp, err = d.runChart(ctx, qm, q)
+	case qm.QueryType == queryTypeVariable:
+		resp, err = d.runVariable(ctx, qm)
 	case len(qm.Items) == 0:
 		return backend.DataResponse{}
 	case qm.QueryType == queryTypeDeps:
