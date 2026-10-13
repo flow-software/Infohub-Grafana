@@ -377,6 +377,8 @@ type MeasureDataRequest struct {
 	EventID int
 	// Comments asks for each value's comments, with their users.
 	Comments bool
+	// Exceptions asks for the limits each value breaks.
+	Exceptions bool
 }
 
 func (c *Client) MeasureData(ctx context.Context, r MeasureDataRequest) (*MeasureData, error) {
@@ -401,6 +403,9 @@ func (c *Client) MeasureData(ctx context.Context, r MeasureDataRequest) (*Measur
 	}
 	if r.Comments {
 		q.Set("comments", "true")
+	}
+	if r.Exceptions {
+		q.Set("exceptions", "true")
 	}
 	var out MeasureData
 	if err := c.get(ctx, "v1/data/measures", q, &out); err != nil {

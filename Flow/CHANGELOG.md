@@ -5,6 +5,7 @@
 - Dashboard variables: model attribute values, measures (template instances or a metric's measures, valued by id), events and event attribute values, each optionally narrowed by a model attribute that can use other variables.
 - Measures can be filtered by a model attribute (e.g. Line = `$line`, multi-value and All supported), and taken from a variable of measure ids. Model measures outside the filter are not read.
 - Show limits: the measures' Flow limits for the query's calendar or event as dashed threshold lines, listed in the series description. Pick which limits to draw (e.g. only Site); switching on picks the first. Limits of other calendars are never shown on a period measure.
+- Dependency node graph: a node whose latest value is outside its limits (as Flow flags it) is red, and its click menu names the limit. The panel's legend now lists the circle colours in the graph (retrieval types, outside limits) instead of "mainstat / color".
 - Annotation queries on the Measures tab mark the comments on the measures' values, with who wrote them and when.
 
 ## 1.2.0

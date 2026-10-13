@@ -28,6 +28,29 @@ type depValue struct {
 	LastEntry *depEntry
 	// Note says why a measure has no value, e.g. it is not in the calendar.
 	Note string
+	// Outside describes the limits the value breaks, as Flow flags them,
+	// e.g. "above high limit 5"; empty when it is within its limits.
+	Outside string
+}
+
+// outsideText describes the limits a value breaks.
+func outsideText(limits []flow.ValueLimit) string {
+	num := func(v *float64) string {
+		if v == nil {
+			return ""
+		}
+		return " " + strconv.FormatFloat(*v, 'f', -1, 64)
+	}
+	var parts []string
+	for _, l := range limits {
+		switch {
+		case l.Exception.High:
+			parts = append(parts, "above high limit"+num(l.Values.High))
+		case l.Exception.Low:
+			parts = append(parts, "below low limit"+num(l.Values.Low))
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 type depEntry struct {
@@ -119,7 +142,7 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 		}
 		if err == nil && len(periodIDs) > 0 {
 			res, err := d.client.MeasureData(ctx, flow.MeasureDataRequest{
-				IDs: periodIDs, CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit, Users: true,
+				IDs: periodIDs, CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit, Users: true, Exceptions: true,
 			})
 			switch {
 			case flow.IsNoData(err):
@@ -142,6 +165,12 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 					}
 					if best != nil {
 						put(s.ID, best.Value, best.Formatted, best.Start.Time, best.User)
+						if out := outsideText(best.Limits); out != "" {
+							key := depKey(flow.TreeModel, "measure", s.ID)
+							v := values[key]
+							v.Outside = out
+							values[key] = v
+						}
 						if entered != nil && entered != best {
 							key := depKey(flow.TreeModel, "measure", s.ID)
 							v := values[key]

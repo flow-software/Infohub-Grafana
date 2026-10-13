@@ -185,6 +185,22 @@ type PeriodValue struct {
 	Attributes []AttributeValue `json:"attributes"`
 	// Comments are only sent when asked for (comments=true).
 	Comments []Comment `json:"comments"`
+	// Limits are the limits this value breaks, only sent when asked for
+	// (exceptions=true) and only on values outside a limit.
+	Limits []ValueLimit `json:"limits"`
+}
+
+// ValueLimit is a limit a value breaks: the limit's values and which side.
+type ValueLimit struct {
+	Values struct {
+		High   *float64 `json:"high"`
+		Target *float64 `json:"target"`
+		Low    *float64 `json:"low"`
+	} `json:"values"`
+	Exception struct {
+		High bool `json:"high"`
+		Low  bool `json:"low"`
+	} `json:"exception"`
 }
 
 type User struct {

@@ -203,7 +203,13 @@ export class FlowVariableSupport extends CustomVariableSupport<DataSource, FlowQ
   }
 
   query(request: DataQueryRequest<FlowQuery>): Observable<DataQueryResponse> {
-    const targets = request.targets.map((t) => ({ ...t, queryType: 'variable' as const }));
+    // A new variable query has no refId, and Grafana drops results it
+    // cannot match back to a query by refId: the preview showed nothing.
+    const targets = request.targets.map((t) => ({
+      ...t,
+      refId: t.refId || 'variable',
+      queryType: 'variable' as const,
+    }));
     return this.datasource.query({ ...request, targets });
   }
 }

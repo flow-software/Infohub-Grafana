@@ -109,7 +109,7 @@ func depServer(t *testing.T) (*fakeFlow, *Datasource) {
 				{"start": "2026-10-06T01:00:00Z", "value": 8},
 			}},
 			{"id": 10, "data": []map[string]any{
-				{"start": "2026-10-06T01:00:00Z", "value": 81.5},
+				{"start": "2026-10-06T01:00:00Z", "value": 81.5, "limits": []any{map[string]any{"values": map[string]any{"high": 80}, "exception": map[string]any{"high": true}}}},
 				{"start": "2026-10-06T00:00:00Z", "value": 70},
 				{"start": "2026-10-06T02:00:00Z"},
 			}},
@@ -426,5 +426,46 @@ func TestDependenciesCalendar(t *testing.T) {
 	frames = runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, CalendarID: 1})
 	if got := nodeCol(t, frames, "mainstat")[m12]; got != "8" {
 		t.Errorf("mainstat of 12 in calendar 1 = %q", got)
+	}
+}
+
+// Circles are coloured through arc fields, one per kind in the graph, so
+// the panel shows them as its legend; a latest value outside its limits
+// turns its node red, and its click menu says which limit.
+func TestNodeGraphArcsAndLimits(t *testing.T) {
+	_, d := depServer(t)
+	frames := runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}})
+	nodes := frames[0]
+	if f, _ := nodes.FieldByName("color"); f != nil {
+		t.Error("color field still sent; arcs replace it")
+	}
+	arc := func(kind string) map[string]float64 {
+		f, _ := nodes.FieldByName("arc__" + kind)
+		out := map[string]float64{}
+		if f == nil {
+			return out
+		}
+		ids := column(t, nodes, "id")
+		for i := 0; i < f.Len(); i++ {
+			out[ids[i]] = f.At(i).(float64)
+		}
+		return out
+	}
+	if arc("outside")[m10] != 1 || arc("calculated")[m10] != 0 {
+		t.Errorf("10 is outside its limit: outside %v, calculated %v", arc("outside"), arc("calculated"))
+	}
+	if arc("aggregated")[m11] != 1 || arc("manual")[m12] != 1 || arc("retrieved")[m13] != 1 {
+		t.Errorf("kinds: aggregated %v manual %v retrieved %v", arc("aggregated"), arc("manual"), arc("retrieved"))
+	}
+	// Only kinds in the graph get a field (a legend entry).
+	if f, _ := nodes.FieldByName("arc__replicated"); f != nil {
+		t.Error("replicated arc without a replicated node")
+	}
+	f, _ := nodes.FieldByName("arc__outside")
+	if f.Config.DisplayName != "Outside limits" || f.Config.Color["fixedColor"] != "#F2495C" {
+		t.Errorf("outside arc config = %+v", f.Config)
+	}
+	if got := nodeCol(t, frames, "detail__limits")[m10]; got != "Outside: above high limit 80" {
+		t.Errorf("limits detail = %q", got)
 	}
 }

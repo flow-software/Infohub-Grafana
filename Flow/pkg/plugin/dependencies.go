@@ -604,6 +604,20 @@ var retrievalColors = map[string]string{
 	"replicated": "#8AB8FF",
 }
 
+// nodeKinds are the circle colours of the Node Graph, in legend order. A
+// node is drawn in exactly one: its retrieval type, or red when its latest
+// value is outside its limits, or grey for events and measures Flow could
+// not describe.
+var nodeKinds = []struct{ key, label, color string }{
+	{"outside", "Outside limits", "#F2495C"},
+	{"calculated", "Calculated", retrievalColors["calculated"]},
+	{"aggregated", "Aggregated", retrievalColors["aggregated"]},
+	{"manual", "Manual", retrievalColors["manual"]},
+	{"retrieved", "Retrieved", retrievalColors["retrieved"]},
+	{"replicated", "Replicated", retrievalColors["replicated"]},
+	{"other", "Other", "#8E8E8E"},
+}
+
 // depSource describes where a measure's values come from: its connection,
 // or the Flow tag it reads, named like its node.
 func depSource(info depInfo, tree flow.Tree, names map[string]depName) string {
@@ -628,9 +642,9 @@ func depSource(info depInfo, tree flow.Tree, names map[string]depName) string {
 // who entered it) is in the menu a click on the node opens.
 func depNodeGraph(rows []depRow, names map[string]depName, values map[string]depValue, treeOf map[string]flow.Tree, graphs map[flow.Tree]*depGraph, direction string, ownNames bool) data.Frames {
 	type node struct {
-		id, title, subtitle, mainstat, color, measureID            string
+		id, title, subtitle, mainstat, kind, measureID             string
 		path, calculation, aggregation, source, enteredBy, valueAt string
-		note                                                       string
+		limits, note                                               string
 	}
 	var nodes []node
 	seen := map[string]int{} // node key -> index in nodes
@@ -648,7 +662,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		} else {
 			seen[key] = len(nodes)
 			nm := names[key]
-			n := node{id: key, title: nm.Name, path: nm.Path, color: "#8E8E8E"}
+			n := node{id: key, title: nm.Name, path: nm.Path, kind: "other"}
 			if ownNames && nm.Own != "" {
 				n.title = nm.Own
 			}
@@ -662,18 +676,21 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 				n.subtitle = depStats(m)
 				info := depInfoOf(m)
 				n.calculation, n.aggregation, n.source = info.Calculation, info.Aggregation, depSource(info, tree, names)
+				if _, ok := retrievalColors[strings.ToLower(m.Retrieval)]; ok {
+					n.kind = strings.ToLower(m.Retrieval)
+				}
 				if v, ok := values[key]; ok && v.Value != nil {
 					n.mainstat = v.Text
 					n.valueAt = v.Time.UTC().Format(time.RFC3339)
 					if strings.EqualFold(m.Retrieval, "manual") {
 						n.enteredBy = v.enteredBy()
 					}
+					if v.Outside != "" {
+						n.kind, n.limits = "outside", "Outside: "+v.Outside
+					}
 				} else if ok {
 					n.mainstat = "–"
 					n.note = v.Note
-				}
-				if c, ok := retrievalColors[strings.ToLower(m.Retrieval)]; ok {
-					n.color = c
 				}
 			}
 			if r.Type == "event" {
@@ -721,8 +738,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		data.NewField("id", nil, col(func(n node) string { return n.id })),
 		data.NewField("title", nil, col(func(n node) string { return n.title })),
 		data.NewField("subtitle", nil, col(func(n node) string { return n.subtitle })),
-		data.NewField("mainstat", nil, col(func(n node) string { return n.mainstat })),
-		data.NewField("color", nil, col(func(n node) string { return n.color })),
+		latestValueField(col(func(n node) string { return n.mainstat })),
 		detail("measureId", "Measure ID", func(n node) string { return n.measureID }),
 		detail("path", "Path", func(n node) string { return n.path }),
 		detail("calculation", "Calculation", func(n node) string { return n.calculation }),
@@ -730,8 +746,30 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		detail("source", "Data source", func(n node) string { return n.source }),
 		detail("enteredBy", "Entered by", func(n node) string { return n.enteredBy }),
 		detail("valueTime", "Value at", func(n node) string { return n.valueAt }),
+		detail("limits", "Limits", func(n node) string { return n.limits }),
 		detail("note", "Note", func(n node) string { return n.note }),
 	)
+	// The circle colour comes from arc fields rather than one colour field:
+	// the panel then lists them as its legend. Only the kinds in this graph
+	// get a field, so the legend stays short.
+	present := map[string]bool{}
+	for _, n := range nodes {
+		present[n.kind] = true
+	}
+	for _, k := range nodeKinds {
+		if !present[k.key] {
+			continue
+		}
+		vals := make([]float64, len(nodes))
+		for i, n := range nodes {
+			if n.kind == k.key {
+				vals[i] = 1
+			}
+		}
+		f := data.NewField("arc__"+k.key, nil, vals)
+		f.Config = &data.FieldConfig{DisplayName: k.label, Color: map[string]any{"mode": "fixed", "fixedColor": k.color}}
+		nodeFrame.Fields = append(nodeFrame.Fields, f)
+	}
 	nodeFrame.Meta = &data.FrameMeta{PreferredVisualization: data.VisTypeNodeGraph}
 	edgeFrame := data.NewFrame("edges",
 		data.NewField("id", nil, edgeIDs),
@@ -757,5 +795,13 @@ func depTruncatedNote(direction string) string {
 func detailField(name, label string, values []string) *data.Field {
 	f := data.NewField("detail__"+name, nil, values)
 	f.Config = &data.FieldConfig{DisplayName: label}
+	return f
+}
+
+// latestValueField is the value shown in each circle. The panel lists it
+// in its legend too, so it is named for what it is, not "mainstat".
+func latestValueField(values []string) *data.Field {
+	f := data.NewField("mainstat", nil, values)
+	f.Config = &data.FieldConfig{DisplayName: "Latest value"}
 	return f
 }
