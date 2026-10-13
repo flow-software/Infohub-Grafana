@@ -364,7 +364,7 @@ func (d *Datasource) runDependencies(ctx context.Context, qm queryModel, q backe
 		notices = append(notices, "Could not read full measure names: "+err.Error())
 	}
 
-	frames := depNodeGraph(rows, names, values, treeOf, graphs, direction, qm.DepNames == depNamesMeasure)
+	frames := depNodeGraph(rows, names, values, treeOf, graphs, direction, qm.DepNames == depNamesMeasure, qm.DepTypeMark == depTypeSymbol, qm.Limits == limitsLines)
 	if len(notices) > 0 {
 		frames[0].Meta.Notices = append(frames[0].Meta.Notices, noticesOf(notices)...)
 	}
@@ -604,12 +604,10 @@ var retrievalColors = map[string]string{
 	"replicated": "#8AB8FF",
 }
 
-// nodeKinds are the circle colours of the Node Graph, in legend order. A
-// node is drawn in exactly one: its retrieval type, or red when its latest
-// value is outside its limits, or grey for events and measures Flow could
-// not describe.
+// nodeKinds are the ring colours of the Node Graph, in legend order: the
+// retrieval type, or grey for events and measures Flow could not describe.
+// A value outside its limits fills the node red instead (highlighted).
 var nodeKinds = []struct{ key, label, color string }{
-	{"outside", "Outside limits", "#F2495C"},
 	{"calculated", "Calculated", retrievalColors["calculated"]},
 	{"aggregated", "Aggregated", retrievalColors["aggregated"]},
 	{"manual", "Manual", retrievalColors["manual"]},
@@ -617,6 +615,27 @@ var nodeKinds = []struct{ key, label, color string }{
 	{"replicated", "Replicated", retrievalColors["replicated"]},
 	{"other", "Other", "#8E8E8E"},
 }
+
+// typeSymbols mark the retrieval type under a node's value when the query
+// asks for symbols instead of ring colours. Grafana's node icons cannot be
+// used: a node with an icon shows the icon instead of its value.
+var typeSymbols = map[string]string{
+	"calculated": "ƒx",
+	"aggregated": "Σ",
+	"manual":     "✎",
+	"retrieved":  "⇣",
+	"replicated": "⇄",
+}
+
+// The legend entry explaining the red fill Grafana draws inside a
+// highlighted node (an out-of-limit value).
+const (
+	redFillLegend = "Red fill = outside limits"
+	redFillColor  = "#AA0000"
+)
+
+// depTypeSymbol is the query value that asks for symbols.
+const depTypeSymbol = "symbol"
 
 // depSource describes where a measure's values come from: its connection,
 // or the Flow tag it reads, named like its node.
@@ -640,11 +659,12 @@ func depSource(info depInfo, tree flow.Tree, names map[string]depName) string {
 // link, pointing the way values flow. A node shows its latest value, with
 // how the measure is built as its subtitle; the rest (path, formula, source,
 // who entered it) is in the menu a click on the node opens.
-func depNodeGraph(rows []depRow, names map[string]depName, values map[string]depValue, treeOf map[string]flow.Tree, graphs map[flow.Tree]*depGraph, direction string, ownNames bool) data.Frames {
+func depNodeGraph(rows []depRow, names map[string]depName, values map[string]depValue, treeOf map[string]flow.Tree, graphs map[flow.Tree]*depGraph, direction string, ownNames, symbols, limits bool) data.Frames {
 	type node struct {
 		id, title, subtitle, mainstat, kind, measureID             string
 		path, calculation, aggregation, source, enteredBy, valueAt string
 		limits, note                                               string
+		outside                                                    bool
 	}
 	var nodes []node
 	seen := map[string]int{} // node key -> index in nodes
@@ -686,7 +706,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 						n.enteredBy = v.enteredBy()
 					}
 					if v.Outside != "" {
-						n.kind, n.limits = "outside", "Outside: "+v.Outside
+						n.outside, n.limits = true, "Outside: "+v.Outside
 					}
 				} else if ok {
 					n.mainstat = "–"
@@ -749,7 +769,46 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		detail("limits", "Limits", func(n node) string { return n.limits }),
 		detail("note", "Note", func(n node) string { return n.note }),
 	)
-	// The circle colour comes from arc fields rather than one colour field:
+	// A value outside its limits fills the node: Grafana draws a highlighted
+	// node dark red inside, so the ring can still show the retrieval type.
+	highlighted := make([]bool, len(nodes))
+	for i, n := range nodes {
+		highlighted[i] = n.outside
+	}
+	nodeFrame.Fields = append(nodeFrame.Fields, data.NewField("highlighted", nil, highlighted))
+
+	if symbols {
+		// The type as a symbol under the value, and a plain grey ring. The
+		// panel lists both fields in its legend, so the symbol field is
+		// named as the key to the symbols in this graph.
+		var key []string
+		seenKind := map[string]bool{}
+		for _, k := range nodeKinds {
+			for _, n := range nodes {
+				if n.kind == k.key && typeSymbols[k.key] != "" && !seenKind[k.key] {
+					seenKind[k.key] = true
+					key = append(key, typeSymbols[k.key]+" "+strings.ToLower(k.label))
+				}
+			}
+		}
+		symbol := data.NewField("secondarystat", nil, col(func(n node) string { return typeSymbols[n.kind] }))
+		symbol.Config = &data.FieldConfig{DisplayName: strings.Join(key, " · ")}
+		nodeFrame.Fields = append(nodeFrame.Fields, symbol)
+		// Without a colour field Grafana draws grey rings, and the legend
+		// is the value and the symbol key. With limits, a grey colour field
+		// adds a legend entry that explains the red fill. It cannot carry
+		// a red swatch: Grafana colours the rings from the field's config
+		// colour when it has one.
+		if limits {
+			ring := data.NewField("color", nil, col(func(node) string { return "#8E8E8E" }))
+			ring.Config = &data.FieldConfig{DisplayName: redFillLegend}
+			nodeFrame.Fields = append(nodeFrame.Fields, ring)
+		}
+		nodeFrame.Meta = &data.FrameMeta{PreferredVisualization: data.VisTypeNodeGraph}
+		return data.Frames{nodeFrame, depEdgeFrame(edgeIDs, sources, targets, edgeStats, edgeDetails)}
+	}
+
+	// The ring colour comes from arc fields rather than one colour field:
 	// the panel then lists them as its legend. Only the kinds in this graph
 	// get a field, so the legend stays short.
 	present := map[string]bool{}
@@ -770,16 +829,27 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		f.Config = &data.FieldConfig{DisplayName: k.label, Color: map[string]any{"mode": "fixed", "fixedColor": k.color}}
 		nodeFrame.Fields = append(nodeFrame.Fields, f)
 	}
+	if limits {
+		// An arc of zero on every node: no ring section, only a legend
+		// entry that explains the red fill.
+		f := data.NewField("arc__redfill", nil, make([]float64, len(nodes)))
+		f.Config = &data.FieldConfig{DisplayName: redFillLegend, Color: map[string]any{"mode": "fixed", "fixedColor": redFillColor}}
+		nodeFrame.Fields = append(nodeFrame.Fields, f)
+	}
 	nodeFrame.Meta = &data.FrameMeta{PreferredVisualization: data.VisTypeNodeGraph}
-	edgeFrame := data.NewFrame("edges",
-		data.NewField("id", nil, edgeIDs),
+	return data.Frames{nodeFrame, depEdgeFrame(edgeIDs, sources, targets, edgeStats, edgeDetails)}
+}
+
+func depEdgeFrame(ids, sources, targets, stats, details []string) *data.Frame {
+	f := data.NewFrame("edges",
+		data.NewField("id", nil, ids),
 		data.NewField("source", nil, sources),
 		data.NewField("target", nil, targets),
-		data.NewField("mainstat", nil, edgeStats),
-		detailField("formula", "Detail", edgeDetails),
+		data.NewField("mainstat", nil, stats),
+		detailField("formula", "Detail", details),
 	)
-	edgeFrame.Meta = &data.FrameMeta{PreferredVisualization: data.VisTypeNodeGraph}
-	return data.Frames{nodeFrame, edgeFrame}
+	f.Meta = &data.FrameMeta{PreferredVisualization: data.VisTypeNodeGraph}
+	return f
 }
 
 // depTruncatedNote marks a node whose links the depth limit cut off.

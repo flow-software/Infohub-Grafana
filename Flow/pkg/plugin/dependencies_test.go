@@ -462,21 +462,54 @@ func TestNodeGraphArcsAndLimits(t *testing.T) {
 		}
 		return out
 	}
-	if arc("outside")[m10] != 1 || arc("calculated")[m10] != 0 {
-		t.Errorf("10 is outside its limit: outside %v, calculated %v", arc("outside"), arc("calculated"))
+	// The ring keeps the retrieval type; outside its limit, the node is
+	// filled red (highlighted) instead.
+	if arc("calculated")[m10] != 1 || arc("aggregated")[m11] != 1 || arc("manual")[m12] != 1 || arc("retrieved")[m13] != 1 {
+		t.Errorf("rings: calculated %v aggregated %v manual %v retrieved %v", arc("calculated"), arc("aggregated"), arc("manual"), arc("retrieved"))
 	}
-	if arc("aggregated")[m11] != 1 || arc("manual")[m12] != 1 || arc("retrieved")[m13] != 1 {
-		t.Errorf("kinds: aggregated %v manual %v retrieved %v", arc("aggregated"), arc("manual"), arc("retrieved"))
+	if f, _ := nodes.FieldByName("arc__outside"); f != nil {
+		t.Error("outside is a fill now, not a ring colour")
+	}
+	if got := column(t, nodes, "highlighted"); strings.Join(got, ",") != "true,false,false,false" {
+		t.Errorf("highlighted = %v", got)
 	}
 	// Only kinds in the graph get a field (a legend entry).
 	if f, _ := nodes.FieldByName("arc__replicated"); f != nil {
 		t.Error("replicated arc without a replicated node")
 	}
-	f, _ := nodes.FieldByName("arc__outside")
-	if f.Config.DisplayName != "Outside limits" || f.Config.Color["fixedColor"] != "#F2495C" {
-		t.Errorf("outside arc config = %+v", f.Config)
+	// The legend explains the red fill with an empty arc.
+	if f, _ := nodes.FieldByName("arc__redfill"); f == nil || f.Config.DisplayName != redFillLegend || f.At(0).(float64) != 0 {
+		t.Errorf("red fill legend = %+v", f)
+	}
+	f, _ := nodes.FieldByName("arc__calculated")
+	if f.Config.DisplayName != "Calculated" || f.Config.Color["fixedColor"] != "#5794F2" {
+		t.Errorf("calculated arc config = %+v", f.Config)
 	}
 	if got := nodeCol(t, frames, "detail__limits")[m10]; got != "Outside: above high limit 80" {
 		t.Errorf("limits detail = %q", got)
+	}
+
+	// Symbols: the type under the value, a plain grey ring, the fill kept.
+	frames = runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, Limits: limitsLines, DepTypeMark: depTypeSymbol})
+	if got := nodeCol(t, frames, "secondarystat"); got[m10] != "ƒx" || got[m11] != "Σ" || got[m12] != "✎" || got[m13] != "⇣" {
+		t.Errorf("symbols = %v", got)
+	}
+	if f, _ := frames[0].FieldByName("arc__calculated"); f != nil {
+		t.Error("ring colours with symbols")
+	}
+	// Rings stay grey (the colour field's values); its legend entry
+	// explains the red fill.
+	if got := column(t, frames[0], "color"); got[0] != "#8E8E8E" {
+		t.Errorf("ring colours = %v", got)
+	}
+	if f, _ := frames[0].FieldByName("color"); f.Config.DisplayName != redFillLegend {
+		t.Errorf("ring legend = %q", f.Config.DisplayName)
+	}
+	// The legend is the key to the symbols present.
+	if f, _ := frames[0].FieldByName("secondarystat"); f.Config.DisplayName != "ƒx calculated · Σ aggregated · ✎ manual · ⇣ retrieved" {
+		t.Errorf("symbol key = %q", f.Config.DisplayName)
+	}
+	if got := column(t, frames[0], "highlighted"); got[0] != "true" {
+		t.Errorf("highlighted with symbols = %v", got)
 	}
 }

@@ -51,6 +51,8 @@ export interface FlowQuery extends DataQuery {
   depValues?: 'none';
   /** "measure" titles nodes by the measure's own name ("WTD"); unset uses Flow's full Metric.Measure name. */
   depNames?: 'measure';
+  /** "symbol" shows the retrieval type as a symbol under the value instead of a ring colour. */
+  depTypeMark?: 'symbol';
 
   /** Events queries: table (default), state timeline, or annotations. */
   eventFormat?: EventFormat;
