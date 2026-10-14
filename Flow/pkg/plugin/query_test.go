@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -409,6 +411,48 @@ func TestCheckHealth(t *testing.T) {
 	res, _ = d.CheckHealth(context.Background(), &backend.CheckHealthRequest{})
 	if res.Status != backend.HealthStatusError || !strings.Contains(res.Message, "401") {
 		t.Errorf("bad token health = %s", res.Message)
+	}
+}
+
+// Flow fails a whole tag read when it cannot read one tag (a Latch transform
+// without a latch source); the other tags still show, with a warning.
+func TestOneBadTagDoesNotFailTheRest(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	calls := 0
+	f.handlers["/api/v1/data/tags"] = func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		ids := r.URL.Query()["tagid"]
+		if slices.Contains(ids, "301") {
+			writeJSON(w, 400, map[string]any{"errors": []string{"Could not determine a latch source"}})
+			return
+		}
+		var values []map[string]any
+		for _, id := range ids {
+			n, _ := strconv.Atoi(id)
+			values = append(values, map[string]any{"id": n, "data": []map[string]any{{"start": "2026-10-06T00:10:00Z", "value": 1.5}}})
+		}
+		writeJSON(w, 200, map[string]any{"values": values})
+	}
+	d := testDatasource(srv)
+	resp := runQuery(t, d, queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 201}, {Tree: flow.TreeModel, Type: itemMeasure, ID: 301}}})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if len(resp.Frames) != 1 {
+		t.Fatalf("frames = %d, want the readable tag only", len(resp.Frames))
+	}
+	var notices []string
+	for _, n := range resp.Frames[0].Meta.Notices {
+		notices = append(notices, n.Text)
+	}
+	if !slices.Contains(notices, "Flow could not read tag measure 301: Could not determine a latch source") {
+		t.Errorf("notices = %q", notices)
+	}
+
+	// Only the bad tag selected: the panel shows Flow's error, as before.
+	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 301}}})
+	if resp.Error == nil || !strings.Contains(resp.Error.Error(), "latch source") {
+		t.Errorf("error = %v", resp.Error)
 	}
 }
 

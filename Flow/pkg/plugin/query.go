@@ -2,7 +2,9 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -491,7 +493,61 @@ func (d *Datasource) readTagSelection(ctx context.Context, sel *selection, qm qu
 // one continuation for the whole answer (the earliest cut-off of any tag), so
 // a later page repeats values of tags that were not cut off; those are
 // dropped by keeping only values after each tag's last one.
+// readTags reads tag values. Flow fails the whole call when it cannot read
+// one of the tags (a Latch transform without a latch source, for one), so a
+// failing call over several tags is retried a tag at a time: the others
+// still show, and each tag Flow rejects becomes a warning.
 func (d *Datasource) readTags(ctx context.Context, req flow.TagDataRequest, maxPages int) ([]series, []string, error) {
+	out, warnings, err := d.readTagPages(ctx, req, maxPages)
+	var apiErr *flow.APIError
+	if err == nil || len(req.IDs)+len(req.TemplateIDs) < 2 || !errors.As(err, &apiErr) || apiErr.Status != http.StatusBadRequest {
+		return out, warnings, err
+	}
+	firstErr := err
+	out, warnings = nil, nil
+	seen := map[string]bool{}
+	var failed []string
+	read := func(one flow.TagDataRequest, label string) error {
+		s, w, err := d.readTagPages(ctx, one, maxPages)
+		var apiErr *flow.APIError
+		if errors.As(err, &apiErr) && apiErr.Status == http.StatusBadRequest {
+			failed = append(failed, fmt.Sprintf("Flow could not read %s: %s", label, strings.Join(apiErr.Messages, "; ")))
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		out = append(out, s...)
+		for _, x := range w {
+			if !seen[x] {
+				seen[x] = true
+				warnings = append(warnings, x)
+			}
+		}
+		return nil
+	}
+	for _, id := range req.IDs {
+		one := req
+		one.IDs, one.TemplateIDs = []int{id}, nil
+		if err := read(one, fmt.Sprintf("tag measure %d", id)); err != nil {
+			return nil, nil, err
+		}
+	}
+	for _, id := range req.TemplateIDs {
+		one := req
+		one.IDs, one.TemplateIDs = nil, []int{id}
+		if err := read(one, fmt.Sprintf("template tag measure %d", id)); err != nil {
+			return nil, nil, err
+		}
+	}
+	if len(failed) == len(req.IDs)+len(req.TemplateIDs) {
+		return nil, nil, firstErr
+	}
+	return out, append(warnings, failed...), nil
+}
+
+// readTagPages reads tag values in one call per page.
+func (d *Datasource) readTagPages(ctx context.Context, req flow.TagDataRequest, maxPages int) ([]series, []string, error) {
 	byID := map[int]*series{}
 	var order []int
 	var warnings []string

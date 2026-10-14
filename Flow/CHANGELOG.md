@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- One tag Flow cannot read no longer fails the whole query: when Flow rejects a read of several tags (for example "Could not determine a latch source" for a Latch transform without a latch source), the tags are read one at a time, the others are shown, and each rejected tag is named in a warning.
 - Dependencies: tag transforms (Latch, Exception, ...) are linked to the tag they transform, with the transform type on the node and the arrow. Flow describes them as `tagTransform` metadata from the build after 7.2.0 `08964ed26`; earlier builds return a server error for these measures, which the plugin reports as before.
 
 ## 1.3.1
