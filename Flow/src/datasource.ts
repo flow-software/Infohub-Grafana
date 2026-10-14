@@ -69,6 +69,8 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
       legend: query.legend ? srv.replace(query.legend, scopedVars) : query.legend,
       attributeValues: expandValues(query.attributeValues, scopedVars),
       eventValues: expandValues(query.eventValues, scopedVars),
+      // An empty variable (a measure without limits) leaves no names: all are drawn.
+      limitNames: expandValues(query.limitNames, scopedVars)?.filter((n) => n !== ''),
       // Attribute names may be variables too, so one dashboard serves Line, Site, ...
       attributeFilter: query.attributeFilter ? srv.replace(query.attributeFilter, scopedVars) : query.attributeFilter,
       variableAttribute: query.variableAttribute

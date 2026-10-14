@@ -90,6 +90,11 @@ describe('applyTemplateVariables', () => {
     expect(prepare(anno({ refId: 'Anno', queryType: 'events', items: [] }))).toBeUndefined();
   });
 
+  it('expands limit names and drops an empty one', () => {
+    expect(ds.applyTemplateVariables({ refId: 'A', limitNames: ['$area'] }, {}).limitNames).toEqual(['Packing']);
+    expect(ds.applyTemplateVariables({ refId: 'A', limitNames: [''] }, {}).limitNames).toEqual([]);
+  });
+
   it('takes the chart of a chart variable', () => {
     const out = ds.applyTemplateVariables({ refId: 'A', queryType: 'chart', chartId: 1, chartVariable: '$chart' }, {});
     expect(out.chartId).toBe(5);

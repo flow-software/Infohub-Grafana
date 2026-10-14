@@ -32,6 +32,11 @@ const kindOptions: Array<{ label: string; value: VariableKind; description: stri
     description: 'The values of an event attribute seen in the last 90 days',
   },
   { label: 'Charts', value: 'charts', description: 'Time-based Flow charts by folder path, valued by id' },
+  {
+    label: 'Limits',
+    value: 'limits',
+    description: 'The limit names (e.g. Site) the measures have in the default calendar, for Show limits',
+  },
 ];
 
 /**
@@ -90,6 +95,30 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
               : 'The event whose attribute values to list.'
           }
         />
+      )}
+
+      {kind === 'limits' && (
+        <>
+          <ItemsPicker
+            datasource={datasource}
+            items={items}
+            label="Of"
+            onChange={(next) => update({ items: next })}
+            tooltip="The measures whose limits to list."
+          />
+          <InlineField
+            label="Variable"
+            labelWidth={LABEL_WIDTH}
+            tooltip="Or a dashboard variable holding measure ids, such as $measure, so the list follows it."
+          >
+            <Input
+              width={30}
+              placeholder="$measure"
+              defaultValue={query.measureVariable ?? ''}
+              onBlur={(e) => update({ measureVariable: e.currentTarget.value.trim() || undefined })}
+            />
+          </InlineField>
+        </>
       )}
 
       {kind === 'eventValues' && (

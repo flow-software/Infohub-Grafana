@@ -31,6 +31,10 @@ const (
 	varEvents = "events"
 	// varEventValues: the values of an event attribute seen recently.
 	varEventValues = "eventValues"
+	// varLimits: the names of the limits the picked measures have in the
+	// query's calendar (or event), for a dashboard that lets people pick
+	// which limits to draw.
+	varLimits = "limits"
 	// varCharts: the charts the plugin can show (time-based), as value = id,
 	// text = information folder path.
 	varCharts = "charts"
@@ -63,6 +67,12 @@ func (d *Datasource) runVariable(ctx context.Context, qm queryModel) (backend.Da
 		opts, err = d.variableEventValues(ctx, qm)
 	case varCharts:
 		opts, err = d.variableCharts(ctx)
+	case varLimits:
+		var names []string
+		names, err = d.limitNames(ctx, qm)
+		for _, n := range names {
+			opts = append(opts, variableOption{n, n})
+		}
 	default:
 		return backend.DataResponse{}, &badRequest{fmt.Sprintf("unknown variable kind %q", qm.VariableKind)}
 	}

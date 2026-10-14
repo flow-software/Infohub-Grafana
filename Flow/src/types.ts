@@ -26,7 +26,8 @@ export interface QueryItem {
 export type QueryType = 'measures' | 'chart' | 'dependencies' | 'events' | 'variable';
 
 /** What a dashboard variable query lists. */
-export type VariableKind = 'attributeNames' | 'attributeValues' | 'measures' | 'events' | 'eventValues' | 'charts';
+export type VariableKind =
+  'attributeNames' | 'attributeValues' | 'measures' | 'events' | 'eventValues' | 'charts' | 'limits';
 
 /** How an events query lays out event periods. */
 export type EventFormat = 'table' | 'timeline' | 'annotations';

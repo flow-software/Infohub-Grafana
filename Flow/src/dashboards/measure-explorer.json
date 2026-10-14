@@ -44,6 +44,29 @@
         "sort": 0,
         "options": [],
         "current": {}
+      },
+      {
+        "name": "limit",
+        "label": "Limits",
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-flow-datasource",
+          "uid": "${ds}"
+        },
+        "query": {
+          "variableKind": "limits",
+          "measureVariable": "$measure",
+          "items": [],
+          "refId": "limit",
+          "queryType": "variable"
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
       }
     ]
   },
@@ -91,14 +114,14 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Pick a **Measure** above, from any folder of the Flow model. The trend draws its Flow limits as dashed lines and its value comments as markers (toggle **Comments** above). The graphs below show what the measure is built from and what uses it: the ring colour is the retrieval type, a red fill means the latest value is outside its limits. Click a node for its calculation, source and limits."
+        "content": "Pick a **Measure** above, from any folder of the Flow model. The trend draws the Flow limits picked in **Limits** as dashed lines (tick more to compare) and its value comments as markers (toggle **Comments** above). The graphs below show what the measure is built from and what uses it: the ring colour is the retrieval type, a red fill means the latest value is outside its limits. Click a node for its calculation, source and limits."
       },
       "id": 1
     },
     {
       "type": "timeseries",
       "title": "${measure:text}",
-      "description": "Measures tab with the Measure variable, Show limits on.",
+      "description": "Measures tab with the Measure variable, Show limits on for the limits picked in Limits.",
       "datasource": {
         "type": "flowsoftware-flow-datasource",
         "uid": "${ds}"
@@ -114,6 +137,7 @@
           "measureVariable": "$measure",
           "items": [],
           "limits": "lines",
+          "limitNames": ["$limit"],
           "legend": "{{measure}} ({{uom}})",
           "refId": "A",
           "datasource": {

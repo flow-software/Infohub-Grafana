@@ -8,12 +8,12 @@ Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in
 2. Add a **Flow** data source with the Flow Server URL and a server token (see [Configuration](#configuration)), then select **Save & test**.
 3. Open the data source's **Dashboards** tab and import the example dashboards. They pick measures, events and charts from dropdowns, so they work on any Flow model. Open any of their panels to see how its query is set up.
 
-| Dashboard                       | What it shows                                                                                                                   |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Flow: measure explorer**      | Pick any measure: its trend with limits and comments, its latest value, what it is built from and what uses it.                 |
-| **Flow: measures by attribute** | Pick a model attribute and its values (e.g. _Line_ = _Line 1_): the trend and latest values of every measure that carries them. |
-| **Flow: event analysis**        | Pick an event: its periods as a table and a timeline, and measures read per event period.                                       |
-| **Flow: chart viewer**          | Pick a time-based Flow chart: it is shown as Flow lays it out, with limit colours and comments.                                 |
+| Dashboard                       | What it shows                                                                                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Flow: measure explorer**      | Pick any measure: its trend with a limit (pick more to compare) and comments, its latest value, what it is built from and what uses it. |
+| **Flow: measures by attribute** | Pick a model attribute and its values (e.g. _Line_ = _Line 1_): the trend and latest values of every measure that carries them.         |
+| **Flow: event analysis**        | Pick an event: its periods as a table and a timeline, and measures read per event period.                                               |
+| **Flow: chart viewer**          | Pick a time-based Flow chart: it is shown as Flow lays it out, with limit colours and comments.                                         |
 
 ## What you can do
 
@@ -21,7 +21,7 @@ Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in
 
 ![A measure's trend with its Flow limits as dashed lines and its value comments as markers](/public/plugins/%PLUGIN_ID%/img/screenshots/measures.png)
 
-Period measures (hourly, shift, daily, ...) are read per calendar period; tags (timestamp measures) raw, averaged per panel interval only when there are more values than the panel can show. **Show limits** draws a measure's Flow limits as dashed lines, and an annotation query marks the comments on its values, with who wrote them and when.
+Period measures (hourly, shift, daily, ...) are read per calendar period; tags (timestamp measures) raw, averaged per panel interval only when there are more values than the panel can show. **Show limits** draws a measure's Flow limits as dashed lines (all of them, or the ones you pick), and an annotation query marks the comments on its values, with who wrote them and when.
 
 Pick items in the query editor: **Browse** walks the model folder by folder, or searches by name or measure ID (`4304`, `#4304` or `id:4304`). Each measure shows its ID, interval and retrieval type as Flow Config draws them. A metric stands for all of its measures, and a template metric or measure returns every model measure created from it, named by folder path so `Line 1/Production/Good` and `Line 2/Production/Good` stay apart.
 
@@ -120,6 +120,7 @@ Add a _Query_ variable with this data source and choose what it lists:
 - _Measures_: measures by folder path, valued by measure id: the instances of template measures or metrics, a model metric's measures, or with nothing picked every measure in the model. Use it with a panel's **Variable** field.
 - _Events_: events by folder path, valued by event id; optionally only the instances of template events. Use it with an events query's **Variable** or a measures query's **Event variable**.
 - _Event values_: the values of an event attribute seen in the last 90 days.
+- _Limits_: the limit names (e.g. _Site_) of some measures, or of a measure variable such as `$measure`, in the default calendar. Use it as `$limit` in a panel's limit picker, so people choose which limits are drawn.
 - _Charts_: the time-based charts in Flow's chart folders, by folder path, valued by chart id. Use it with a chart query's **Variable**.
 
 _Attribute values_ and _Measures_ can be narrowed with **Where** (a model attribute and values), which can use other variables, so lists can follow each other: a _Line_ variable, then the measures where _Line_ = `$line`. Model attributes are read for the whole model in one call and kept for five minutes.

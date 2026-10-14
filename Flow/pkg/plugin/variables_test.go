@@ -235,6 +235,11 @@ func TestMeasureLimitsAsThresholds(t *testing.T) {
 	if err != nil || strings.Join(names, ",") != "Moonshot,Site,Spec" {
 		t.Errorf("limit names = %v, %v", names, err)
 	}
+	// The same names as a Limits variable.
+	got := runVar(t, d, queryModel{VariableKind: varLimits, Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}})
+	if strings.Join(got, ",") != "Moonshot=Moonshot,Site=Site,Spec=Spec" {
+		t.Errorf("limits variable = %v", got)
+	}
 
 	// Without the option, nothing is drawn.
 	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}})
