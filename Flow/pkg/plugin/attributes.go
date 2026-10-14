@@ -55,17 +55,31 @@ func fieldValue(m flow.Measure, name string) (string, bool) {
 
 // attributeNames lists the model attribute names that measures carry.
 func attributeNames(measures map[int]flow.Measure) []string {
-	seen := map[string]string{}
+	// Names match without case; of the spellings of one name, keep the one
+	// most measures use (ties: the first alphabetically), so the answer does
+	// not depend on map order.
+	counts := map[string]map[string]int{}
 	for _, m := range measures {
 		for _, f := range m.Fields {
-			if _, ok := seen[strings.ToLower(f.Name)]; !ok && f.Name != "" {
-				seen[strings.ToLower(f.Name)] = f.Name
+			if f.Name == "" {
+				continue
 			}
+			key := strings.ToLower(f.Name)
+			if counts[key] == nil {
+				counts[key] = map[string]int{}
+			}
+			counts[key][f.Name]++
 		}
 	}
-	out := make([]string, 0, len(seen))
-	for _, n := range seen {
-		out = append(out, n)
+	out := make([]string, 0, len(counts))
+	for _, spellings := range counts {
+		best := ""
+		for n, c := range spellings {
+			if best == "" || c > spellings[best] || (c == spellings[best] && n < best) {
+				best = n
+			}
+		}
+		out = append(out, best)
 	}
 	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i]) < strings.ToLower(out[j]) })
 	return out
