@@ -86,6 +86,10 @@
         "name": "Event periods",
         "enable": true,
         "iconColor": "rgba(255, 152, 48, 0.35)",
+        "filter": {
+          "exclude": false,
+          "ids": [4]
+        },
         "target": {
           "refId": "Anno",
           "queryType": "events",

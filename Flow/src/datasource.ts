@@ -43,7 +43,7 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
           return undefined;
         }
         if (target.queryType === 'events') {
-          return target.items?.length ? { ...target, eventFormat: 'annotations' } : undefined;
+          return target.items?.length || target.eventVariable ? { ...target, eventFormat: 'annotations' } : undefined;
         }
         if ((target.queryType ?? 'measures') === 'measures') {
           return target.items?.length || target.measureVariable ? { ...target, annotate: 'comments' } : undefined;

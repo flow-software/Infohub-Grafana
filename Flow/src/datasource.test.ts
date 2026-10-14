@@ -81,6 +81,15 @@ describe('applyTemplateVariables', () => {
     expect(out.attributeValues).toEqual(['Line 1', 'Line 2']);
   });
 
+  it('runs event annotations that take their events from a variable', () => {
+    const prepare = ds.annotations!.prepareQuery!;
+    const anno = (target: object) => ({ name: 'periods', enable: true, iconColor: 'red', target }) as never;
+    expect(prepare(anno({ refId: 'Anno', queryType: 'events', items: [], eventVariable: '$event' }))).toMatchObject({
+      eventFormat: 'annotations',
+    });
+    expect(prepare(anno({ refId: 'Anno', queryType: 'events', items: [] }))).toBeUndefined();
+  });
+
   it('takes the chart of a chart variable', () => {
     const out = ds.applyTemplateVariables({ refId: 'A', queryType: 'chart', chartId: 1, chartVariable: '$chart' }, {});
     expect(out.chartId).toBe(5);
