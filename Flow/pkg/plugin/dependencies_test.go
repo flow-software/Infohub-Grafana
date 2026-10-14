@@ -25,6 +25,7 @@ import (
 //	18 FQ-001.PV  retrieved from Flow tag 13; its own name has a dot
 //	19 Target     a calculation of 10, nested under it
 //	20 WTD        a calculation of 19, nested under it
+//	21 Latched    a tag transform of 13
 //
 // 10, 18, 19 and 20 sit in metric 5 "Line"; the rest have no metric, so
 // their names stand as Flow gives them.
@@ -39,6 +40,7 @@ var depMetadata = map[int][]map[string]any{
 	18: {{"type": "retrieval", "data": map[string]any{"source": "Tag", "id": 13, "aggregation": "Average"}}},
 	19: {{"type": "calculation", "data": map[string]any{"dependents": []int{10}}}},
 	20: {{"type": "calculation", "data": map[string]any{"dependents": []int{19}}}},
+	21: {{"type": "tagTransform", "data": map[string]any{"measure": 13, "type": "Latch", "offset": "0", "scaling": 1}}, {"type": "context", "data": map[string]any{}}},
 }
 
 var depMetricOf = map[int]int{10: 5, 18: 5, 19: 5, 20: 5}
@@ -49,9 +51,9 @@ var depParentOf = map[int]int{19: 10, 20: 19}
 var depMetric5Names = map[int]string{10: "Line.OEE", 18: "Line.FQ-001.PV", 19: "Line.OEE.Target", 20: "Line.OEE.Target.WTD"}
 
 // depRetrievals overrides the fake's default retrieval, "calculated".
-var depRetrievals = map[int]string{11: "aggregated", 12: "manual", 13: "retrieved", 18: "retrieved"}
+var depRetrievals = map[int]string{11: "aggregated", 12: "manual", 13: "retrieved", 18: "retrieved", 21: "aggregated"}
 
-var depNamesByID = map[int]string{10: "Line.OEE", 11: "Line.Good", 12: "Line.Planned", 13: "Line.Count", 14: "Line.Broken", 15: "Line.Shift sum", 16: "Loop.A", 17: "Loop.B", 18: "Line.FQ-001.PV", 19: "Line.OEE.Target", 20: "Line.Target.WTD"}
+var depNamesByID = map[int]string{10: "Line.OEE", 11: "Line.Good", 12: "Line.Planned", 13: "Line.Count", 14: "Line.Broken", 15: "Line.Shift sum", 16: "Loop.A", 17: "Loop.B", 18: "Line.FQ-001.PV", 19: "Line.OEE.Target", 20: "Line.Target.WTD", 21: "Line.Latched"}
 
 func depServer(t *testing.T) (*fakeFlow, *Datasource) {
 	f, srv := newFakeFlow(t)
@@ -253,7 +255,7 @@ func TestDependenciesUsedBy(t *testing.T) {
 	_, d := depServer(t)
 	frames := runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 13}}, DepDirection: depUsedBy})
 	// Edges still point the way values flow: from 13 to what is built from it.
-	want := m13 + ">" + m11 + "," + m11 + ">" + m10 + "," + m10 + ">model:measure:19,model:measure:19>model:measure:20," + m13 + ">" + m12 + "," + m12 + ">" + m10 + "," + m13 + ">model:measure:18"
+	want := m13 + ">" + m11 + "," + m11 + ">" + m10 + "," + m10 + ">model:measure:19,model:measure:19>model:measure:20," + m13 + ">" + m12 + "," + m12 + ">" + m10 + "," + m13 + ">model:measure:18," + m13 + ">model:measure:21"
 	if got := edgeList(t, frames); got != want {
 		t.Fatalf("edges = %s, want %s", got, want)
 	}
@@ -354,6 +356,39 @@ func TestDependenciesRetrievedFromTag(t *testing.T) {
 	sources := nodeCol(t, frames, "detail__source")
 	if sources[m18] != "Flow tag Line.Count · average" || sources[m13] != "Sim · FQ.PV · Average" {
 		t.Errorf("sources = %q", sources)
+	}
+}
+
+// Flow describes a tag that transforms another tag (Latch, ...) as a
+// tagTransform; its source is drawn like an aggregation's.
+func TestDependenciesTagTransform(t *testing.T) {
+	_, d := depServer(t)
+	frames := runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 21}}})
+	m21 := "model:measure:21"
+	if got := edgeList(t, frames); got != m13+">"+m21 {
+		t.Fatalf("edges = %s", got)
+	}
+	if got := edgeCol(t, frames, "mainstat")[m13+">"+m21]; got != "transform" {
+		t.Errorf("relation = %q", got)
+	}
+	if got := nodeCol(t, frames, "detail__aggregation")[m21]; got != "Latch transform" {
+		t.Errorf("aggregation detail = %q", got)
+	}
+}
+
+func TestTransformDetail(t *testing.T) {
+	raw := func(s string) map[string]json.RawMessage {
+		var m map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(s), &m); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	if got := transformDetail(raw(`{"type":"Latch","offset":"0.0","scaling":"1.0"}`)); got != "Latch transform" {
+		t.Errorf("got %q", got)
+	}
+	if got := transformDetail(raw(`{"type":"Delta","offset":"5","scaling":0.5}`)); got != "Delta transform, offset 5, scaling 0.5" {
+		t.Errorf("got %q", got)
 	}
 }
 

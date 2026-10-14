@@ -33,7 +33,7 @@ const (
 
 // depLink is one input of a measure, as its metadata describes it.
 type depLink struct {
-	Kind       string // calculation, aggregation, set to measure, retrieval
+	Kind       string // calculation, aggregation, transform, set to measure, retrieval
 	SourceType string // measure or event
 	SourceID   int
 	// Detail is the formula, or the aggregation, e.g. "sum, weekly".
@@ -62,6 +62,11 @@ func depLinks(m flow.Measure) []depLink {
 				out = append(out, depLink{Kind: "aggregation", SourceType: "measure", SourceID: id, Detail: detail})
 			} else if json.Unmarshal(md.Data["event"], &id) == nil && id != 0 {
 				out = append(out, depLink{Kind: "aggregation", SourceType: "event", SourceID: id, Detail: detail})
+			}
+		case "tagtransform":
+			var id int
+			if json.Unmarshal(md.Data["measure"], &id) == nil && id != 0 {
+				out = append(out, depLink{Kind: "transform", SourceType: "measure", SourceID: id, Detail: transformDetail(md.Data)})
 			}
 		case "manual":
 			var t string
@@ -106,6 +111,8 @@ func depInfoOf(m flow.Measure) depInfo {
 			info.Calculation = latestFormula(md.Data)
 		case "aggregation":
 			info.Aggregation = strings.Trim(metaString(md.Data, "type")+", "+metaString(md.Data, "interval"), ", ")
+		case "tagtransform":
+			info.Aggregation = transformDetail(md.Data)
 		case "retrieval":
 			source := metaString(md.Data, "source")
 			if strings.EqualFold(source, "Tag") {
@@ -124,6 +131,24 @@ func depInfoOf(m flow.Measure) depInfo {
 	}
 	info.Source = strings.Join(sources, "; ")
 	return info
+}
+
+// transformDetail describes a tag transform, e.g. "Latch transform", with
+// its offset and scaling when they change the values.
+func transformDetail(d map[string]json.RawMessage) string {
+	parts := []string{strings.TrimSpace(metaString(d, "type") + " transform")}
+	// Flow sends these as text or numbers ("0", 1, "1.0"); compare the values.
+	if v := metaString(d, "offset"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err != nil || f != 0 {
+			parts = append(parts, "offset "+v)
+		}
+	}
+	if v := metaString(d, "scaling"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err != nil || f != 1 {
+			parts = append(parts, "scaling "+v)
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 // metaString reads a metadata value that Flow may send as a string or a number.

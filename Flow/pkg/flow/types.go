@@ -80,12 +80,14 @@ type Comment struct {
 }
 
 // MeasureMetadata describes how a measure gets its values. Type is
-// calculation, aggregation, manual, retrieval, limit or context; Data's keys
+// calculation, aggregation, tagTransform, manual, retrieval, limit or context; Data's keys
 // depend on it:
 //
 //	calculation: "dependents" (input measure ids) and the formula, keyed by
 //	             the date it applies from
 //	aggregation: "measure" or "event" (the source), "type", "interval", "scaling"
+//	tagTransform: a tag measure transforming another tag: "measure" (the
+//	             source), "type" (e.g. Latch), "offset", "scaling"
 //	manual:      "type"; with "SetToMeasure", "id" is the measure copied
 //	context:     "calendars" and "events", the ids the measure has as context
 //	limit:       one entry per measure limit: {<calendar or event name>:
