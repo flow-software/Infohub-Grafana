@@ -21,12 +21,16 @@ const (
 	// on measures, e.g. every "Line".
 	varAttributeValues = "attributeValues"
 	// varMeasures: measures as value = id, text = folder path; the instances
-	// of picked template measures or metrics, or a metric's measures.
+	// of picked template measures or metrics, a metric's measures, or with
+	// nothing picked every model measure.
 	varMeasures = "measures"
 	// varEvents: events as value = id, text = folder path.
 	varEvents = "events"
 	// varEventValues: the values of an event attribute seen recently.
 	varEventValues = "eventValues"
+	// varCharts: the charts the plugin can show (time-based), as value = id,
+	// text = information folder path.
+	varCharts = "charts"
 )
 
 // variableOption is one entry of a variable's list.
@@ -48,6 +52,8 @@ func (d *Datasource) runVariable(ctx context.Context, qm queryModel) (backend.Da
 		opts, err = d.variableEvents(ctx, qm)
 	case varEventValues:
 		opts, err = d.variableEventValues(ctx, qm)
+	case varCharts:
+		opts, err = d.variableCharts(ctx)
 	default:
 		return backend.DataResponse{}, &badRequest{fmt.Sprintf("unknown variable kind %q", qm.VariableKind)}
 	}
@@ -128,9 +134,7 @@ func (d *Datasource) variableAttributeValues(ctx context.Context, qm queryModel)
 }
 
 func (d *Datasource) variableMeasures(ctx context.Context, qm queryModel) ([]variableOption, error) {
-	if len(qm.Items) == 0 {
-		return nil, &badRequest{"pick the metrics or template measures whose measures to list"}
-	}
+	// No items lists every model measure, for dashboards that work on any model.
 	measures, err := d.scopeMeasures(ctx, qm.Items)
 	if err != nil {
 		return nil, err
@@ -189,6 +193,46 @@ func (d *Datasource) variableEvents(ctx context.Context, qm queryModel) ([]varia
 			text = e.Name
 		}
 		out = append(out, variableOption{text, strconv.Itoa(e.ID)})
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].text) < strings.ToLower(out[j].text) })
+	return out, nil
+}
+
+// variableCharts lists every time-based chart in Flow's information
+// folders, the charts a chart query can show.
+func (d *Datasource) variableCharts(ctx context.Context) ([]variableOption, error) {
+	folders, err := d.client.InfoFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[int]flow.InfoFolder, len(folders))
+	for _, f := range folders {
+		byID[f.ID] = f
+	}
+	path := func(id int) string {
+		var parts []string
+		for seen := map[int]bool{}; id != 0 && !seen[id]; {
+			seen[id] = true
+			f, ok := byID[id]
+			if !ok {
+				break
+			}
+			parts = append([]string{f.Name}, parts...)
+			id = refID(f.Parent)
+		}
+		return strings.Join(parts, "/")
+	}
+	var out []variableOption
+	for _, f := range folders {
+		charts, err := d.client.FolderCharts(ctx, f.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range charts {
+			if strings.HasPrefix(strings.ToLower(c.Type), "time based") {
+				out = append(out, variableOption{strings.Trim(path(f.ID)+"/"+c.Name, "/"), strconv.Itoa(c.ID)})
+			}
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].text) < strings.ToLower(out[j].text) })
 	return out, nil

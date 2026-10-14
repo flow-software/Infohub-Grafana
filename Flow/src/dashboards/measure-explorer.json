@@ -1,0 +1,242 @@
+{
+  "uid": "flow-measure-explorer",
+  "title": "Flow: measure explorer",
+  "description": "Pick any measure to see its trend with limits and comments, its latest value, and what it is built from and used by.",
+  "tags": ["flow"],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "ds",
+        "label": "Flow",
+        "type": "datasource",
+        "query": "flowsoftware-flow-datasource",
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "options": []
+      },
+      {
+        "name": "measure",
+        "label": "Measure",
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-flow-datasource",
+          "uid": "${ds}"
+        },
+        "query": {
+          "variableKind": "measures",
+          "refId": "measure",
+          "queryType": "variable"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "name": "Comments",
+        "enable": true,
+        "iconColor": "#FADE2A",
+        "target": {
+          "refId": "Anno",
+          "queryType": "measures",
+          "annotate": "comments",
+          "measureVariable": "$measure",
+          "items": []
+        },
+        "datasource": {
+          "type": "flowsoftware-flow-datasource",
+          "uid": "${ds}"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Pick a **Measure** above, from any folder of the Flow model. The trend draws its Flow limits as dashed lines and its value comments as markers (toggle **Comments** above). The graphs below show what the measure is built from and what uses it: the ring colour is the retrieval type, a red fill means the latest value is outside its limits. Click a node for its calculation, source and limits."
+      },
+      "id": 1
+    },
+    {
+      "type": "timeseries",
+      "title": "${measure:text}",
+      "description": "Measures tab with the Measure variable, Show limits on.",
+      "datasource": {
+        "type": "flowsoftware-flow-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 17,
+        "h": 9
+      },
+      "targets": [
+        {
+          "measureVariable": "$measure",
+          "items": [],
+          "limits": "lines",
+          "legend": "{{measure}} ({{uom}})",
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-flow-datasource",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Latest value",
+      "description": "",
+      "datasource": {
+        "type": "flowsoftware-flow-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 17,
+        "y": 2,
+        "w": 7,
+        "h": 9
+      },
+      "targets": [
+        {
+          "measureVariable": "$measure",
+          "items": [],
+          "legend": "{{measure}}",
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-flow-datasource",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "area",
+        "colorMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 3
+    },
+    {
+      "type": "nodeGraph",
+      "title": "What ${measure:text} is built from",
+      "description": "Dependencies tab, Inputs. Ring colour = retrieval type; red fill = outside limits.",
+      "datasource": {
+        "type": "flowsoftware-flow-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 12,
+        "h": 14
+      },
+      "targets": [
+        {
+          "queryType": "dependencies",
+          "measureVariable": "$measure",
+          "items": [],
+          "limits": "lines",
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-flow-datasource",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 4
+    },
+    {
+      "type": "nodeGraph",
+      "title": "What uses ${measure:text}",
+      "description": "Dependencies tab, Used by.",
+      "datasource": {
+        "type": "flowsoftware-flow-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 12,
+        "h": 14
+      },
+      "targets": [
+        {
+          "queryType": "dependencies",
+          "depDirection": "usedBy",
+          "measureVariable": "$measure",
+          "items": [],
+          "limits": "lines",
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-flow-datasource",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 5
+    }
+  ]
+}

@@ -26,6 +26,7 @@ const kindOptions: Array<{ label: string; value: VariableKind; description: stri
     value: 'eventValues',
     description: 'The values of an event attribute seen in the last 90 days',
   },
+  { label: 'Charts', value: 'charts', description: 'Time-based Flow charts by folder path, valued by id' },
 ];
 
 /**
@@ -65,7 +66,7 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
           onChange={(next) => update({ items: next })}
           tooltip={
             kind === 'measures'
-              ? 'Pick template measures or metrics to list their model instances, or model metrics to list their measures.'
+              ? 'Pick template measures or metrics to list their model instances, or model metrics to list their measures. Empty lists every measure in the model.'
               : 'Optional: only values on the measures these stand for (template items stand for their instances). Empty is the whole model.'
           }
         />

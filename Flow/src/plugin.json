@@ -20,10 +20,24 @@
       "large": "img/logo.svg"
     },
     "links": [{ "name": "Flow Software", "url": "https://www.flow-software.com" }],
-    "screenshots": [],
+    "screenshots": [
+      { "name": "Measures with limits and comments", "path": "img/screenshots/measures.png" },
+      { "name": "Query editor", "path": "img/screenshots/editor.png" },
+      { "name": "Dependency graph", "path": "img/screenshots/dependencies.png" },
+      { "name": "Event periods", "path": "img/screenshots/events.png" },
+      { "name": "Measures per event period", "path": "img/screenshots/event-context.png" },
+      { "name": "Flow chart", "path": "img/screenshots/chart.png" },
+      { "name": "Measures by attribute", "path": "img/screenshots/attributes.png" }
+    ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },
+  "includes": [
+    { "type": "dashboard", "name": "Flow: measure explorer", "path": "dashboards/measure-explorer.json" },
+    { "type": "dashboard", "name": "Flow: measures by attribute", "path": "dashboards/attribute-overview.json" },
+    { "type": "dashboard", "name": "Flow: event analysis", "path": "dashboards/event-analysis.json" },
+    { "type": "dashboard", "name": "Flow: chart viewer", "path": "dashboards/chart-viewer.json" }
+  ],
   "dependencies": {
     "grafanaDependency": ">=12.3.0",
     "plugins": []

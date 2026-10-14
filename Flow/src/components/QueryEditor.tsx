@@ -147,6 +147,19 @@ function ChartQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
           </div>
         </div>
       </InlineField>
+      <InlineField
+        label="Variable"
+        labelWidth={LABEL_WIDTH}
+        tooltip="A dashboard variable holding a chart id, such as a Charts variable of this data source: $chart. It replaces the chart chosen above, so one panel can show whichever chart the dashboard picks."
+      >
+        <Input
+          id="query-editor-chart-variable"
+          width={30}
+          placeholder="$chart"
+          defaultValue={query.chartVariable ?? ''}
+          onBlur={(e) => update({ chartVariable: e.currentTarget.value.trim() || undefined })}
+        />
+      </InlineField>
       {browsing && (
         <ChartBrowser
           datasource={datasource}
@@ -272,6 +285,21 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
       )}
       {showPeriods && eventContext && (
         <EventContextFields datasource={datasource} query={query} items={items} update={update} />
+      )}
+      {showPeriods && eventContext && (
+        <InlineField
+          label="Event variable"
+          labelWidth={LABEL_WIDTH}
+          tooltip="A dashboard variable holding an event id, such as an Events variable of this data source: $event. Its event replaces the one picked above; with several selected, the first."
+        >
+          <Input
+            id="query-editor-context-event-variable"
+            width={30}
+            placeholder="$event"
+            defaultValue={query.eventVariable ?? ''}
+            onBlur={(e) => update({ eventVariable: e.currentTarget.value.trim() || undefined })}
+          />
+        </InlineField>
       )}
       {showCalendar && (
         <CalendarField
@@ -448,6 +476,19 @@ function EventsQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
         onChange={(next) => update({ items: next })}
         tooltip="Pick events from the model or from templates. A template event returns the periods of every event created from it."
       />
+      <InlineField
+        label="Variable"
+        labelWidth={LABEL_WIDTH}
+        tooltip="A dashboard variable holding event ids, such as an Events variable of this data source: $event. Its events are added to those picked above; with Multi-value or All, every selected one."
+      >
+        <Input
+          id="query-editor-event-variable"
+          width={30}
+          placeholder="$event"
+          defaultValue={query.eventVariable ?? ''}
+          onBlur={(e) => update({ eventVariable: e.currentTarget.value.trim() || undefined })}
+        />
+      </InlineField>
       {query.refId === ANNOTATION_REF_ID ? (
         <InlineField label="Shown as" labelWidth={LABEL_WIDTH}>
           <span className={styles.hint}>

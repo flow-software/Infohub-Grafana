@@ -59,8 +59,8 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
   }
 
   /**
-   * Dashboard variables may be used in the legend, attribute filter values, event attribute values, and as a list of
-   * measure ids. Multi-value and All variables expand to every value.
+   * Dashboard variables may be used in the legend, attribute names and values, event attribute names and values, and
+   * as lists of measure, event or chart ids. Multi-value and All variables expand to every value.
    */
   applyTemplateVariables(query: FlowQuery, scopedVars: ScopedVars): FlowQuery {
     const srv = getTemplateSrv();
@@ -69,6 +69,12 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
       legend: query.legend ? srv.replace(query.legend, scopedVars) : query.legend,
       attributeValues: expandValues(query.attributeValues, scopedVars),
       eventValues: expandValues(query.eventValues, scopedVars),
+      // Attribute names may be variables too, so one dashboard serves Line, Site, ...
+      attributeFilter: query.attributeFilter ? srv.replace(query.attributeFilter, scopedVars) : query.attributeFilter,
+      variableAttribute: query.variableAttribute
+        ? srv.replace(query.variableAttribute, scopedVars)
+        : query.variableAttribute,
+      eventAttribute: query.eventAttribute ? srv.replace(query.eventAttribute, scopedVars) : query.eventAttribute,
     };
     if (query.measureVariable) {
       const ids = expandValues([query.measureVariable], scopedVars) ?? [];
@@ -79,6 +85,22 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
       const seen = new Set((query.items ?? []).map(itemKey));
       out.items = [...(query.items ?? []), ...added.filter((it) => !seen.has(itemKey(it)))];
     }
+    if (query.eventVariable) {
+      const ids = idsOf(expandValues([query.eventVariable], scopedVars));
+      if (query.queryType === 'events') {
+        const seen = new Set((out.items ?? []).map(itemKey));
+        const added: QueryItem[] = ids.map((id) => ({ tree: 'model', type: 'event', id, label: 'event ' + id }));
+        out.items = [...(out.items ?? []), ...added.filter((it) => !seen.has(itemKey(it)))];
+      } else if (query.context === 'event' && ids.length > 0) {
+        out.eventId = ids[0];
+      }
+    }
+    if (query.chartVariable) {
+      const ids = idsOf(expandValues([query.chartVariable], scopedVars));
+      if (ids.length > 0) {
+        out.chartId = ids[0];
+      }
+    }
     return out;
   }
 
@@ -88,7 +110,9 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
     }
     switch (query.queryType) {
       case 'chart':
-        return !!query.chartId;
+        return !!query.chartId || !!query.chartVariable;
+      case 'events':
+        return (query.items?.length ?? 0) > 0 || !!query.eventVariable;
       case 'variable':
         return true;
       default:
@@ -168,6 +192,11 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
  * multi-value variable becomes all its values, so "$line" with Line 1 and
  * Line 2 selected filters on both.
  */
+/** The positive integer ids among a variable's values. */
+function idsOf(values: string[] | undefined): number[] {
+  return (values ?? []).map((v) => Number(v)).filter((id) => Number.isInteger(id) && id > 0);
+}
+
 export function expandValues(values: string[] | undefined, scopedVars: ScopedVars): string[] | undefined {
   if (!values) {
     return values;

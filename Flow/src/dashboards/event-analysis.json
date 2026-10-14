@@ -1,0 +1,233 @@
+{
+  "uid": "flow-event-analysis",
+  "title": "Flow: event analysis",
+  "description": "Pick an event to see its periods as a table and a timeline, and measures read per event period.",
+  "tags": ["flow"],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "ds",
+        "label": "Flow",
+        "type": "datasource",
+        "query": "flowsoftware-flow-datasource",
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "options": []
+      },
+      {
+        "name": "event",
+        "label": "Event",
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-flow-datasource",
+          "uid": "${ds}"
+        },
+        "query": {
+          "variableKind": "events",
+          "refId": "event",
+          "queryType": "variable"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
+      },
+      {
+        "name": "measure",
+        "label": "Measures",
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-flow-datasource",
+          "uid": "${ds}"
+        },
+        "query": {
+          "variableKind": "measures",
+          "refId": "measure",
+          "queryType": "variable"
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "name": "Event periods",
+        "enable": true,
+        "iconColor": "rgba(255, 152, 48, 0.35)",
+        "target": {
+          "refId": "Anno",
+          "queryType": "events",
+          "eventFormat": "annotations",
+          "eventVariable": "$event",
+          "items": []
+        },
+        "datasource": {
+          "type": "flowsoftware-flow-datasource",
+          "uid": "${ds}"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Pick an **Event** to list its periods (start, end, duration and attributes, coloured as in Flow) and draw them as a timeline. Pick **Measures** that have the event as context in Flow to see their values per event period, each drawn from its period's start to its end. Toggle **Event periods** above to shade the periods on the trend."
+      },
+      "id": 1
+    },
+    {
+      "type": "table",
+      "title": "${event:text} periods",
+      "description": "Events tab with the Event variable, Table format.",
+      "datasource": {
+        "type": "flowsoftware-flow-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "queryType": "events",
+          "eventFormat": "table",
+          "eventVariable": "$event",
+          "items": [],
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-flow-datasource",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 2
+    },
+    {
+      "type": "state-timeline",
+      "title": "${event:text} attributes",
+      "description": "Events tab, Timeline format.",
+      "datasource": {
+        "type": "flowsoftware-flow-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 2,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "queryType": "events",
+          "eventFormat": "timeline",
+          "eventVariable": "$event",
+          "items": [],
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-flow-datasource",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showValue": "auto",
+        "mergeValues": true,
+        "rowHeight": 0.8
+      },
+      "id": 3
+    },
+    {
+      "type": "timeseries",
+      "title": "Measures per ${event:text} period",
+      "description": "Measures tab in event context, Time at = Whole period. Measures need the event as context in Flow.",
+      "datasource": {
+        "type": "flowsoftware-flow-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "context": "event",
+          "eventVariable": "$event",
+          "timeAt": "period",
+          "measureVariable": "$measure",
+          "items": [],
+          "legend": "{{measure}}",
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-flow-datasource",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 3,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "id": 4
+    }
+  ]
+}

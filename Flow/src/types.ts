@@ -26,7 +26,7 @@ export interface QueryItem {
 export type QueryType = 'measures' | 'chart' | 'dependencies' | 'events' | 'variable';
 
 /** What a dashboard variable query lists. */
-export type VariableKind = 'attributeValues' | 'measures' | 'events' | 'eventValues';
+export type VariableKind = 'attributeValues' | 'measures' | 'events' | 'eventValues' | 'charts';
 
 /** How an events query lays out event periods. */
 export type EventFormat = 'table' | 'timeline' | 'annotations';
@@ -40,6 +40,8 @@ export interface FlowQuery extends DataQuery {
 
   /** Chart queries: a Flow chart shown as a table, over the dashboard's time range. */
   chartId?: number;
+  /** A dashboard variable holding a chart id ("$chart"); it replaces chartId. */
+  chartVariable?: string;
   /** Shown in the editor. */
   chartLabel?: string;
 
@@ -61,6 +63,11 @@ export interface FlowQuery extends DataQuery {
    */
   context?: 'event';
   eventId?: number;
+  /**
+   * A dashboard variable holding event ids ("$event"): events queries add
+   * its events to items; in event context its first event replaces eventId.
+   */
+  eventVariable?: string;
   /** Shown in the editor. */
   eventLabel?: string;
   /** With eventValues, keep only periods whose attribute has one of them. */

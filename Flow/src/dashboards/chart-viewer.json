@@ -1,0 +1,114 @@
+{
+  "uid": "flow-chart-viewer",
+  "title": "Flow: chart viewer",
+  "description": "Pick a time-based Flow chart to see it as Flow lays it out, with limit colours and comments.",
+  "tags": ["flow"],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "ds",
+        "label": "Flow",
+        "type": "datasource",
+        "query": "flowsoftware-flow-datasource",
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "options": []
+      },
+      {
+        "name": "chart",
+        "label": "Chart",
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-flow-datasource",
+          "uid": "${ds}"
+        },
+        "query": {
+          "variableKind": "charts",
+          "refId": "chart",
+          "queryType": "variable"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Pick a time-based **Chart** set up in Flow. It is shown for the periods in the time range, with its sections, limits and attribute columns; values outside a limit take the limit's colours. Hover a cell with a corner mark to read its comments."
+      },
+      "id": 1
+    },
+    {
+      "type": "table",
+      "title": "${chart:text}",
+      "description": "Chart tab with the Chart variable.",
+      "datasource": {
+        "type": "flowsoftware-flow-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 24,
+        "h": 14
+      },
+      "targets": [
+        {
+          "queryType": "chart",
+          "chartVariable": "$chart",
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-flow-datasource",
+            "uid": "${ds}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 2
+    }
+  ]
+}

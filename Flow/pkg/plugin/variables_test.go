@@ -70,6 +70,26 @@ func runVar(t *testing.T, d *Datasource, qm queryModel) []string {
 	return out
 }
 
+func TestVariableCharts(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/information/folders"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"folders": []any{
+			map[string]any{"id": 1, "name": "Reports"},
+			map[string]any{"id": 2, "name": "Daily", "parent": map[string]any{"id": 1}},
+		}})
+	}
+	f.handlers["/api/v1/information/folders/1/charts"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"charts": []any{map[string]any{"id": 6, "name": "Trend", "type": "Line Chart"}}})
+	}
+	f.handlers["/api/v1/information/folders/2/charts"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"charts": []any{map[string]any{"id": 5, "name": "OEE table", "type": "Time Based Table"}}})
+	}
+	// Only time-based charts, which a chart query can show, by folder path.
+	if got := strings.Join(runVar(t, testDatasource(srv), queryModel{VariableKind: varCharts}), ","); got != "Reports/Daily/OEE table=5" {
+		t.Errorf("charts = %s", got)
+	}
+}
+
 func TestVariableAttributeValues(t *testing.T) {
 	_, d := attributeServer(t)
 	if got := strings.Join(runVar(t, d, queryModel{VariableKind: varAttributeValues, VariableAttribute: "Line"}), ","); got != "Line 1=Line 1,Line 2=Line 2" {
@@ -92,6 +112,15 @@ func TestVariableMeasuresOfTemplate(t *testing.T) {
 	got = runVar(t, d, queryModel{VariableKind: varMeasures, Items: []queryItem{{Tree: "template", Type: itemMeasure, ID: 9000}}, AttributeFilter: "Line", AttributeValues: []string{"Line 2"}})
 	if strings.Join(got, ",") != "Site/Line 2/Production/Good=300" {
 		t.Errorf("instances on Line 2 = %v", got)
+	}
+}
+
+func TestVariableAllMeasures(t *testing.T) {
+	_, d := attributeServer(t)
+	// Nothing picked: every model measure, here narrowed to Line 1.
+	got := runVar(t, d, queryModel{VariableKind: varMeasures, AttributeFilter: "Line", AttributeValues: []string{"Line 1"}})
+	if strings.Join(got, ",") != "Site/Line 1/Production/Good=200,Site/Line 1/Production/Speed=201" {
+		t.Errorf("measures = %v", got)
 	}
 }
 
