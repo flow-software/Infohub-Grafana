@@ -17,6 +17,9 @@ const queryTypeVariable = "variable"
 
 // Variable kinds.
 const (
+	// varAttributeNames: the model attributes the measures carry, e.g. Line
+	// and Site, for a dashboard that lets people pick the attribute too.
+	varAttributeNames = "attributeNames"
 	// varAttributeValues: the values of a model attribute (VariableAttribute)
 	// on measures, e.g. every "Line".
 	varAttributeValues = "attributeValues"
@@ -44,6 +47,12 @@ func (d *Datasource) runVariable(ctx context.Context, qm queryModel) (backend.Da
 	var opts []variableOption
 	var err error
 	switch qm.VariableKind {
+	case varAttributeNames:
+		var names []string
+		names, err = d.attributeNamesResource(ctx)
+		for _, n := range names {
+			opts = append(opts, variableOption{n, n})
+		}
 	case varAttributeValues:
 		opts, err = d.variableAttributeValues(ctx, qm)
 	case varMeasures:

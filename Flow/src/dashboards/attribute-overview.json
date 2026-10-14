@@ -27,20 +27,23 @@
       {
         "name": "attribute",
         "label": "Attribute",
-        "type": "textbox",
-        "query": "Line",
-        "hide": 0,
-        "current": {
-          "text": "Line",
-          "value": "Line"
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-flow-datasource",
+          "uid": "${ds}"
         },
-        "options": [
-          {
-            "selected": true,
-            "text": "Line",
-            "value": "Line"
-          }
-        ]
+        "query": {
+          "variableKind": "attributeNames",
+          "refId": "attribute",
+          "queryType": "variable"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
       },
       {
         "name": "value",
@@ -120,7 +123,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Type a model **Attribute** (as set up on measures in Flow, e.g. Line or Site) and pick one or more of its **Values**. **Measures** then lists the measures that carry those values; leave it on All or narrow it down. Both panels follow it."
+        "content": "Pick a model **Attribute** (the attributes set up on measures in Flow, e.g. Line or Site) and one or more of its **Values**. **Measures** then lists the measures that carry those values; leave it on All or narrow it down. Both panels follow it."
       },
       "id": 1
     },

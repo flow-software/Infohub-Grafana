@@ -51,7 +51,7 @@ Pick a time-based chart set up in Flow and see it as Flow lays it out: sections,
 
 ![Every measure where Line = Line 1, with a table of their latest values](/public/plugins/%PLUGIN_ID%/img/screenshots/attributes.png)
 
-Dashboard variables are filled from Flow: model attribute values (every _Line_), measures, events, event attribute values and charts. Panels follow them through an attribute filter (_Line_ = `$line`) or a variable of measure, event or chart ids, so one dashboard serves every line, site or product.
+Dashboard variables are filled from Flow: model attributes (_Line_, _Site_, ...) and their values (every _Line_), measures, events, event attribute values and charts. Panels follow them through an attribute filter (_Line_ = `$line`) or a variable of measure, event or chart ids, so one dashboard serves every line, site or product.
 
 ### Alert on Flow data
 
@@ -115,6 +115,7 @@ Up to 10,000 event periods are read per query; past that the panel warns.
 
 Add a _Query_ variable with this data source and choose what it lists:
 
+- _Attributes_: the model attributes the measures carry, e.g. _Line_ and _Site_. Use it as `$attribute` in an _Attribute values_ variable and a panel's **Filter**, so people pick the attribute too.
 - _Attribute values_: the values of a model attribute, e.g. every _Line_. Optionally only on some measures (template items stand for their instances).
 - _Measures_: measures by folder path, valued by measure id: the instances of template measures or metrics, a model metric's measures, or with nothing picked every measure in the model. Use it with a panel's **Variable** field.
 - _Events_: events by folder path, valued by event id; optionally only the instances of template events. Use it with an events query's **Variable** or a measures query's **Event variable**.

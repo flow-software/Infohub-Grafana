@@ -90,6 +90,13 @@ func TestVariableCharts(t *testing.T) {
 	}
 }
 
+func TestVariableAttributeNames(t *testing.T) {
+	_, d := attributeServer(t)
+	if got := strings.Join(runVar(t, d, queryModel{VariableKind: varAttributeNames}), ","); got != "Area=Area,Line=Line" {
+		t.Errorf("names = %s", got)
+	}
+}
+
 func TestVariableAttributeValues(t *testing.T) {
 	_, d := attributeServer(t)
 	if got := strings.Join(runVar(t, d, queryModel{VariableKind: varAttributeValues, VariableAttribute: "Line"}), ","); got != "Line 1=Line 1,Line 2=Line 2" {

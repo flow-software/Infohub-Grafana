@@ -11,6 +11,11 @@ type Props = QueryEditorProps<DataSource, FlowQuery, FlowOptions, FlowQuery>;
 
 const kindOptions: Array<{ label: string; value: VariableKind; description: string }> = [
   {
+    label: 'Attributes',
+    value: 'attributeNames',
+    description: 'The model attributes the measures carry, e.g. Line and Site',
+  },
+  {
     label: 'Attribute values',
     value: 'attributeValues',
     description: 'The values of a model attribute, e.g. every Line',
