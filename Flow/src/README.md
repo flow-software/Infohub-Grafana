@@ -23,7 +23,7 @@ Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in
 
 Period measures (hourly, shift, daily, ...) are read per calendar period; tags (timestamp measures) raw, averaged per panel interval only when there are more values than the panel can show. **Show limits** draws a measure's Flow limits as dashed lines (all of them, or the ones you pick), and an annotation query marks the comments on its values, with who wrote them and when.
 
-Pick items in the query editor: **Browse** walks the model folder by folder, or searches by name or measure ID (`4304`, `#4304` or `id:4304`). Each measure shows its ID, interval and retrieval type as Flow Config draws them. A metric stands for all of its measures, and a template metric or measure returns every model measure created from it, named by folder path so `Line 1/Production/Good` and `Line 2/Production/Good` stay apart.
+Pick items in the query editor: **Browse** walks the model folder by folder, or searches by name or measure ID (`4304`, `#4304` or `id:4304`), and can show only measures of some intervals (tags, hourly, daily, ...). Each measure shows its ID, interval and retrieval type as Flow Config draws them. A metric stands for all of its measures, and a template metric or measure returns every model measure created from it, named by folder path so `Line 1/Production/Good` and `Line 2/Production/Good` stay apart.
 
 ![The query editor: Measures tab with a measure variable and Show limits on](/public/plugins/%PLUGIN_ID%/img/screenshots/editor.png)
 
@@ -80,7 +80,7 @@ Each query is **Measures**, **Events**, **Chart** or **Dependencies**.
 
 ### Measures
 
-Select **Browse** to open the model browser. The **Model** tab shows the folders, metrics and measures in your model. The **Templates** tab shows the template library. Tick metrics or measures and select **Apply**.
+Select **Browse** to open the model browser. The **Model** tab shows the folders, metrics and measures in your model. The **Templates** tab shows the template library. Tick metrics or measures and select **Apply**. The interval chips under the search box show only measures of those intervals, in the tree and in search results (**All** shows every interval); folders and metrics stay, since what they hold shows once they are opened. Ticking a metric still picks all of its measures.
 
 - A **metric** stands for all of its measures. Measures added to it later are picked up automatically.
 - A **template** metric or measure returns every model measure created from it.

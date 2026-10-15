@@ -56,6 +56,26 @@ describe('ModelBrowser', () => {
     expect(ds.browse).toHaveBeenCalledTimes(4);
   });
 
+  it('narrows the measures to the picked intervals', async () => {
+    render(<ModelBrowser datasource={fakeDatasource()} selected={[]} onApply={() => {}} onDismiss={() => {}} />);
+    fireEvent.click(await screen.findByLabelText('Expand Site'));
+    fireEvent.click(await screen.findByLabelText('Expand Production'));
+    expect(await screen.findByText('Speed')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Hourly/ }));
+    expect(screen.getByText('Good')).toBeInTheDocument();
+    expect(screen.queryByText('Speed')).not.toBeInTheDocument();
+    // Folders and metrics stay: what they hold is only known once opened.
+    expect(screen.getByText('Production')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Hourly/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Yearly/ }));
+    expect(screen.getByText('No yearly measures here')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    expect(screen.getByText('Speed')).toBeInTheDocument();
+  });
+
   it('unticking removes an existing pick', async () => {
     const ds = fakeDatasource();
     const onApply = jest.fn();

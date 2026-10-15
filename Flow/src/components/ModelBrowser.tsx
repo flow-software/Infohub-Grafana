@@ -34,6 +34,19 @@ type Children = { state: 'loading' } | { state: 'error'; message: string } | { s
 
 const SEARCH_DELAY_MS = 300;
 
+/** The intervals the browser can be narrowed to, in Flow's order. */
+const INTERVAL_FILTERS: Array<{ value: string; label: string }> = [
+  { value: 'timestamp', label: 'Tag' },
+  { value: 'minutely', label: 'Minutely' },
+  { value: 'hourly', label: 'Hourly' },
+  { value: 'shiftly', label: 'Shift' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' },
+];
+
 function parentKey(tree: Tree, node?: Pick<BrowseNode, 'type' | 'id'>): string {
   return node ? `${tree}:${node.type}:${node.id}` : `${tree}:root`;
 }
@@ -58,6 +71,21 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
     () => new Map(selected.map((it) => [itemKey(it), it]))
   );
   const [search, setSearch] = useState('');
+  // Intervals to show measures of; empty shows them all. Folders and metrics
+  // always show: what they hold is only known once opened.
+  const [intervals, setIntervals] = useState<Set<string>>(new Set());
+  const shown = (node: BrowseNode) =>
+    node.type !== 'measure' || intervals.size === 0 || intervals.has(node.interval ?? '');
+  const toggleInterval = (value: string) =>
+    setIntervals((prev) => {
+      const next = new Set(prev);
+      next.has(value) ? next.delete(value) : next.add(value);
+      return next;
+    });
+  const filteredOut = (nodes: BrowseNode[]) => {
+    const names = INTERVAL_FILTERS.filter((f) => intervals.has(f.value)).map((f) => f.label.toLowerCase());
+    return nodes.length > 0 && !nodes.some(shown) ? `No ${names.join(' or ')} measures here` : undefined;
+  };
   // Results are kept with the text they answer, so stale ones are never shown.
   const [results, setResults] = useState<{ q: string; tree: Tree; children: Children }>();
   // Levels already requested. A level with no entry in children yet shows as
@@ -234,7 +262,15 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
         </div>
       );
     }
-    return state.nodes.map((n) => renderRow(n, depth, path));
+    const none = filteredOut(state.nodes);
+    if (none) {
+      return (
+        <div className={styles.note} style={pad}>
+          {none}
+        </div>
+      );
+    }
+    return state.nodes.filter(shown).map((n) => renderRow(n, depth, path));
   };
 
   const renderResults = () => {
@@ -251,7 +287,11 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
     if (current.nodes.length === 0) {
       return <div className={styles.note}>No metrics or measures match.</div>;
     }
-    return current.nodes.map((n) => renderRow(n, 0, ''));
+    const none = filteredOut(current.nodes);
+    if (none) {
+      return <div className={styles.note}>{none} among the matches.</div>;
+    }
+    return current.nodes.filter(shown).map((n) => renderRow(n, 0, ''));
   };
 
   return (
@@ -287,6 +327,38 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
           autoFocus
         />
       </div>
+
+      {!events && (
+        <div className={styles.intervals} role="group" aria-label="Show measures of these intervals">
+          <button
+            type="button"
+            aria-pressed={intervals.size === 0}
+            className={intervals.size === 0 ? `${styles.intervalChip} ${styles.intervalChipOn}` : styles.intervalChip}
+            onClick={() => setIntervals(new Set())}
+            title="Show measures of every interval"
+          >
+            All
+          </button>
+          {INTERVAL_FILTERS.map((f) => {
+            const on = intervals.has(f.value);
+            return (
+              <button
+                key={f.value}
+                type="button"
+                aria-pressed={on}
+                className={on ? `${styles.intervalChip} ${styles.intervalChipOn}` : styles.intervalChip}
+                onClick={() => toggleInterval(f.value)}
+                title={
+                  on ? `Stop showing only ${f.label.toLowerCase()} measures` : `Show ${f.label.toLowerCase()} measures`
+                }
+              >
+                <MeasureIcon interval={f.value} size={14} />
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className={styles.list} role="tree" aria-label="Flow model">
         {q ? renderResults() : renderChildren(tree, undefined, 0, '')}
@@ -339,6 +411,31 @@ const getStyles = (theme: GrafanaTheme2) => ({
   modal: css({ width: '820px', maxWidth: '95vw' }),
   hint: css({ marginTop: theme.spacing(1), marginBottom: 0 }),
   search: css({ marginTop: theme.spacing(1) }),
+  intervals: css({
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    marginTop: theme.spacing(1),
+  }),
+  intervalChip: css({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(0.25, 1),
+    fontSize: theme.typography.bodySmall.fontSize,
+    color: theme.colors.text.secondary,
+    background: 'transparent',
+    border: `1px solid ${theme.colors.border.medium}`,
+    borderRadius: theme.shape.radius.pill,
+    cursor: 'pointer',
+    '&:hover': { background: theme.colors.action.hover, color: theme.colors.text.primary },
+  }),
+  intervalChipOn: css({
+    color: theme.colors.text.primary,
+    background: theme.colors.action.selected,
+    borderColor: theme.colors.primary.border,
+  }),
   list: css({
     marginTop: theme.spacing(1),
     height: '55vh',
