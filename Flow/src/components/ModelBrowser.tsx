@@ -17,7 +17,7 @@ import {
 } from '@grafana/ui';
 
 import type { BrowseKind, DataSource } from '../datasource';
-import { MeasureIcon } from './MeasureIcon';
+import { MeasureIcon, RetrievalMark } from './MeasureIcon';
 import { BrowseNode, itemKey, QueryItem, Tree } from '../types';
 
 interface Props {
@@ -47,6 +47,15 @@ const INTERVAL_FILTERS: Array<{ value: string; label: string }> = [
   { value: 'yearly', label: 'Yearly' },
 ];
 
+/** The retrieval types the browser can be narrowed to. */
+const RETRIEVAL_FILTERS: Array<{ value: string; label: string }> = [
+  { value: 'aggregated', label: 'Aggregated' },
+  { value: 'calculated', label: 'Calculated' },
+  { value: 'manual', label: 'Manual' },
+  { value: 'retrieved', label: 'Retrieved' },
+  { value: 'replicated', label: 'Replicated' },
+];
+
 function parentKey(tree: Tree, node?: Pick<BrowseNode, 'type' | 'id'>): string {
   return node ? `${tree}:${node.type}:${node.id}` : `${tree}:root`;
 }
@@ -71,20 +80,23 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
     () => new Map(selected.map((it) => [itemKey(it), it]))
   );
   const [search, setSearch] = useState('');
-  // Intervals to show measures of; empty shows them all. Folders and metrics
-  // always show: what they hold is only known once opened.
+  // Intervals and retrieval types to show measures of; an empty set shows
+  // them all, and both apply together. Folders and metrics always show: what
+  // they hold is only known once opened.
   const [intervals, setIntervals] = useState<Set<string>>(new Set());
+  const [retrievals, setRetrievals] = useState<Set<string>>(new Set());
   const shown = (node: BrowseNode) =>
-    node.type !== 'measure' || intervals.size === 0 || intervals.has(node.interval ?? '');
-  const toggleInterval = (value: string) =>
-    setIntervals((prev) => {
-      const next = new Set(prev);
-      next.has(value) ? next.delete(value) : next.add(value);
-      return next;
-    });
+    node.type !== 'measure' ||
+    ((intervals.size === 0 || intervals.has(node.interval ?? '')) &&
+      (retrievals.size === 0 || retrievals.has(node.retrieval?.toLowerCase() ?? '')));
   const filteredOut = (nodes: BrowseNode[]) => {
-    const names = INTERVAL_FILTERS.filter((f) => intervals.has(f.value)).map((f) => f.label.toLowerCase());
-    return nodes.length > 0 && !nodes.some(shown) ? `No ${names.join(' or ')} measures here` : undefined;
+    const picked = (filters: typeof INTERVAL_FILTERS, set: Set<string>) =>
+      filters
+        .filter((f) => set.has(f.value))
+        .map((f) => f.label.toLowerCase())
+        .join(' or ');
+    const words = [picked(INTERVAL_FILTERS, intervals), picked(RETRIEVAL_FILTERS, retrievals)].filter(Boolean);
+    return nodes.length > 0 && !nodes.some(shown) ? `No ${words.join(' ')} measures here` : undefined;
   };
   // Results are kept with the text they answer, so stale ones are never shown.
   const [results, setResults] = useState<{ q: string; tree: Tree; children: Children }>();
@@ -329,34 +341,21 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
       </div>
 
       {!events && (
-        <div className={styles.intervals} role="group" aria-label="Show measures of these intervals">
-          <button
-            type="button"
-            aria-pressed={intervals.size === 0}
-            className={intervals.size === 0 ? `${styles.intervalChip} ${styles.intervalChipOn}` : styles.intervalChip}
-            onClick={() => setIntervals(new Set())}
-            title="Show measures of every interval"
-          >
-            All
-          </button>
-          {INTERVAL_FILTERS.map((f) => {
-            const on = intervals.has(f.value);
-            return (
-              <button
-                key={f.value}
-                type="button"
-                aria-pressed={on}
-                className={on ? `${styles.intervalChip} ${styles.intervalChipOn}` : styles.intervalChip}
-                onClick={() => toggleInterval(f.value)}
-                title={
-                  on ? `Stop showing only ${f.label.toLowerCase()} measures` : `Show ${f.label.toLowerCase()} measures`
-                }
-              >
-                <MeasureIcon interval={f.value} size={14} />
-                {f.label}
-              </button>
-            );
-          })}
+        <div className={styles.filters}>
+          <ChipFilter
+            label="Interval"
+            filters={INTERVAL_FILTERS}
+            picked={intervals}
+            onChange={setIntervals}
+            icon={(value) => <MeasureIcon interval={value} size={14} />}
+          />
+          <ChipFilter
+            label="Retrieval"
+            filters={RETRIEVAL_FILTERS}
+            picked={retrievals}
+            onChange={setRetrievals}
+            icon={(value) => <RetrievalMark retrieval={value} size={11} />}
+          />
         </div>
       )}
 
@@ -371,6 +370,64 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
         <Button onClick={apply}>Apply</Button>
       </Modal.ButtonRow>
     </Modal>
+  );
+}
+
+/**
+ * A row of toggle chips narrowing the browser to some values (intervals or
+ * retrieval types). None picked, or All, shows every value.
+ */
+function ChipFilter({
+  label,
+  filters,
+  picked,
+  onChange,
+  icon,
+}: {
+  label: string;
+  filters: Array<{ value: string; label: string }>;
+  picked: Set<string>;
+  onChange: (next: Set<string>) => void;
+  icon: (value: string) => React.ReactNode;
+}) {
+  const styles = useStyles2(getStyles);
+  const chip = (on: boolean) => (on ? `${styles.intervalChip} ${styles.intervalChipOn}` : styles.intervalChip);
+  const toggle = (value: string) => {
+    const next = new Set(picked);
+    next.has(value) ? next.delete(value) : next.add(value);
+    onChange(next);
+  };
+  const kind = label.toLowerCase();
+  return (
+    <div className={styles.intervals} role="group" aria-label={`Show measures of these ${kind} types`}>
+      <span className={styles.filterLabel}>{label}</span>
+      <button
+        type="button"
+        aria-pressed={picked.size === 0}
+        className={chip(picked.size === 0)}
+        onClick={() => onChange(new Set())}
+        title={`Show measures of every ${kind} type`}
+      >
+        All
+      </button>
+      {filters.map((f) => {
+        const on = picked.has(f.value);
+        const name = f.label.toLowerCase();
+        return (
+          <button
+            key={f.value}
+            type="button"
+            aria-pressed={on}
+            className={chip(on)}
+            onClick={() => toggle(f.value)}
+            title={on ? `Stop showing only ${name} measures` : `Show ${name} measures`}
+          >
+            {icon(f.value)}
+            {f.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -408,15 +465,21 @@ function NodeBadges({ node }: { node: BrowseNode }) {
 }
 
 const getStyles = (theme: GrafanaTheme2) => ({
-  modal: css({ width: '820px', maxWidth: '95vw' }),
+  modal: css({ width: '900px', maxWidth: '95vw' }),
   hint: css({ marginTop: theme.spacing(1), marginBottom: 0 }),
   search: css({ marginTop: theme.spacing(1) }),
+  filters: css({ display: 'flex', flexDirection: 'column', gap: theme.spacing(0.5), marginTop: theme.spacing(1) }),
   intervals: css({
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: theme.spacing(0.5),
-    marginTop: theme.spacing(1),
+  }),
+  filterLabel: css({
+    width: theme.spacing(8),
+    flexShrink: 0,
+    color: theme.colors.text.secondary,
+    fontSize: theme.typography.bodySmall.fontSize,
   }),
   intervalChip: css({
     display: 'inline-flex',

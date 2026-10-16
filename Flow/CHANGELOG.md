@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The measure browser can also show only measures of some retrieval types: a second row of chips (Aggregated, Calculated, Manual, Retrieved, Replicated, with Flow's retrieval marks) narrows the tree and the search results, together with the interval chips.
+
 ## 1.5.0
 
 - The measure browser can show only measures of some intervals: chips under the search box (Tag, Minutely, Hourly, Shift, Daily, Weekly, Monthly, Quarterly, Yearly) narrow the tree and the search results.

@@ -9,8 +9,8 @@ const nodes: Record<string, BrowseNode[]> = {
   'model:root': [{ tree: 'model', type: 'folder', id: 1, name: 'Site' }],
   'model:folder:1': [{ tree: 'model', type: 'metric', id: 20, name: 'Production', fromTemplate: true }],
   'model:metric:20': [
-    { tree: 'model', type: 'measure', id: 200, name: 'Good', interval: 'hourly', uom: 'units' },
-    { tree: 'model', type: 'measure', id: 201, name: 'Speed', interval: 'timestamp' },
+    { tree: 'model', type: 'measure', id: 200, name: 'Good', interval: 'hourly', uom: 'units', retrieval: 'manual' },
+    { tree: 'model', type: 'measure', id: 201, name: 'Speed', interval: 'timestamp', retrieval: 'retrieved' },
   ],
   'template:root': [{ tree: 'template', type: 'folder', id: 90, name: 'Line' }],
 };
@@ -49,7 +49,14 @@ describe('ModelBrowser', () => {
     await waitFor(() => expect(onApply).toHaveBeenCalled());
     expect(onApply.mock.calls[0][0]).toEqual([
       existing,
-      { tree: 'model', type: 'measure', id: 201, label: 'Site/Production/Speed', interval: 'timestamp' },
+      {
+        tree: 'model',
+        type: 'measure',
+        id: 201,
+        label: 'Site/Production/Speed',
+        interval: 'timestamp',
+        retrieval: 'retrieved',
+      },
       { tree: 'model', type: 'metric', id: 20, label: 'Site/Production' },
     ]);
     // Each level was fetched once.
@@ -72,8 +79,23 @@ describe('ModelBrowser', () => {
     fireEvent.click(screen.getByRole('button', { name: /Yearly/ }));
     expect(screen.getByText('No yearly measures here')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'All' })[0]);
     expect(screen.getByText('Speed')).toBeInTheDocument();
+  });
+
+  it('narrows the measures to the picked retrieval types, together with intervals', async () => {
+    render(<ModelBrowser datasource={fakeDatasource()} selected={[]} onApply={() => {}} onDismiss={() => {}} />);
+    fireEvent.click(await screen.findByLabelText('Expand Site'));
+    fireEvent.click(await screen.findByLabelText('Expand Production'));
+    expect(await screen.findByText('Speed')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Retrieved/ }));
+    expect(screen.getByText('Speed')).toBeInTheDocument();
+    expect(screen.queryByText('Good')).not.toBeInTheDocument();
+
+    // Both filters apply: no hourly measure is retrieved.
+    fireEvent.click(screen.getByRole('button', { name: /Hourly/ }));
+    expect(screen.getByText('No hourly retrieved measures here')).toBeInTheDocument();
   });
 
   it('unticking removes an existing pick', async () => {
