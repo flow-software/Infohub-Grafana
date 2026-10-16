@@ -31,7 +31,7 @@ Pick items in the query editor: **Browse** walks the model folder by folder, or 
 
 ![A dependency graph: each node is a measure with its latest value, its ring coloured by retrieval type](/public/plugins/%PLUGIN_ID%/img/screenshots/dependencies.png)
 
-The **Dependencies** query draws what a measure is calculated, aggregated, transformed, set or retrieved from, and theirs in turn, or the other way round, what uses it. Each node shows the measure's latest value; its ring colour is the retrieval type, and a red fill means the latest value is outside its limits. Click a node for its calculation, data source, limits and who entered it.
+The **Dependencies** query draws what a measure is calculated, aggregated, transformed, set or retrieved from, and theirs in turn, or the other way round, what uses it. Each node shows the measure's latest value; its ring colour is the retrieval type, and a red fill means the latest value is outside its limits. Click a node for its calculation, data source, limits and who entered it. With the Flow database set up, **Show processing** adds how far the engine has got with each measure, as the Flow Config monitor counts it: periods behind, pending and queued, and rings that turn orange where the backlog is.
 
 ### Analyse events
 
@@ -73,6 +73,20 @@ Queries run in the plugin backend, so they work in Grafana alert rules. Each mea
 | TLS              |                                                                            | **Skip certificate verification** for a self-signed Bootstrap certificate, or **Custom CA certificate**.                                                         |
 
 **Save & test** checks the token, then calls the public API and reports how many calendars it found.
+
+### Flow database (optional)
+
+Dependency queries can show how far the engine has got with each measure, as the monitor in Flow Config does. The public API does not expose this, so the plugin reads it from the Flow database, for the measures in a graph only, without locks (as the monitor reads). Leave **Server** empty to skip it; everything else works without it.
+
+| Setting                  | Example           | Notes                                                                                                                                   |
+| ------------------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Server                   | `sql-server:1433` | SQL Server host, `host:port` or `host\instance`, as the Grafana server reaches it.                                                      |
+| Database                 | `Flow`            | The Flow database.                                                                                                                      |
+| User and password        |                   | SQL Server authentication. Use a read-only login, e.g. one with `db_datareader` on the Flow database. The password is stored encrypted. |
+| Encryption               | Login only        | _Login only_ (SQL Server's default), _Required_, _Strict_ (TDS 8) or _Off_.                                                             |
+| Trust server certificate |                   | Accept a self-signed SQL Server certificate.                                                                                            |
+
+With a server set, **Save & test** also connects to the database and checks that the tables the plugin reads are there.
 
 ## Queries
 
@@ -146,6 +160,14 @@ Pick measures with **Browse** or a measure **Variable**; each becomes the root o
 - **retrieval**: the Flow tag (a timestamp measure) a retrieved measure reads.
 
 **Values**: each model measure's latest value in the dashboard's time range is included (the latest period with a value for period measures, in the chosen **Calendar** or the datasource's default; the last value for tags), in Flow's own format with the unit. Turn **Latest values** off to leave them out. Template measures hold no values. The calendar matters for weekly, monthly and yearly measures, whose periods depend on where the calendar's weeks and months start. A period measure that does not have the calendar as context in Flow shows a dash; click it for why.
+
+**Processing** (needs the [Flow database](#flow-database-optional)): **Show processing** adds how far the engine has got with each model measure, read from the Flow database with the same sums as the Flow Config monitor:
+
+- **behind**: the periods still to process up to now, per calendar, from where the engine has got to (its refresh point), the refresh offset and projected periods;
+- **pending**: periods marked for recalculation;
+- **queued**: periods waiting to become pending. The engine promotes these on every poll, so queued periods that stay mean something is stuck.
+
+The counts lead each node's subtitle (e.g. _90 behind · daily · retrieved_), and the node menu has them in full, e.g. _90 periods behind (Production 90)_, or _Up to date_. **Ring colour** _Processing_ colours each ring green when up to date, orange when behind or pending, and grey for what the monitor does not track (tags, events, templates). Quarantined measures are not shown: Flow keeps quarantine in the engine's memory, not in the database. Inactive measures count as up to date, as in the monitor.
 
 **Names**: _Full name_ titles each node with Flow's full name (_Metric.Parent.Measure_); _Measure name_ with the measure's own name only (_WTD_), which keeps nested measures short.
 

@@ -761,6 +761,45 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
         </InlineField>
       )}
       <InlineField
+        label="Processing"
+        labelWidth={LABEL_WIDTH}
+        tooltip={
+          datasource.processingAvailable
+            ? 'How far the engine has got with each measure, as the Flow Config monitor counts it: periods still to process, periods pending recalculation, and periods queued to become pending (queued ones that stay mean something is stuck). Shown under the name and in the node menu. Read from the Flow database. Quarantined measures are not shown: Flow keeps that in the engine, not the database.'
+            : 'Needs the Flow database: set it up in the data source settings.'
+        }
+      >
+        <InlineSwitch
+          id="query-editor-dep-processing"
+          label="Show processing"
+          showLabel
+          disabled={!datasource.processingAvailable && !query.depProcessing}
+          value={!!query.depProcessing}
+          onChange={(e) =>
+            update({
+              depProcessing: e.currentTarget.checked || undefined,
+              depRing: e.currentTarget.checked ? query.depRing : undefined,
+            })
+          }
+        />
+      </InlineField>
+      {query.depProcessing && (
+        <InlineField
+          label="Ring colour"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Retrieval type: calculated, aggregated, manual, ... Processing: green when up to date, orange when behind or pending, grey for what is not tracked (tags, events, templates)."
+        >
+          <RadioButtonGroup<'retrieval' | 'processing'>
+            options={[
+              { label: 'Retrieval type', value: 'retrieval' },
+              { label: 'Processing', value: 'processing' },
+            ]}
+            value={query.depRing === 'processing' ? 'processing' : 'retrieval'}
+            onChange={(v) => update({ depRing: v === 'processing' ? 'processing' : undefined })}
+          />
+        </InlineField>
+      )}
+      <InlineField
         label="Names"
         labelWidth={LABEL_WIDTH}
         tooltip="Full name: Flow's Metric.Measure name, with any parent measures. Measure name: only the measure's own name, which keeps nested measures short. Click a node for its full path either way."

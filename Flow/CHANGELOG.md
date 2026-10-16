@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Dependencies can show how far the engine has got with each measure, as the Flow Config monitor counts it: periods behind, pending, and queued to become pending. The counts lead each node's subtitle and are in full in its menu, and **Ring colour** _Processing_ colours rings green (up to date) or orange (behind or pending). It is read from the Flow database, for the graph's measures only, so it needs the new, optional **Flow database** connection in the data source settings (server, database, read-only login); **Save & test** checks it. Quarantine is not included: Flow keeps it in the engine, not the database.
+- The measure browser is titled **Browse Infohub**.
 - The measure browser can also show only measures of some retrieval types: a second row of chips (Aggregated, Calculated, Manual, Retrieved, Replicated, with Flow's retrieval marks) narrows the tree and the search results, together with the interval chips.
 
 ## 1.5.0

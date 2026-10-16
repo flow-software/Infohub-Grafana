@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
+	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flowdb"
 	"github.com/flow-software/Infohub-Grafana/Flow/pkg/models"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/httpclient"
@@ -54,12 +55,23 @@ func NewDatasource(ctx context.Context, settings backend.DataSourceInstanceSetti
 	}
 
 	client := &flow.Client{BaseURL: cfg.URL, Token: cfg.Secrets.Token, HTTP: httpClient}
-	return &Datasource{
+	ds := &Datasource{
 		client:            client,
 		index:             newModelIndex(client, cacheTTL),
 		httpClient:        httpClient,
 		defaultCalendarID: cfg.DefaultCalendarID,
-	}, nil
+	}
+	if cfg.SQLConfigured() {
+		db, err := flowdb.Open(flowdb.Config{
+			Server: cfg.SQLServer, Database: cfg.SQLDatabase, User: cfg.SQLUser, Password: cfg.Secrets.SQLPassword,
+			Encrypt: cfg.SQLEncrypt, TrustServerCertificate: cfg.SQLTrustServerCertificate,
+		})
+		if err != nil {
+			return &Datasource{configErr: fmt.Errorf("flow database: %w", err)}, nil
+		}
+		ds.db = db
+	}
+	return ds, nil
 }
 
 type Datasource struct {
@@ -68,6 +80,9 @@ type Datasource struct {
 	httpClient        *http.Client
 	defaultCalendarID int
 	configErr         error
+	// db is the optional Flow database, for the processing state of
+	// measures; nil when not configured.
+	db processingSource
 
 	calMu        sync.Mutex
 	calendars    []flow.Calendar
@@ -82,6 +97,17 @@ func (d *Datasource) Dispose() {
 	if d.httpClient != nil {
 		d.httpClient.CloseIdleConnections()
 	}
+	if d.db != nil {
+		_ = d.db.Close()
+	}
+}
+
+// processingSource reads how far the engine has got with measures; the Flow
+// database in production, a fake in tests.
+type processingSource interface {
+	Check(ctx context.Context) (string, error)
+	Processing(ctx context.Context, ids []int) (map[int]flowdb.Processing, error)
+	Close() error
 }
 
 // listCalendars caches Flow's calendars, which change rarely.
@@ -205,8 +231,15 @@ func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequ
 			return fail(fmt.Sprintf("Connected, but the default calendar (id %d) does not exist in Flow", d.defaultCalendarID))
 		}
 	}
-	return &backend.CheckHealthResult{
-		Status:  backend.HealthStatusOk,
-		Message: fmt.Sprintf("Connected to Flow. %d calendar(s) available.", len(calendars)),
-	}, nil
+	msg := fmt.Sprintf("Connected to Flow. %d calendar(s) available.", len(calendars))
+	if d.db != nil {
+		dbCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+		name, err := d.db.Check(dbCtx)
+		if err != nil {
+			return fail(msg + " But the Flow database connection failed: " + err.Error())
+		}
+		msg += fmt.Sprintf(" Flow database %s connected: dependency queries can show processing.", name)
+	}
+	return &backend.CheckHealthResult{Status: backend.HealthStatusOk, Message: msg}, nil
 }

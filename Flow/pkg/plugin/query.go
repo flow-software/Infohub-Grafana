@@ -58,6 +58,12 @@ type queryModel struct {
 	// DepNames "measure" titles nodes by the measure's own name ("WTD")
 	// rather than Flow's full Metric.Parent.Measure name.
 	DepNames string `json:"depNames"`
+	// DepProcessing adds how far the engine has got with each measure
+	// (periods behind, pending, queued), read from the Flow database.
+	DepProcessing bool `json:"depProcessing"`
+	// DepRing "processing" colours each ring by that state instead of the
+	// retrieval type.
+	DepRing string `json:"depRing"`
 
 	// Events queries (items are events): table, timeline or annotations.
 	EventFormat string `json:"eventFormat"`

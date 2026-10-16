@@ -20,12 +20,25 @@ type PluginSettings struct {
 	// means the first calendar Flow lists.
 	DefaultCalendarID int `json:"defaultCalendarId"`
 
+	// The Flow database, optional: dependency queries read how far the
+	// engine has got with each measure from it (the public API does not
+	// expose that). SQLServer is host, host:port or host\instance.
+	SQLServer                 string `json:"sqlServer"`
+	SQLDatabase               string `json:"sqlDatabase"`
+	SQLUser                   string `json:"sqlUser"`
+	SQLEncrypt                string `json:"sqlEncrypt"`
+	SQLTrustServerCertificate bool   `json:"sqlTrustServerCertificate"`
+
 	Secrets *SecretPluginSettings `json:"-"`
 }
 
 type SecretPluginSettings struct {
-	Token string
+	Token       string
+	SQLPassword string
 }
+
+// SQLConfigured reports whether the optional Flow database connection is set.
+func (s *PluginSettings) SQLConfigured() bool { return strings.TrimSpace(s.SQLServer) != "" }
 
 func LoadPluginSettings(source backend.DataSourceInstanceSettings) (*PluginSettings, error) {
 	settings := PluginSettings{}
@@ -41,7 +54,10 @@ func LoadPluginSettings(source backend.DataSourceInstanceSettings) (*PluginSetti
 	if len(token) > 7 && strings.EqualFold(token[:7], "bearer ") {
 		token = strings.TrimSpace(token[7:])
 	}
-	settings.Secrets = &SecretPluginSettings{Token: token}
+	settings.Secrets = &SecretPluginSettings{Token: token, SQLPassword: source.DecryptedSecureJSONData["sqlPassword"]}
+	settings.SQLServer = strings.TrimSpace(settings.SQLServer)
+	settings.SQLDatabase = strings.TrimSpace(settings.SQLDatabase)
+	settings.SQLUser = strings.TrimSpace(settings.SQLUser)
 	return &settings, nil
 }
 
@@ -69,6 +85,14 @@ func (s *PluginSettings) Validate() error {
 	}
 	if s.Secrets.Token == "" {
 		return fmt.Errorf("API token is required: create a server token in Flow Config")
+	}
+	if s.SQLConfigured() && (s.SQLDatabase == "" || s.SQLUser == "") {
+		return fmt.Errorf("the Flow database needs a database name and a user, or leave its server empty")
+	}
+	switch s.SQLEncrypt {
+	case "", "false", "true", "strict", "disable":
+	default:
+		return fmt.Errorf("unknown Flow database encryption %q", s.SQLEncrypt)
 	}
 	return nil
 }

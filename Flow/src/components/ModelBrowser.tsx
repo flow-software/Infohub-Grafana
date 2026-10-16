@@ -307,7 +307,7 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
   };
 
   return (
-    <Modal title="Browse Flow" isOpen onDismiss={onDismiss} className={styles.modal}>
+    <Modal title="Browse Infohub" isOpen onDismiss={onDismiss} className={styles.modal}>
       <TabsBar>
         <Tab label="Model" icon="sitemap" active={tree === 'model'} onChangeTab={() => setTree('model')} />
         <Tab label="Templates" icon="copy" active={tree === 'template'} onChangeTab={() => setTree('template')} />

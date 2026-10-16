@@ -32,6 +32,35 @@ func TestLoadStripsBearerPrefix(t *testing.T) {
 	}
 }
 
+func TestFlowDatabaseSettings(t *testing.T) {
+	s, err := LoadPluginSettings(backend.DataSourceInstanceSettings{
+		URL:                     "http://flow:4501/x/server",
+		JSONData:                []byte(`{"sqlServer": " sql01 ", "sqlDatabase": "Flow", "sqlUser": "grafana"}`),
+		DecryptedSecureJSONData: map[string]string{"token": "t", "sqlPassword": "pw"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.SQLConfigured() || s.SQLServer != "sql01" || s.Secrets.SQLPassword != "pw" {
+		t.Errorf("settings = %+v", s)
+	}
+	if err := s.Validate(); err != nil {
+		t.Error(err)
+	}
+	s.SQLUser = ""
+	if err := s.Validate(); err == nil {
+		t.Error("a server without a user accepted")
+	}
+	s.SQLUser, s.SQLEncrypt = "grafana", "maybe"
+	if err := s.Validate(); err == nil {
+		t.Error("unknown encryption accepted")
+	}
+	// Without a server the database is simply not used.
+	if (&PluginSettings{}).SQLConfigured() {
+		t.Error("empty settings configured")
+	}
+}
+
 func TestValidate(t *testing.T) {
 	for name, s := range map[string]PluginSettings{
 		"no url":    {Secrets: &SecretPluginSettings{Token: "t"}},
