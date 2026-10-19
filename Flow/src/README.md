@@ -1,4 +1,4 @@
-# Flow data source
+# Infohub by Flow
 
 Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in Grafana, and see how each measure is built. Browse the Flow model by folder and metric, or pick template measures to get every instance at once.
 

@@ -16,7 +16,7 @@
     "list": [
       {
         "name": "ds",
-        "label": "Flow",
+        "label": "Infohub",
         "type": "datasource",
         "query": "flowsoftware-flow-datasource",
         "current": {},
