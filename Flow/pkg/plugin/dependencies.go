@@ -809,7 +809,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 				}
 				if v, ok := values[key]; ok && v.Value != nil {
 					n.mainstat = v.Text
-					n.valueAt = v.Time.UTC().Format(time.RFC3339)
+					n.valueAt = v.when()
 					if strings.EqualFold(m.Retrieval, "manual") {
 						n.enteredBy = v.enteredBy()
 					}
@@ -899,7 +899,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		detail("aggregation", "Aggregation", func(n node) string { return n.aggregation }),
 		detail("source", "Data source", func(n node) string { return n.source }),
 		detail("enteredBy", "Entered by", func(n node) string { return n.enteredBy }),
-		detail("valueTime", "Value at", func(n node) string { return n.valueAt }),
+		detail("valueTime", "Period", func(n node) string { return n.valueAt }),
 		detail("version", "Version", func(n node) string { return n.version }),
 		detail("limits", "Limits", func(n node) string { return n.limits }),
 		detail("processing", "Processing", func(n node) string { return n.processing }),

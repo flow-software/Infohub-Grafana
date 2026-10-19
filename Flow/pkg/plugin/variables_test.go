@@ -285,7 +285,7 @@ func TestCommentsAsAnnotations(t *testing.T) {
 	if got := fr.Fields[0].At(0).(time.Time).Format("15:04"); got != "01:00" {
 		t.Errorf("time = %s, want the value's period start", got)
 	}
-	if got := column(t, fr, "text")[0]; got != "Pump tripped\n— Charl, 2026-10-06 01:20 UTC" {
+	if got := column(t, fr, "text")[0]; got != "Pump tripped\n— Charl, "+timeText(time.Date(2026, 10, 6, 1, 20, 0, 0, time.UTC)) {
 		t.Errorf("text = %q", got)
 	}
 	if got := column(t, fr, "title")[0]; got != "Site/Line 1/Production/Good" {

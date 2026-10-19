@@ -4,10 +4,12 @@ import {
   DataQueryRequest,
   DataQueryResponse,
   DataSourceInstanceSettings,
+  dateTimeFormat,
+  FieldType,
   ScopedVars,
 } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
-import { Observable } from 'rxjs';
+import { map, Observable } from 'rxjs';
 
 import { VariableQueryEditor } from './components/VariableQueryEditor';
 
@@ -25,6 +27,31 @@ import {
   SelectionSummary,
   Tree,
 } from './types';
+
+/** The backend's mark for an instant in text, e.g. {{time:1760869560000}}. */
+const TIME_MARK = /\{\{time:(-?\d+)\}\}/g;
+
+/**
+ * Shows the times the backend marks in text (node menus, annotation and
+ * comment tooltips) in the dashboard's time zone, as panels show their time
+ * axes: the backend is not told that zone.
+ */
+export function localizeTimes(response: DataQueryResponse, timeZone?: string): DataQueryResponse {
+  const show = (_: string, ms: string) => dateTimeFormat(Number(ms), { timeZone, format: 'YYYY-MM-DD HH:mm' });
+  for (const frame of response.data ?? []) {
+    for (const field of frame.fields ?? []) {
+      if (field.type !== FieldType.string) {
+        continue;
+      }
+      const values = field.values as Array<string | null | undefined>;
+      if (!values.some((v) => typeof v === 'string' && v.includes('{{time:'))) {
+        continue;
+      }
+      field.values = values.map((v) => (typeof v === 'string' ? v.replace(TIME_MARK, show) : v));
+    }
+  }
+  return response;
+}
 
 /** What the model browser lists: metrics and measures, or events. */
 export type BrowseKind = 'measures' | 'events';
@@ -60,6 +87,10 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
 
   getDefaultQuery(_: CoreApp): Partial<FlowQuery> {
     return DEFAULT_QUERY;
+  }
+
+  query(request: DataQueryRequest<FlowQuery>): Observable<DataQueryResponse> {
+    return super.query(request).pipe(map((response) => localizeTimes(response, request.timezone)));
   }
 
   /**

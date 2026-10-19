@@ -21,7 +21,11 @@ type depValue struct {
 	Value *float64
 	// Text is Flow's formatted value with the unit, e.g. "4,00 #".
 	Text string
-	Time time.Time
+	// Time is the value's period start (or a tag value's time); End the
+	// period's end, nil while it runs. Period is false for tags.
+	Time   time.Time
+	End    *time.Time
+	Period bool
 	// User is who entered the value, for manual measures.
 	User string
 	// LastEntry is the latest value in range that someone entered, when
@@ -52,7 +56,7 @@ func versionText(p point) string {
 		when = append(when, p.user)
 	}
 	if !p.captured.IsZero() {
-		when = append(when, p.captured.UTC().Format("2006-01-02 15:04")+" UTC")
+		when = append(when, timeText(p.captured))
 	}
 	if len(when) > 0 {
 		text += " · " + strings.Join(when, ", ")
@@ -95,13 +99,21 @@ func userName(u *flow.User) string {
 	return u.Username
 }
 
+// when is the value's period, or a tag value's time.
+func (v depValue) when() string {
+	if v.Period {
+		return periodText(v.Time, v.End)
+	}
+	return timeText(v.Time)
+}
+
 // enteredBy says who entered a manual measure's latest value.
 func (v depValue) enteredBy() string {
 	switch {
 	case v.User != "":
 		return v.User
 	case v.LastEntry != nil:
-		return fmt.Sprintf("no user on the latest value; last entered by %s for %s", v.LastEntry.User, v.LastEntry.Time.UTC().Format("2006-01-02 15:04 UTC"))
+		return fmt.Sprintf("no user on the latest value; last entered by %s for %s", v.LastEntry.User, timeText(v.LastEntry.Time))
 	default:
 		return "no user on any value in the time range"
 	}
@@ -194,6 +206,14 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 					}
 					if best != nil {
 						put(s.ID, best.Value, best.Formatted, best.Start.Time, best.User)
+						if v, ok := values[depKey(flow.TreeModel, "measure", s.ID)]; ok {
+							v.Period = true
+							if best.End != nil {
+								end := best.End.Time
+								v.End = &end
+							}
+							values[depKey(flow.TreeModel, "measure", s.ID)] = v
+						}
 						var pt point
 						withVersion(&pt, *best)
 						if text := versionText(pt); text != "" {

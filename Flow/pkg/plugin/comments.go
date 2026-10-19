@@ -119,7 +119,7 @@ func (d *Datasource) runComments(ctx context.Context, qm queryModel, q backend.D
 			by = append(by, c.user)
 		}
 		if c.written != nil {
-			by = append(by, c.written.UTC().Format("2006-01-02 15:04")+" UTC")
+			by = append(by, timeText(*c.written))
 		}
 		texts[i] = c.text
 		if len(by) > 0 {

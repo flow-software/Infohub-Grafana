@@ -64,7 +64,7 @@ func correctionsFrame(preferred, superseded []series, infoOf func(int) seriesInf
 			title += " · latest by " + latest.user
 		}
 		if !latest.captured.IsZero() {
-			title += ", " + latest.captured.UTC().Format("2006-01-02 15:04") + " UTC"
+			title += ", " + timeText(latest.captured)
 		}
 		// Grafana shows annotation text as (sanitised) HTML: one version per
 		// line, each escaped.
@@ -97,7 +97,7 @@ func versionLine(p point) string {
 	}
 	who := p.user
 	if !p.captured.IsZero() {
-		who = strings.TrimSpace(who + " " + p.captured.UTC().Format("2006-01-02 15:04"))
+		who = strings.TrimSpace(who + " " + timeText(p.captured))
 	}
 	if who != "" {
 		parts = append(parts, who)

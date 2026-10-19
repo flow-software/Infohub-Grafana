@@ -1,6 +1,6 @@
-import { DataSourceInstanceSettings } from '@grafana/data';
+import { DataSourceInstanceSettings, FieldType, toDataFrame } from '@grafana/data';
 
-import { DataSource, expandValues } from './datasource';
+import { DataSource, expandValues, localizeTimes } from './datasource';
 import { FlowOptions } from './types';
 
 // A template service with $line = Line 1 + Line 2 (multi-value) and
@@ -99,5 +99,26 @@ describe('applyTemplateVariables', () => {
     const out = ds.applyTemplateVariables({ refId: 'A', queryType: 'chart', chartId: 1, chartVariable: '$chart' }, {});
     expect(out.chartId).toBe(5);
     expect(ds.filterQuery({ refId: 'A', queryType: 'chart', chartVariable: '$chart' })).toBe(true);
+  });
+});
+
+describe('localizeTimes', () => {
+  // 2026-10-19 10:26 UTC
+  const ms = Date.UTC(2026, 9, 19, 10, 26);
+  const frame = () =>
+    toDataFrame({
+      fields: [
+        { name: 'detail__version', type: FieldType.string, values: [`v15 · Manual · Charl, {{time:${ms}}}`, null] },
+        { name: 'value', type: FieldType.number, values: [1, 2] },
+      ],
+    });
+
+  it('shows marked times in the dashboard time zone', () => {
+    const utc = localizeTimes({ data: [frame()] }, 'utc');
+    expect(utc.data[0].fields[0].values[0]).toBe('v15 · Manual · Charl, 2026-10-19 10:26');
+    const sast = localizeTimes({ data: [frame()] }, 'Africa/Johannesburg');
+    expect(sast.data[0].fields[0].values[0]).toBe('v15 · Manual · Charl, 2026-10-19 12:26');
+    expect(sast.data[0].fields[0].values[1]).toBeNull();
+    expect(sast.data[0].fields[1].values).toEqual([1, 2]);
   });
 });

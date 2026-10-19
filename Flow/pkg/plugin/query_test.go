@@ -496,8 +496,9 @@ func TestValueVersions(t *testing.T) {
 	}
 	title := strAt(fieldByName(t, anno, "title"), 0)
 	text := strAt(fieldByName(t, anno, "text"), 0)
-	if !strings.Contains(title, ": 3 versions · latest by Charl, 2026-10-07 09:00 UTC") ||
-		text != "v3 · 6 · Manual · Charl 2026-10-07 09:00<br>v2 · 9 · Manual · Charl 2026-10-07 08:00<br>v1 · 5 · Original · 2026-10-06 01:05" {
+	at := func(day, hour, min int) string { return timeText(time.Date(2026, 10, day, hour, min, 0, 0, time.UTC)) }
+	if !strings.Contains(title, ": 3 versions · latest by Charl, "+at(7, 9, 0)) ||
+		text != "v3 · 6 · Manual · Charl "+at(7, 9, 0)+"<br>v2 · 9 · Manual · Charl "+at(7, 8, 0)+"<br>v1 · 5 · Original · "+at(6, 1, 5) {
 		t.Errorf("title %q, text %q", title, text)
 	}
 

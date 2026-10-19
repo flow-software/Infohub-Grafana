@@ -333,7 +333,7 @@ func TestDependenciesNodeGraph(t *testing.T) {
 	if got := nodeCol(t, frames, "detail__aggregation")["model:measure:11"]; got != "sum, hourly" {
 		t.Errorf("aggregation = %q", got)
 	}
-	if got := nodeCol(t, frames, "detail__enteredBy")["model:measure:12"]; got != "no user on the latest value; last entered by Charl for 2026-10-06 00:00 UTC" {
+	if got := nodeCol(t, frames, "detail__enteredBy")["model:measure:12"]; got != "no user on the latest value; last entered by Charl for "+timeText(time.Date(2026, 10, 6, 0, 0, 0, 0, time.UTC)) {
 		t.Errorf("entered by = %q", got)
 	}
 	if got := nodeCol(t, frames, "detail__source")["model:measure:13"]; got != "Sim · FQ.PV · Average" {
@@ -434,7 +434,7 @@ func TestDependenciesValueVersion(t *testing.T) {
 	_, d := depServer(t)
 	qm := queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}}
 	frames := runDeps(t, d, qm)
-	if got := nodeCol(t, frames, "detail__version")["model:measure:12"]; got != "v2 · Updated · 2026-10-06 02:30 UTC" {
+	if got := nodeCol(t, frames, "detail__version")["model:measure:12"]; got != "v2 · Updated · "+timeText(time.Date(2026, 10, 6, 2, 30, 0, 0, time.UTC)) {
 		t.Errorf("version = %q", got)
 	}
 	if got := nodeCol(t, frames, "detail__retrieval")["model:measure:12"]; got != "manual" {
@@ -515,7 +515,7 @@ func TestDepValueEnteredBy(t *testing.T) {
 		want string
 	}{
 		{depValue{User: "Charl"}, "Charl"},
-		{depValue{LastEntry: &depEntry{User: "Charl", Time: at}}, "no user on the latest value; last entered by Charl for 2026-10-06 00:00 UTC"},
+		{depValue{LastEntry: &depEntry{User: "Charl", Time: at}}, "no user on the latest value; last entered by Charl for " + timeText(at)},
 		{depValue{}, "no user on any value in the time range"},
 	} {
 		if got := c.v.enteredBy(); got != c.want {

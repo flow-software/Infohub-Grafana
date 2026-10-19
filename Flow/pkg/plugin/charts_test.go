@@ -369,7 +369,7 @@ func TestChartCommentsBecomeCellTooltips(t *testing.T) {
 		t.Fatalf("no tooltip on the commented column: %+v", commented.Config.Custom)
 	}
 	comments := fieldByName(t, frame, name)
-	if got := strAt(comments, 0); got != "what is this\n— Charl\\flow, 2026-10-07 10:05 UTC" {
+	if got := strAt(comments, 0); got != "what is this\n— Charl\\flow, "+timeText(time.Date(2026, 10, 7, 10, 5, 20, 852000000, time.UTC)) {
 		t.Errorf("comment = %q", got)
 	}
 	if hidden, _ := comments.Config.Custom["hidden"].(bool); !hidden {

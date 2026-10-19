@@ -508,7 +508,7 @@ func (j *joined) commentText(v flow.ChartValue, ok bool) *string {
 			by = append(by, j.users[*c.UserID])
 		}
 		if c.Time != nil {
-			by = append(by, c.Time.UTC().Format("2006-01-02 15:04 UTC"))
+			by = append(by, timeText(c.Time.Time))
 		}
 		line := c.Text
 		if len(by) > 0 {
