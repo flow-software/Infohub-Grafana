@@ -764,7 +764,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 	type node struct {
 		id, title, subtitle, mainstat, kind, measureID             string
 		path, calculation, aggregation, source, enteredBy, valueAt string
-		limits, note, processing, procKind                         string
+		limits, note, processing, procKind, version                string
 		outside                                                    bool
 	}
 	var nodes []node
@@ -808,6 +808,11 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 					}
 					if v.Outside != "" {
 						n.outside, n.limits = true, "Outside: "+v.Outside
+					}
+					n.version = v.Version
+					if v.Corrected {
+						// Recalculated or entered over: worth a look in a chain.
+						n.subtitle = "corrected · " + n.subtitle
 					}
 				} else if ok {
 					n.mainstat = "–"
@@ -891,6 +896,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		detail("source", "Data source", func(n node) string { return n.source }),
 		detail("enteredBy", "Entered by", func(n node) string { return n.enteredBy }),
 		detail("valueTime", "Value at", func(n node) string { return n.valueAt }),
+		detail("version", "Version", func(n node) string { return n.version }),
 		detail("limits", "Limits", func(n node) string { return n.limits }),
 		detail("processing", "Processing", func(n node) string { return n.processing }),
 		detail("note", "Note", func(n node) string { return n.note }),

@@ -32,6 +32,34 @@ type depValue struct {
 	// Outside describes the limits the value breaks, as Flow flags them,
 	// e.g. "above high limit 5"; empty when it is within its limits.
 	Outside string
+	// Version describes the value's version, e.g. "v15 · Manual · Charl,
+	// 2026-10-19 10:26 UTC"; Corrected marks a value past its first version
+	// (recalculated or entered over).
+	Version   string
+	Corrected bool
+}
+
+// versionText describes a value's version for a node's menu.
+func versionText(p point) string {
+	if p.version == nil {
+		return ""
+	}
+	parts := []string{"v" + strconv.Itoa(*p.version)}
+	if p.versionType != "" {
+		parts = append(parts, p.versionType)
+	}
+	text := strings.Join(parts, " · ")
+	var when []string
+	if p.user != "" {
+		when = append(when, p.user)
+	}
+	if !p.captured.IsZero() {
+		when = append(when, p.captured.UTC().Format("2006-01-02 15:04")+" UTC")
+	}
+	if len(when) > 0 {
+		text += " · " + strings.Join(when, ", ")
+	}
+	return text
 }
 
 // outsideText describes the limits a value breaks.
@@ -168,6 +196,14 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 					}
 					if best != nil {
 						put(s.ID, best.Value, best.Formatted, best.Start.Time, best.User)
+						var pt point
+						withVersion(&pt, *best)
+						if text := versionText(pt); text != "" {
+							key := depKey(flow.TreeModel, "measure", s.ID)
+							v := values[key]
+							v.Version, v.Corrected = text, *pt.version > 1
+							values[key] = v
+						}
 						if out := outsideText(best.Limits); out != "" && qm.Limits == limitsLines {
 							key := depKey(flow.TreeModel, "measure", s.ID)
 							v := values[key]

@@ -112,7 +112,8 @@ func depServer(t *testing.T) (*fakeFlow, *Datasource) {
 			// 12: entered at 00:00, then filled in by Flow (no user) at 01:00.
 			{"id": 12, "data": []map[string]any{
 				{"start": "2026-10-06T00:00:00Z", "value": 8, "user": user},
-				{"start": "2026-10-06T01:00:00Z", "value": 8},
+				{"start": "2026-10-06T01:00:00Z", "value": 8, "datetime": "2026-10-06T02:30:00Z",
+					"detail": map[string]any{"preferred": true, "version": map[string]any{"value": 2, "type": "updated"}}},
 			}},
 			{"id": 10, "data": []map[string]any{
 				{"start": "2026-10-06T01:00:00Z", "value": 81.5, "limits": []any{map[string]any{"values": map[string]any{"high": 80}, "exception": map[string]any{"high": true}}}},
@@ -394,7 +395,7 @@ func TestDependenciesProcessing(t *testing.T) {
 		t.Errorf("processing = %q", proc)
 	}
 	sub := nodeCol(t, frames, "subtitle")
-	if sub["model:measure:10"] != "hourly · calculated" || sub["model:measure:11"] != "12 behind · hourly · aggregated" || sub["model:measure:13"] != "3 pending · 1 queued · hourly · retrieved" || sub["model:measure:12"] != "inactive · hourly · manual" {
+	if sub["model:measure:10"] != "hourly · calculated" || sub["model:measure:11"] != "12 behind · hourly · aggregated" || sub["model:measure:13"] != "3 pending · 1 queued · hourly · retrieved" || sub["model:measure:12"] != "inactive · corrected · hourly · manual" {
 		t.Errorf("subtitles = %q", sub)
 	}
 	// Rings keep the retrieval type unless asked for processing.
@@ -419,6 +420,20 @@ func TestDependenciesProcessing(t *testing.T) {
 	frames = runDeps(t, d, qm)
 	if n := frames[0].Meta.Notices; len(n) == 0 || !strings.Contains(n[0].Text, "login failed") {
 		t.Errorf("notices = %+v", n)
+	}
+}
+
+// A node's latest value shows its version in the menu, and a corrected
+// value (past its first version) is flagged in the subtitle.
+func TestDependenciesValueVersion(t *testing.T) {
+	_, d := depServer(t)
+	frames := runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}})
+	if got := nodeCol(t, frames, "detail__version")["model:measure:12"]; got != "v2 · Updated · 2026-10-06 02:30 UTC" {
+		t.Errorf("version = %q", got)
+	}
+	sub := nodeCol(t, frames, "subtitle")
+	if sub["model:measure:12"] != "corrected · hourly · manual" || sub["model:measure:10"] != "hourly · calculated" {
+		t.Errorf("subtitles = %q", sub)
 	}
 }
 
