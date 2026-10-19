@@ -167,7 +167,7 @@ Pick measures with **Browse** or a measure **Variable**; each becomes the root o
 - **pending**: periods marked for recalculation;
 - **queued**: periods waiting to become pending. The engine promotes these on every poll, so queued periods that stay mean something is stuck.
 
-The counts lead each node's subtitle (e.g. _90 behind · daily · retrieved_), and the node menu has them in full, e.g. _90 periods behind (Production 90)_, or _Up to date_. **Ring colour** _Processing_ colours each ring green when up to date, orange when behind or pending, and grey for what the monitor does not track (tags, events, templates). Quarantined measures are not shown: Flow keeps quarantine in the engine's memory, not in the database. Inactive measures count as up to date, as in the monitor.
+The counts lead each node's subtitle (e.g. _90 behind · daily · retrieved_), and the node menu has them in full, e.g. _90 periods behind (Production 90)_, or _Up to date_. **Ring colour** _Processing_ colours each ring green when up to date, orange when behind or pending, and grey for what the monitor does not track (tags, events, templates). Quarantined measures are not shown: Flow keeps quarantine in the engine's memory, not in the database. A measure that is not deployed shows as **inactive** (_inactive · daily · calculated_, a yellow ring) rather than up to date: the engine does not process it.
 
 **Names**: _Full name_ titles each node with Flow's full name (_Metric.Parent.Measure_); _Measure name_ with the measure's own name only (_WTD_), which keeps nested measures short.
 

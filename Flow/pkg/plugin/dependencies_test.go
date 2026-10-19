@@ -378,6 +378,7 @@ func TestDependenciesProcessing(t *testing.T) {
 	fake := &fakeProcessing{state: map[int]flowdb.Processing{
 		11: {Behind: 12, BehindBy: []flowdb.CalendarBehind{{Calendar: "Production", Periods: 12}}},
 		13: {Pending: 3, Queued: 1},
+		12: {Inactive: true},
 	}}
 	d.db = fake
 	frames = runDeps(t, d, qm)
@@ -388,11 +389,12 @@ func TestDependenciesProcessing(t *testing.T) {
 	proc := nodeCol(t, frames, "detail__processing")
 	if proc["model:measure:10"] != "Up to date" ||
 		proc["model:measure:11"] != "12 periods behind (Production 12)" ||
-		proc["model:measure:13"] != "3 periods pending; 1 period queued to become pending (if this stays, something is stuck)" {
+		proc["model:measure:13"] != "3 periods pending; 1 period queued to become pending (if this stays, something is stuck)" ||
+		proc["model:measure:12"] != "Inactive: the measure is not deployed, so the engine does not process it" {
 		t.Errorf("processing = %q", proc)
 	}
 	sub := nodeCol(t, frames, "subtitle")
-	if sub["model:measure:10"] != "hourly · calculated" || sub["model:measure:11"] != "12 behind · hourly · aggregated" || sub["model:measure:13"] != "3 pending · 1 queued · hourly · retrieved" {
+	if sub["model:measure:10"] != "hourly · calculated" || sub["model:measure:11"] != "12 behind · hourly · aggregated" || sub["model:measure:13"] != "3 pending · 1 queued · hourly · retrieved" || sub["model:measure:12"] != "inactive · hourly · manual" {
 		t.Errorf("subtitles = %q", sub)
 	}
 	// Rings keep the retrieval type unless asked for processing.
@@ -404,6 +406,9 @@ func TestDependenciesProcessing(t *testing.T) {
 	busy := nodeCol(t, frames, "arc__busy")
 	if busy["model:measure:11"] != "1" || busy["model:measure:10"] != "0" {
 		t.Errorf("busy arcs = %q", busy)
+	}
+	if inactive := nodeCol(t, frames, "arc__inactive"); inactive["model:measure:12"] != "1" || inactive["model:measure:11"] != "0" {
+		t.Errorf("inactive arcs = %q", inactive)
 	}
 	if f, _ := frames[0].FieldByName("arc__calculated"); f != nil {
 		t.Error("retrieval rings with processing rings")

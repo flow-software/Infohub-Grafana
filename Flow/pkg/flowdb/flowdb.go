@@ -85,6 +85,9 @@ func (d *DB) Check(ctx context.Context) (string, error) {
 
 // Processing is how far the engine has got with one measure.
 type Processing struct {
+	// Inactive marks a measure that is not deployed: the engine does not
+	// process it, so it has no backlog to count.
+	Inactive bool
 	// Behind is the periods the engine has still to process up to now, over
 	// all the measure's calendars, as the Flow Config monitor counts them.
 	Behind int
@@ -103,8 +106,10 @@ type CalendarBehind struct {
 	Periods  int
 }
 
-// UpToDate reports nothing left to process.
-func (p Processing) UpToDate() bool { return p.Behind == 0 && p.Pending == 0 && p.Queued == 0 }
+// UpToDate reports an active measure with nothing left to process.
+func (p Processing) UpToDate() bool {
+	return !p.Inactive && p.Behind == 0 && p.Pending == 0 && p.Queued == 0
+}
 
 // behindSQL is the monitor's per-interval sum (UserControlMonitor's
 // getIntervalCounts) for some measures: how many periods each refresh row is
@@ -164,6 +169,15 @@ JOIN Measure t1 WITH (NOLOCK) ON t1.MeasureID = t0.MeasureID
 WHERE t1.Active = 1 AND (t0.Pending = 1 OR t0.QueuePending = 1)
 GROUP BY t0.MeasureID`
 
+// inactiveSQL lists the measures that are not deployed (Measure.Active = 0);
+// the monitor's sums leave them out.
+const inactiveSQL = `
+WITH ids AS (SELECT DISTINCT CAST([value] AS int) AS ID FROM OPENJSON(@ids))
+SELECT t0.MeasureID
+FROM ids
+JOIN Measure t0 WITH (NOLOCK) ON t0.MeasureID = ids.ID
+WHERE t0.Active = 0`
+
 // Processing reads the processing state of the given measures. Measures with
 // nothing to report are left out of the map.
 func (d *DB) Processing(ctx context.Context, ids []int) (map[int]Processing, error) {
@@ -198,6 +212,22 @@ func (d *DB) Processing(ctx context.Context, ids []int) (map[int]Processing, err
 	}
 	if err := closeRows(rows); err != nil {
 		return nil, fmt.Errorf("periods behind: %w", err)
+	}
+
+	rows, err = d.db.QueryContext(ctx, inactiveSQL, arg)
+	if err != nil {
+		return nil, fmt.Errorf("inactive measures: %w", err)
+	}
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		out[id] = Processing{Inactive: true}
+	}
+	if err := closeRows(rows); err != nil {
+		return nil, fmt.Errorf("inactive measures: %w", err)
 	}
 
 	rows, err = d.db.QueryContext(ctx, pendingSQL, arg)

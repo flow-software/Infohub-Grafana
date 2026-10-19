@@ -29,7 +29,7 @@ func TestConnString(t *testing.T) {
 }
 
 func TestUpToDate(t *testing.T) {
-	if !(Processing{}).UpToDate() || (Processing{Queued: 1}).UpToDate() {
+	if !(Processing{}).UpToDate() || (Processing{Queued: 1}).UpToDate() || (Processing{Inactive: true}).UpToDate() {
 		t.Error("UpToDate")
 	}
 }

@@ -669,17 +669,22 @@ const depRingProcessing = "processing"
 const (
 	procUpToDate = "uptodate"
 	procBusy     = "busy"
+	procInactive = "inactive"
 	procNone     = "none"
 )
 
 var procKinds = []struct{ key, label, color string }{
 	{procUpToDate, "Up to date", "#73BF69"},
 	{procBusy, "Behind or pending", "#FF9830"},
+	{procInactive, "Inactive (not deployed)", "#FADE2A"},
 	{procNone, "Not tracked", "#8E8E8E"},
 }
 
 // processingText describes a measure's processing state for its menu.
 func processingText(p flowdb.Processing) string {
+	if p.Inactive {
+		return "Inactive: the measure is not deployed, so the engine does not process it"
+	}
 	if p.UpToDate() {
 		return "Up to date"
 	}
@@ -812,10 +817,17 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 			if opt.processing != nil {
 				n.procKind = procNone
 				if m, ok := graphs[tree].measures[r.MeasureID]; ok && r.Type == "measure" && tree == flow.TreeModel {
-					if strings.EqualFold(m.Interval, "timestamp") {
+					p := opt.processing[r.MeasureID]
+					switch {
+					case p.Inactive:
+						// Not deployed: no backlog to show, and "up to date"
+						// would suggest the engine is processing it.
+						n.processing = processingText(p)
+						n.procKind = procInactive
+						n.subtitle = strings.Trim("inactive · "+n.subtitle, " ·")
+					case strings.EqualFold(m.Interval, "timestamp"):
 						n.processing = "Not counted for tags, as in the Flow Config monitor."
-					} else {
-						p := opt.processing[r.MeasureID]
+					default:
 						n.processing = processingText(p)
 						n.procKind = procUpToDate
 						if !p.UpToDate() {
