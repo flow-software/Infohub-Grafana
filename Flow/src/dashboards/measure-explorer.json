@@ -1,6 +1,6 @@
 {
-  "uid": "flow-measure-explorer",
-  "title": "Flow: measure explorer",
+  "uid": "infohub-measure-explorer",
+  "title": "Infohub: measure explorer",
   "description": "Pick any measure to see its trend with limits and comments, its latest value, and what it is built from and used by.",
   "tags": ["flow"],
   "editable": true,
@@ -18,7 +18,7 @@
         "name": "ds",
         "label": "Infohub",
         "type": "datasource",
-        "query": "flowsoftware-flow-datasource",
+        "query": "flowsoftware-infohub-datasource",
         "current": {},
         "hide": 0,
         "refresh": 1,
@@ -29,7 +29,7 @@
         "label": "Measure",
         "type": "query",
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         },
         "query": {
@@ -50,7 +50,7 @@
         "label": "Limits",
         "type": "query",
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         },
         "query": {
@@ -96,7 +96,7 @@
           "items": []
         },
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         }
       }
@@ -123,7 +123,7 @@
       "title": "${measure:text}",
       "description": "Measures tab with the Measure variable, Show limits on for the limits picked in Limits.",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -141,7 +141,7 @@
           "legend": "{{measure}} ({{uom}})",
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }
@@ -157,7 +157,7 @@
       "title": "Latest value",
       "description": "",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -173,7 +173,7 @@
           "legend": "{{measure}}",
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }
@@ -200,7 +200,7 @@
       "title": "What ${measure:text} is built from",
       "description": "Dependencies tab, Inputs. Ring colour = retrieval type; red fill = outside limits.",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -217,7 +217,7 @@
           "limits": "lines",
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }
@@ -233,7 +233,7 @@
       "title": "What uses ${measure:text}",
       "description": "Dependencies tab, Used by.",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -251,7 +251,7 @@
           "limits": "lines",
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }

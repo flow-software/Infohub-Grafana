@@ -2,7 +2,7 @@
 # Builds the backend for every platform, one target at a time.
 #
 # `mage -v` (all platforms in parallel) intermittently fails to write
-# dist/gpx_flow_linux_amd64 with "cannot allocate memory" when the repo
+# dist/gpx_infohub_linux_amd64 with "cannot allocate memory" when the repo
 # is a Windows folder bind-mounted into Docker; sequential builds do not.
 # Run inside the Go container (see README):
 #

@@ -1,6 +1,6 @@
 {
-  "uid": "flow-event-analysis",
-  "title": "Flow: event analysis",
+  "uid": "infohub-event-analysis",
+  "title": "Infohub: event analysis",
   "description": "Pick an event to see its periods as a table and a timeline, and measures read per event period.",
   "tags": ["flow"],
   "editable": true,
@@ -18,7 +18,7 @@
         "name": "ds",
         "label": "Infohub",
         "type": "datasource",
-        "query": "flowsoftware-flow-datasource",
+        "query": "flowsoftware-infohub-datasource",
         "current": {},
         "hide": 0,
         "refresh": 1,
@@ -29,7 +29,7 @@
         "label": "Event",
         "type": "query",
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         },
         "query": {
@@ -50,7 +50,7 @@
         "label": "Measures",
         "type": "query",
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         },
         "query": {
@@ -98,7 +98,7 @@
           "items": []
         },
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         }
       }
@@ -125,7 +125,7 @@
       "title": "${event:text} periods",
       "description": "Events tab with the Event variable, Table format.",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -142,7 +142,7 @@
           "items": [],
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }
@@ -158,7 +158,7 @@
       "title": "${event:text} attributes",
       "description": "Events tab, Timeline format.",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -175,7 +175,7 @@
           "items": [],
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }
@@ -196,7 +196,7 @@
       "title": "Measures per ${event:text} period",
       "description": "Measures tab in event context, Time at = Whole period. Measures need the event as context in Flow.",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -215,7 +215,7 @@
           "legend": "{{measure}}",
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }

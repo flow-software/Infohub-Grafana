@@ -2,12 +2,12 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "Infohub by Flow",
-  "id": "flowsoftware-flow-datasource",
+  "id": "flowsoftware-infohub-datasource",
   "metrics": true,
   "alerting": true,
   "annotations": true,
   "backend": true,
-  "executable": "gpx_flow",
+  "executable": "gpx_infohub",
   "info": {
     "description": "Browse the Flow model by folder and metric and chart measure and tag data, for model measures or every instance of a template measure.",
     "author": {
@@ -33,10 +33,10 @@
     "updated": "%TODAY%"
   },
   "includes": [
-    { "type": "dashboard", "name": "Flow: measure explorer", "path": "dashboards/measure-explorer.json" },
-    { "type": "dashboard", "name": "Flow: measures by attribute", "path": "dashboards/attribute-overview.json" },
-    { "type": "dashboard", "name": "Flow: event analysis", "path": "dashboards/event-analysis.json" },
-    { "type": "dashboard", "name": "Flow: chart viewer", "path": "dashboards/chart-viewer.json" }
+    { "type": "dashboard", "name": "Infohub: measure explorer", "path": "dashboards/measure-explorer.json" },
+    { "type": "dashboard", "name": "Infohub: measures by attribute", "path": "dashboards/attribute-overview.json" },
+    { "type": "dashboard", "name": "Infohub: event analysis", "path": "dashboards/event-analysis.json" },
+    { "type": "dashboard", "name": "Infohub: chart viewer", "path": "dashboards/chart-viewer.json" }
   ],
   "dependencies": {
     "grafanaDependency": ">=12.3.0",

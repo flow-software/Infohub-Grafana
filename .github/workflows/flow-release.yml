@@ -54,7 +54,7 @@ jobs:
 
           ## Install
 
-          Unsigned build: Grafana must list `flowsoftware-flow-datasource` in `allow_loading_unsigned_plugins`. Self-hosted Grafana only, not Grafana Cloud.
+          Unsigned build: Grafana must list `flowsoftware-infohub-datasource` in `allow_loading_unsigned_plugins`. Self-hosted Grafana only, not Grafana Cloud.
 
           | Zip | For |
           | --- | --- |

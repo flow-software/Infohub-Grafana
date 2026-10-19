@@ -1,7 +1,7 @@
 services:
   grafana:
     user: root
-    container_name: 'flowsoftware-flow-datasource'
+    container_name: 'flowsoftware-infohub-datasource'
 
     build:
       context: .
@@ -19,13 +19,13 @@ services:
     cap_add:
       - SYS_PTRACE
     volumes:
-      - ../dist:/var/lib/grafana/plugins/flowsoftware-flow-datasource
+      - ../dist:/var/lib/grafana/plugins/flowsoftware-infohub-datasource
       - ../provisioning:/etc/grafana/provisioning
-      - ..:/root/flowsoftware-flow-datasource
+      - ..:/root/flowsoftware-infohub-datasource
 
     environment:
       NODE_ENV: development
-      GF_LOG_FILTERS: plugin.flowsoftware-flow-datasource:debug
+      GF_LOG_FILTERS: plugin.flowsoftware-infohub-datasource:debug
       GF_LOG_LEVEL: debug
       GF_DATAPROXY_LOGGING: 1
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: flowsoftware-flow-datasource
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: flowsoftware-infohub-datasource

@@ -74,7 +74,7 @@ Remove-Item Env:TIMEBASE_CLIENT_SECRET
 
 The Flow datasource there (uid `flow-dev`) was created through Grafana's API, not provisioned, so a token pasted on its settings page persists. Provisioning would reset the token at every start. From inside the container the Docker host is `host.docker.internal`, so its URL is `http://host.docker.internal:4501/flow-software/flow/instances/<InstanceID>/server`.
 
-To rebuild the backend, stop that Grafana first (`docker stop flowsoftware-timebasei3x-datasource`), build, then `docker start` it. While it runs, Grafana holds `dist/gpx_flow_linux_amd64` open and, on a Windows bind mount, the build fails to overwrite it. The frontend is picked up on a browser refresh.
+To rebuild the backend, stop that Grafana first (`docker stop flowsoftware-timebasei3x-datasource`), build, then `docker start` it. While it runs, Grafana holds `dist/gpx_infohub_linux_amd64` open and, on a Windows bind mount, the build fails to overwrite it. The frontend is picked up on a browser refresh.
 
 `provisioning/` and `docker-compose.yaml` alone are the stand-alone Grafana that CI uses for the e2e tests.
 

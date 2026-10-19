@@ -9,7 +9,7 @@ test('smoke: should render config editor', async ({ createDataSourceConfigPage, 
 });
 
 test('"Save & test" should fail and name the missing setting', async ({ createDataSourceConfigPage, page }) => {
-  const configPage = await createDataSourceConfigPage({ type: 'flowsoftware-flow-datasource' });
+  const configPage = await createDataSourceConfigPage({ type: 'flowsoftware-infohub-datasource' });
   await page.getByPlaceholder(URL_PLACEHOLDER).fill('http://flow-server:4501/flow-software/flow/instances/x/server');
   await expect(configPage.saveAndTest()).not.toBeOK();
   await expect(configPage).toHaveAlert('error', { hasText: 'API token is required' });

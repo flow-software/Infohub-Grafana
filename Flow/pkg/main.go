@@ -11,7 +11,7 @@ import (
 func main() {
 	// Blocks until Grafana stops the plugin. Grafana builds one Datasource per
 	// configured datasource and rebuilds it whenever its settings change.
-	if err := datasource.Manage("flowsoftware-flow-datasource", plugin.NewDatasource, datasource.ManageOpts{}); err != nil {
+	if err := datasource.Manage("flowsoftware-infohub-datasource", plugin.NewDatasource, datasource.ManageOpts{}); err != nil {
 		log.DefaultLogger.Error(err.Error())
 		os.Exit(1)
 	}

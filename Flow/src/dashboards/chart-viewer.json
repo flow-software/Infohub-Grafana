@@ -1,6 +1,6 @@
 {
-  "uid": "flow-chart-viewer",
-  "title": "Flow: chart viewer",
+  "uid": "infohub-chart-viewer",
+  "title": "Infohub: chart viewer",
   "description": "Pick a time-based Flow chart to see it as Flow lays it out, with limit colours and comments.",
   "tags": ["flow"],
   "editable": true,
@@ -18,7 +18,7 @@
         "name": "ds",
         "label": "Infohub",
         "type": "datasource",
-        "query": "flowsoftware-flow-datasource",
+        "query": "flowsoftware-infohub-datasource",
         "current": {},
         "hide": 0,
         "refresh": 1,
@@ -29,7 +29,7 @@
         "label": "Chart",
         "type": "query",
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         },
         "query": {
@@ -84,7 +84,7 @@
       "title": "${chart:text}",
       "description": "Chart tab with the Chart variable.",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -99,7 +99,7 @@
           "chartVariable": "$chart",
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }

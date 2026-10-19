@@ -16,10 +16,10 @@ services:
   grafana:
     volumes:
       - tbi3x-grafana-data:/var/lib/grafana
-      - ../../Infohub-Grafana/Flow/dist:/var/lib/grafana/plugins/flowsoftware-flow-datasource
+      - ../../Infohub-Grafana/Flow/dist:/var/lib/grafana/plugins/flowsoftware-infohub-datasource
     environment:
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: flowsoftware-timebasei3x-datasource,flowsoftware-flow-datasource
-      GF_LOG_FILTERS: plugin.flowsoftware-timebasei3x-datasource:debug,plugin.flowsoftware-flow-datasource:debug
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: flowsoftware-timebasei3x-datasource,flowsoftware-infohub-datasource
+      GF_LOG_FILTERS: plugin.flowsoftware-timebasei3x-datasource:debug,plugin.flowsoftware-infohub-datasource:debug
     # Flow Bootstrap on the Docker host.
     extra_hosts:
       - 'host.docker.internal:host-gateway'

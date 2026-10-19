@@ -12,7 +12,7 @@ import json
 import os
 import zipfile
 
-PLUGIN_ID = "flowsoftware-flow-datasource"
+PLUGIN_ID = "flowsoftware-infohub-datasource"
 DIST, OUT = "dist", "artifacts"
 
 
@@ -46,7 +46,7 @@ def main():
         raise SystemExit("no backend binaries in dist/; run mage -v first")
     common = [n for n in names if n not in binaries and n != "go_plugin_build_manifest" and not n.endswith(".map")]
 
-    # gpx_flow_windows_amd64.exe -> windows_amd64
+    # gpx_infohub_windows_amd64.exe -> windows_amd64
     targets = {b.split("_", 2)[2].removesuffix(".exe"): [b] for b in binaries}
     targets["any"] = binaries
 

@@ -8,12 +8,12 @@ Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in
 2. Add a **Flow** data source with the Flow Server URL and a server token (see [Configuration](#configuration)), then select **Save & test**.
 3. Open the data source's **Dashboards** tab and import the example dashboards. They pick measures, events and charts from dropdowns, so they work on any Flow model. Open any of their panels to see how its query is set up.
 
-| Dashboard                       | What it shows                                                                                                                           |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **Flow: measure explorer**      | Pick any measure: its trend with a limit (pick more to compare) and comments, its latest value, what it is built from and what uses it. |
-| **Flow: measures by attribute** | Pick a model attribute and its values (e.g. _Line_ = _Line 1_): the trend and latest values of every measure that carries them.         |
-| **Flow: event analysis**        | Pick an event: its periods as a table and a timeline, and measures read per event period.                                               |
-| **Flow: chart viewer**          | Pick a time-based Flow chart: it is shown as Flow lays it out, with limit colours and comments.                                         |
+| Dashboard                          | What it shows                                                                                                                           |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Infohub: measure explorer**      | Pick any measure: its trend with a limit (pick more to compare) and comments, its latest value, what it is built from and what uses it. |
+| **Infohub: measures by attribute** | Pick a model attribute and its values (e.g. _Line_ = _Line 1_): the trend and latest values of every measure that carries them.         |
+| **Infohub: event analysis**        | Pick an event: its periods as a table and a timeline, and measures read per event period.                                               |
+| **Infohub: chart viewer**          | Pick a time-based Flow chart: it is shown as Flow lays it out, with limit colours and comments.                                         |
 
 ## What you can do
 

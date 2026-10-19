@@ -1,6 +1,6 @@
 {
-  "uid": "flow-attribute-overview",
-  "title": "Flow: measures by attribute",
+  "uid": "infohub-attribute-overview",
+  "title": "Infohub: measures by attribute",
   "description": "One dashboard for every line, site or area: pick a model attribute and its values to see the measures that carry them.",
   "tags": ["flow"],
   "editable": true,
@@ -18,7 +18,7 @@
         "name": "ds",
         "label": "Infohub",
         "type": "datasource",
-        "query": "flowsoftware-flow-datasource",
+        "query": "flowsoftware-infohub-datasource",
         "current": {},
         "hide": 0,
         "refresh": 1,
@@ -29,7 +29,7 @@
         "label": "Attribute",
         "type": "query",
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         },
         "query": {
@@ -50,7 +50,7 @@
         "label": "Value",
         "type": "query",
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         },
         "query": {
@@ -72,7 +72,7 @@
         "label": "Measures",
         "type": "query",
         "datasource": {
-          "type": "flowsoftware-flow-datasource",
+          "type": "flowsoftware-infohub-datasource",
           "uid": "${ds}"
         },
         "query": {
@@ -132,7 +132,7 @@
       "title": "Measures where ${attribute} = ${value:text}",
       "description": "Measures tab with the Measures variable; the variable lists measures by attribute.",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -148,7 +148,7 @@
           "legend": "{{path}}",
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }
@@ -164,7 +164,7 @@
       "title": "Latest values",
       "description": "",
       "datasource": {
-        "type": "flowsoftware-flow-datasource",
+        "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"
       },
       "gridPos": {
@@ -180,7 +180,7 @@
           "legend": "{{path}}",
           "refId": "A",
           "datasource": {
-            "type": "flowsoftware-flow-datasource",
+            "type": "flowsoftware-infohub-datasource",
             "uid": "${ds}"
           }
         }
