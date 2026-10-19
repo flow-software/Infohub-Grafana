@@ -19,6 +19,8 @@ import (
 const (
 	itemMetric  = "metric"
 	itemMeasure = "measure"
+	// itemChart stands for the measures in a Flow chart, of any type.
+	itemChart = "chart"
 )
 
 type queryItem struct {
@@ -49,6 +51,10 @@ type queryModel struct {
 
 	// Chart queries: the chart's periods within the panel's time range.
 	ChartID int `json:"chartId"`
+	// ChartMode "measures" reads the chart's measures as a measures query,
+	// for any panel, instead of laying the chart out as Flow does.
+	ChartMode  string `json:"chartMode"`
+	ChartLabel string `json:"chartLabel"`
 
 	// Dependency queries (they also use Items).
 	DepDirection string `json:"depDirection"`
@@ -156,7 +162,7 @@ func (qm *queryModel) validate() error {
 		if !it.Tree.Valid() {
 			return fmt.Errorf("item %d: unknown tree %q", it.ID, it.Tree)
 		}
-		if it.Type != itemMetric && it.Type != itemMeasure {
+		if it.Type != itemMetric && it.Type != itemMeasure && it.Type != itemChart {
 			return fmt.Errorf("item %d: unknown type %q", it.ID, it.Type)
 		}
 	}
@@ -196,8 +202,23 @@ func (s *selection) add(tree flow.Tree, m flow.Measure) {
 func (d *Datasource) resolve(ctx context.Context, items []queryItem) (*selection, error) {
 	sel := &selection{}
 	measureIDs := map[flow.Tree][]int{}
+	// Measures from charts: Flow lists model and template measures together,
+	// so ids not found among the model's are looked up as template ones.
+	fromChart := map[int]bool{}
 	for _, it := range items {
 		switch it.Type {
+		case itemChart:
+			measures, err := d.chartMeasures(ctx, it.ID)
+			if err != nil {
+				return nil, fmt.Errorf("measures of chart %d: %w", it.ID, err)
+			}
+			if len(measures) == 0 {
+				sel.warnings = append(sel.warnings, fmt.Sprintf("%s has no measures you can read", itemName(it)))
+			}
+			for _, m := range measures {
+				fromChart[m.ID] = true
+				measureIDs[flow.TreeModel] = appendUnique(measureIDs[flow.TreeModel], m.ID)
+			}
 		case itemMeasure:
 			measureIDs[it.Tree] = appendUnique(measureIDs[it.Tree], it.ID)
 		case itemMetric:
@@ -229,9 +250,14 @@ func (d *Datasource) resolve(ctx context.Context, items []queryItem) (*selection
 			sel.add(tree, m)
 		}
 		for _, id := range ids {
-			if !known[id] {
-				sel.warnings = append(sel.warnings, fmt.Sprintf("%s measure %d no longer exists or is not accessible", tree, id))
+			if known[id] {
+				continue
 			}
+			if tree == flow.TreeModel && fromChart[id] {
+				measureIDs[flow.TreeTemplate] = appendUnique(measureIDs[flow.TreeTemplate], id)
+				continue
+			}
+			sel.warnings = append(sel.warnings, fmt.Sprintf("%s measure %d no longer exists or is not accessible", tree, id))
 		}
 	}
 	return sel, nil
@@ -315,6 +341,14 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 			return backend.DataResponse{}, err
 		}
 		got, warn, err := d.readPeriods(ctx, sel, calendarID, q.TimeRange, qm.TimeAt == "end")
+		if err != nil && qm.CalendarID == 0 && flow.IsCalendarMismatch(err) {
+			// No calendar picked and the default is not one of these
+			// measures': read them in the calendar most of them have.
+			if alt, name := d.contextCalendar(ctx, sel); alt != 0 && alt != calendarID {
+				got, warn, err = d.readPeriods(ctx, sel, alt, q.TimeRange, qm.TimeAt == "end")
+				notices = append(notices, fmt.Sprintf("Read in the %s calendar: the data source's default calendar is not a calendar of these measures in Flow. Pick a calendar to read them in another.", name))
+			}
+		}
 		if err != nil {
 			return backend.DataResponse{}, err
 		}

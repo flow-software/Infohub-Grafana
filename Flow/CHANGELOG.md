@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Charts can be shown as their **measures**: **Show** _Measures_ in the Chart tab reads the measures in any chart, of any chart type (event-based tables and forms, widgets, trends), as series for any panel, with every option of the Measures tab. _As configured_ is the Flow layout as before. Template measures in a chart come back as their instances, and an event-based chart starts in its event's context.
+- A measures query with no calendar picked, whose measures Flow cannot read in the default calendar, now reads them in the calendar they have and says so, instead of failing.
+
 ## 1.6.0
 
 - The plugin is now **Infohub by Flow**, with the ID `flowsoftware-infohub-datasource` (was `flowsoftware-flow-datasource`) and the backend `gpx_infohub`. Grafana treats it as a new plugin: install it into the folder `flowsoftware-infohub-datasource`, allow that ID in `allow_loading_unsigned_plugins`, and recreate data sources and dashboards made with the old one. The example dashboards are now _Infohub: measure explorer_, _Infohub: measures by attribute_, _Infohub: event analysis_ and _Infohub: chart viewer_.

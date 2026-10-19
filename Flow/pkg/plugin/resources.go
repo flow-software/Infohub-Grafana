@@ -113,6 +113,9 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 		body, err = d.browseCharts(ctx, id)
 	case "summary":
 		body, err = d.summary(ctx, params["item"])
+	case "chartEvents":
+		id, _ := strconv.Atoi(params.Get("id"))
+		body, err = d.chartEventChoices(ctx, id)
 	case "contextEvents":
 		body, err = d.contextEvents(ctx, params["item"])
 	case "limits":

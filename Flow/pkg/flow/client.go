@@ -485,6 +485,13 @@ func chunks(ids []int, size int) [][]int {
 // measure endpoint fails with an empty-sequence exception when no period
 // falls in the range, and the aggregated tag endpoint when no calendar period
 // does.
+// IsCalendarMismatch reports Flow refusing to read measures in a calendar
+// none of them has as context.
+func IsCalendarMismatch(err error) bool {
+	var apiErr *APIError
+	return errors.As(err, &apiErr) && apiErr.Status == http.StatusBadRequest && apiErr.HasMessage("Invalid measure and calendar combination")
+}
+
 func IsNoData(err error) bool {
 	var apiErr *APIError
 	if !errors.As(err, &apiErr) || apiErr.Status != http.StatusBadRequest {

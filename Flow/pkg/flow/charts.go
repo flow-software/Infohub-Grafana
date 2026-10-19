@@ -48,6 +48,26 @@ func (c *Client) FolderCharts(ctx context.Context, folderID int) ([]ChartSummary
 	return r.Charts, err
 }
 
+// ChartMeasures lists the measures in a chart, of any chart type, as Flow
+// renders it: template measures placed in the chart come back as their model
+// instances. Flow answers no content for a chart without measures.
+func (c *Client) ChartMeasures(ctx context.Context, chartID int) ([]Measure, error) {
+	var r struct {
+		Measures []Measure `json:"measures"`
+	}
+	err := c.get(ctx, fmt.Sprintf("v1/information/charts/%d/measures", chartID), nil, &r)
+	return r.Measures, err
+}
+
+// ChartEvents lists the events (event schemes) a chart uses.
+func (c *Client) ChartEvents(ctx context.Context, chartID int) ([]Event, error) {
+	var r struct {
+		Events []Event `json:"events"`
+	}
+	err := c.get(ctx, fmt.Sprintf("v1/information/charts/%d/events", chartID), nil, &r)
+	return r.Events, err
+}
+
 // ChartDefinition returns a chart's layout as the Flow web app loads it
 // (api/definition/charts/{id}). It is not part of the public API, so it is
 // returned as raw JSON for the caller to walk.

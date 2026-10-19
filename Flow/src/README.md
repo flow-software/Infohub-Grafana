@@ -45,7 +45,7 @@ Event periods with their attributes as a table or a state timeline, coloured as 
 
 ![A Flow time-based chart shown as a table, as Flow lays it out](/public/plugins/%PLUGIN_ID%/img/screenshots/chart.png)
 
-Pick a time-based chart set up in Flow and see it as Flow lays it out: sections, measures, attribute and limit columns, one column per period, cells coloured by the chart's limit colours, and comments on hover.
+Pick a time-based chart set up in Flow and see it as Flow lays it out: sections, measures, attribute and limit columns, one column per period, cells coloured by the chart's limit colours, and comments on hover. Or show any chart's **measures** instead, of any chart type, and chart them however you like in any Grafana panel.
 
 ### Build one dashboard for every line
 
@@ -141,7 +141,14 @@ _Attribute values_ and _Measures_ can be narrowed with **Where** (a model attrib
 
 ### Chart
 
-Select **Choose chart** and pick a chart from Flow's chart folders, or give a **Variable** holding a chart id (`$chart`). Time-based charts can be shown; others (event-based charts, widgets) are listed but greyed out.
+**Show** decides what the query returns:
+
+- _As configured_: the chart as Flow lays it out (below). Time-based charts can be shown; others (event-based charts, widgets) are listed but greyed out.
+- _Measures_: the measures in the chart, of any chart type, as series for any panel. Flow lists them for the chart as it renders it, so template measures placed in the chart come back as their instances. All the options of a measures query apply (calendar, event context, tags, legend, limits, filter, quality). The chart's sections, limit columns and layout are left out, and the dashboard's time range applies instead of the chart's periods. An event-based chart starts in event context, in the chart's event. The chart's measure list is kept for five minutes.
+
+Select **Choose chart** and pick a chart from Flow's chart folders, or give a **Variable** holding a chart id (`$chart`).
+
+When a query picks no calendar and Flow cannot read the measures in the data source's default calendar, they are read in the calendar most of them have, and the panel says which.
 
 The chart is laid out as Flow's time-based table: one row per measure, grouped by section, with the UOM, model attribute and Low Limit, Limit and High Limit columns the chart shows (a measure without a value for a model attribute gets a blank cell), then one column per period in the dashboard's time range, labelled as Flow labels it. A value outside its limit takes the limit's high or low colour from the chart, using the exceptions Flow itself records. A value within its limit is green, unless the limit sets a target colour of its own.
 

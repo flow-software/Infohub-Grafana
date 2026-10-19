@@ -276,6 +276,88 @@ func TestSummaryContext(t *testing.T) {
 	}
 }
 
+// A chart read as measures stands for the measures in it: Flow lists model
+// and template measures together, and the template ones are found as such.
+func TestChartAsMeasures(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/information/charts/77/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"measures": []any{modelMeasures[200], templateMeasures[9000]}})
+	}
+	d := testDatasource(srv)
+	s, err := d.summary(context.Background(), []string{"model:chart:77"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.PeriodMeasures != 2 || len(s.Warnings) != 0 {
+		t.Errorf("summary = %+v, want 200 (model) and 9000 (template)", s)
+	}
+	resp := runQuery(t, d, queryModel{QueryType: queryTypeChart, ChartMode: chartModeMeasures, ChartID: 77})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if len(resp.Frames) == 0 {
+		t.Error("no series for the chart's measures")
+	}
+	// The list is cached: a second query does not ask Flow again.
+	runQuery(t, d, queryModel{QueryType: queryTypeChart, ChartMode: chartModeMeasures, ChartID: 77})
+	if n := f.count("/api/v1/information/charts/77/measures"); n != 1 {
+		t.Errorf("chart measures fetched %d times", n)
+	}
+	// A chart without measures says so.
+	f.handlers["/api/v1/information/charts/78/measures"] = func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }
+	resp = runQuery(t, d, queryModel{QueryType: queryTypeChart, ChartMode: chartModeMeasures, ChartID: 78, ChartLabel: "Empty"})
+	if resp.Error != nil || len(resp.Frames) == 0 || len(resp.Frames[0].Meta.Notices) == 0 || !strings.Contains(resp.Frames[0].Meta.Notices[0].Text, "Empty has no measures") {
+		t.Errorf("empty chart: %+v", resp)
+	}
+}
+
+// With no calendar picked, measures Flow cannot read in the default
+// calendar are read in the calendar they have, and the panel says so.
+func TestDefaultCalendarFallsBackToMeasuresCalendar(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/model/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		var out []map[string]any
+		for _, m := range byIDs(modelMeasures, r) {
+			c := map[string]any{}
+			for k, v := range m {
+				c[k] = v
+			}
+			if r.URL.Query().Get("metadata") == "true" {
+				c["metadata"] = []any{map[string]any{"type": "context", "data": map[string]any{"calendars": []int{2}}}}
+			}
+			out = append(out, c)
+		}
+		writeJSON(w, 200, map[string]any{"measures": out})
+	}
+	var calendars []string
+	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		cal := r.URL.Query().Get("calendarid")
+		calendars = append(calendars, cal)
+		if cal != "2" {
+			writeJSON(w, 400, map[string]any{"errors": []string{"Invalid measure and calendar combination. No valid measure could be found with calendar Default as context."}})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 200, "data": []map[string]any{{"start": "2026-10-06T00:00:00Z", "value": 4}}}}})
+	}
+	d := testDatasource(srv)
+	resp := runQuery(t, d, queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 200}}})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if strings.Join(calendars, ",") != "1,2" {
+		t.Errorf("calendars asked = %v", calendars)
+	}
+	if n := resp.Frames[0].Meta.Notices; len(n) == 0 || !strings.Contains(n[0].Text, "Read in the calendar 2 calendar") {
+		t.Errorf("notices = %+v", n)
+	}
+	// A calendar the query picks is used as is: the error stands.
+	calendars = nil
+	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 200}}, CalendarID: 1})
+	if resp.Error == nil || strings.Join(calendars, ",") != "1" {
+		t.Errorf("picked calendar: error %v, asked %v", resp.Error, calendars)
+	}
+}
+
 func TestChartCommentsBecomeCellTooltips(t *testing.T) {
 	_, d := chartServer(t)
 	frame := runChartQuery(t, d, queryModel{})

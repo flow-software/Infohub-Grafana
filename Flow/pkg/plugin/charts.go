@@ -228,6 +228,63 @@ type chartCacheEntry struct {
 	at  time.Time
 }
 
+// chartModeMeasures is the chart query mode that reads the chart's measures.
+const chartModeMeasures = "measures"
+
+// chartMeasureCache keeps each chart's measure list for cacheTTL: panels
+// refresh often, and charts change rarely.
+type chartMeasureCache struct {
+	mu      sync.Mutex
+	entries map[int]chartMeasureEntry
+}
+
+type chartMeasureEntry struct {
+	measures []flow.Measure
+	at       time.Time
+}
+
+func (d *Datasource) chartMeasures(ctx context.Context, chartID int) ([]flow.Measure, error) {
+	d.chartLists.mu.Lock()
+	if e, ok := d.chartLists.entries[chartID]; ok && time.Since(e.at) < cacheTTL {
+		d.chartLists.mu.Unlock()
+		return e.measures, nil
+	}
+	d.chartLists.mu.Unlock()
+	measures, err := d.client.ChartMeasures(ctx, chartID)
+	if err != nil {
+		return nil, err
+	}
+	d.chartLists.mu.Lock()
+	if d.chartLists.entries == nil {
+		d.chartLists.entries = map[int]chartMeasureEntry{}
+	}
+	d.chartLists.entries[chartID] = chartMeasureEntry{measures: measures, at: time.Now()}
+	d.chartLists.mu.Unlock()
+	return measures, nil
+}
+
+// chartEventChoices lists the events a chart uses, named by folder path, so
+// the editor can read an event-based chart's measures in its event.
+func (d *Datasource) chartEventChoices(ctx context.Context, chartID int) ([]eventChoice, error) {
+	events, err := d.client.ChartEvents(ctx, chartID)
+	if err != nil {
+		return nil, err
+	}
+	paths, _ := d.index.eventPaths(ctx, events)
+	out := []eventChoice{}
+	for _, e := range events {
+		c := eventChoice{ID: e.ID, Name: e.Name}
+		if p := paths[e.ID]; p != "" {
+			c.Name = p
+		}
+		for _, a := range e.Attributes {
+			c.Attributes = append(c.Attributes, a.Name)
+		}
+		out = append(out, c)
+	}
+	return out, nil
+}
+
 func (d *Datasource) chartDefinition(ctx context.Context, chartID int) (*chartDefinition, error) {
 	d.charts.mu.Lock()
 	if e, ok := d.charts.entries[chartID]; ok && time.Since(e.at) < cacheTTL {

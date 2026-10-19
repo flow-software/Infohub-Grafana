@@ -9,7 +9,7 @@ export type Tree = 'model' | 'template';
  * Events are picked in events queries; a template event stands for every
  * event created from it.
  */
-export type ItemType = 'metric' | 'measure' | 'event';
+export type ItemType = 'metric' | 'measure' | 'event' | 'chart';
 
 export interface QueryItem {
   tree: Tree;
@@ -45,6 +45,11 @@ export interface FlowQuery extends DataQuery {
   chartVariable?: string;
   /** Shown in the editor. */
   chartLabel?: string;
+  /**
+   * "measures" reads the chart's measures (of any chart type) as a measures
+   * query, for any panel; unset lays the chart out as Flow does.
+   */
+  chartMode?: 'measures';
 
   /** Dependency queries; they pick measures with items too. */
   depDirection?: DepDirection;

@@ -173,6 +173,11 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
   }
 
   /** Events the selected model measures have as context. */
+  /** The events a chart uses, so an event-based chart's measures can be read in its event. */
+  getChartEvents(chartId: number): Promise<ContextEvent[]> {
+    return this.getResource<ContextEvent[]>('chartEvents', { id: chartId });
+  }
+
   getContextEvents(items: QueryItem[]): Promise<ContextEvent[]> {
     return this.getResource<ContextEvent[]>('contextEvents', { item: items.map(itemKey) });
   }

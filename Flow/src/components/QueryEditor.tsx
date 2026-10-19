@@ -110,22 +110,59 @@ export function QueryEditor(props: Props) {
   );
 }
 
-function ChartQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
+function ChartQueryEditor(props: Props) {
+  const { datasource, query, onChange, onRunQuery } = props;
   const styles = useStyles2(getStyles);
   const [browsing, setBrowsing] = useState(false);
+  const asMeasures = query.chartMode === 'measures';
 
   const update = (patch: Partial<FlowQuery>) => {
     onChange({ ...query, ...patch });
     onRunQuery();
   };
 
+  // An event-based chart's measures are best read per period of its event:
+  // start there when the chart uses one and no context is set yet.
+  const pick = (patch: Partial<FlowQuery>) => {
+    const next = { ...query, ...patch };
+    if (next.chartMode !== 'measures' || !next.chartId || next.context) {
+      update(patch);
+      return;
+    }
+    datasource
+      .getChartEvents(next.chartId)
+      .then((events) => {
+        const e = events[0];
+        update(e ? { ...patch, context: 'event', eventId: e.id, eventLabel: e.name, timeAt: 'period' } : patch);
+      })
+      .catch(() => update(patch));
+  };
+
   return (
     <>
+      <InlineField
+        label="Show"
+        labelWidth={LABEL_WIDTH}
+        tooltip="As configured: the chart as Flow lays it out (time-based tables and forms), with its sections, limit columns and colours. Measures: the measures in the chart, of any chart type, as series to show in any panel, with the options of the Measures tab; the chart's sections and layout are left out."
+      >
+        <RadioButtonGroup<'configured' | 'measures'>
+          options={[
+            { label: 'As configured', value: 'configured' },
+            { label: 'Measures', value: 'measures' },
+          ]}
+          value={asMeasures ? 'measures' : 'configured'}
+          onChange={(v) => pick({ chartMode: v === 'measures' ? 'measures' : undefined })}
+        />
+      </InlineField>
       <InlineField
         label="Chart"
         labelWidth={LABEL_WIDTH}
         grow
-        tooltip="A time-based Flow chart, such as a time-based table, shown as Flow lays it out for the periods in the dashboard's time range. Its measures, sections and limits come from the chart as it is set up in Flow. Values outside a limit are coloured with the limit's colours; values within it are green."
+        tooltip={
+          asMeasures
+            ? 'Any Flow chart: its measures are read as series. Template measures in the chart come back as their instances.'
+            : "A time-based Flow chart, such as a time-based table, shown as Flow lays it out for the periods in the dashboard's time range. Its measures, sections and limits come from the chart as it is set up in Flow. Values outside a limit are coloured with the limit's colours; values within it are green."
+        }
       >
         <div className={styles.itemsRow}>
           <Button
@@ -165,11 +202,22 @@ function ChartQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
         <ChartBrowser
           datasource={datasource}
           selectedId={query.chartId}
+          anyType={asMeasures}
           onDismiss={() => setBrowsing(false)}
           onApply={(chart) => {
             setBrowsing(false);
-            update({ chartId: chart.id, chartLabel: chart.label });
+            pick({ chartId: chart.id, chartLabel: chart.label });
           }}
+        />
+      )}
+      {asMeasures && (query.chartId || query.chartVariable) && (
+        <MeasuresQueryEditor
+          {...props}
+          chartItem={
+            query.chartId
+              ? { tree: 'model', type: 'chart', id: query.chartId, label: query.chartLabel || `Chart ${query.chartId}` }
+              : undefined
+          }
         />
       )}
     </>
@@ -202,13 +250,24 @@ function useSummary(datasource: DataSource, items: QueryItem[]): SelectionSummar
   return result?.key === key ? result.summary : undefined;
 }
 
-function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
+function MeasuresQueryEditor({
+  datasource,
+  query,
+  onChange,
+  onRunQuery,
+  chartItem,
+}: Props & { chartItem?: QueryItem }) {
   const styles = useStyles2(getStyles);
-  const items = useMemo(() => query.items ?? [], [query.items]);
+  // A chart read as measures: its measures stand in for picked items.
+  const ofChart = query.queryType === 'chart';
+  const items = useMemo(
+    () => (ofChart ? (chartItem ? [chartItem] : []) : (query.items ?? [])),
+    [ofChart, chartItem, query.items]
+  );
   const summary = useSummary(datasource, items);
   // Measures from a variable are unknown until the panel runs, so their
   // period options show too.
-  const fromVariable = !!query.measureVariable;
+  const fromVariable = ofChart ? !chartItem : !!query.measureVariable;
   // Event context is offered when a measure has an event as context, or when
   // that is not known (measures from a variable, or the lookup failed), or
   // the query already uses it.
@@ -226,25 +285,34 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
 
   return (
     <>
-      <ItemsPicker
-        datasource={datasource}
-        items={items}
-        onChange={(next) => update({ items: next })}
-        tooltip="Pick metrics and measures from the model or from templates. A metric returns all its measures; a template item returns every instance created from it."
-      />
-      <InlineField
-        label="Variable"
-        labelWidth={LABEL_WIDTH}
-        tooltip="A dashboard variable holding measure ids, such as a Measures variable of this data source: $measure. Its measures are added to those picked above; with Multi-value or All, every selected one."
-      >
-        <Input
-          id="query-editor-measure-variable"
-          width={30}
-          placeholder="$measure"
-          defaultValue={query.measureVariable ?? ''}
-          onBlur={(e) => update({ measureVariable: e.currentTarget.value.trim() || undefined })}
+      {!ofChart && (
+        <ItemsPicker
+          datasource={datasource}
+          items={items}
+          onChange={(next) => update({ items: next })}
+          tooltip="Pick metrics and measures from the model or from templates. A metric returns all its measures; a template item returns every instance created from it."
         />
-      </InlineField>
+      )}
+      {!ofChart && (
+        <InlineField
+          label="Variable"
+          labelWidth={LABEL_WIDTH}
+          tooltip="A dashboard variable holding measure ids, such as a Measures variable of this data source: $measure. Its measures are added to those picked above; with Multi-value or All, every selected one."
+        >
+          <Input
+            id="query-editor-measure-variable"
+            width={30}
+            placeholder="$measure"
+            defaultValue={query.measureVariable ?? ''}
+            onBlur={(e) => update({ measureVariable: e.currentTarget.value.trim() || undefined })}
+          />
+        </InlineField>
+      )}
+      {ofChart && !!summary?.warnings?.length && (
+        <InlineField label="Note" labelWidth={LABEL_WIDTH}>
+          <span className={styles.hint}>{summary.warnings.join(' ')}</span>
+        </InlineField>
+      )}
       {(items.length > 0 || fromVariable) && (
         <AttributeFilterField
           datasource={datasource}

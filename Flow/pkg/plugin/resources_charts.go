@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -170,6 +171,30 @@ func (d *Datasource) selectionContext(ctx context.Context, sel *selection) *sele
 		out.Calendars = append(out.Calendars, contextCount{ID: id, Measures: calendars[id]})
 	}
 	return out
+}
+
+// contextCalendar is the calendar most of the selection's period measures
+// have as context in Flow, with its name; 0 when that is not known.
+func (d *Datasource) contextCalendar(ctx context.Context, sel *selection) (int, string) {
+	c := d.selectionContext(ctx, sel)
+	if c == nil || len(c.Calendars) == 0 {
+		return 0, ""
+	}
+	best := c.Calendars[0]
+	for _, cal := range c.Calendars[1:] {
+		if cal.Measures > best.Measures {
+			best = cal
+		}
+	}
+	name := fmt.Sprintf("calendar %d", best.ID)
+	if list, err := d.listCalendars(ctx); err == nil {
+		for _, cal := range list {
+			if cal.ID == best.ID {
+				name = cal.Name
+			}
+		}
+	}
+	return best.ID, name
 }
 
 // measureContext reads a measure's context metadata: the calendars and

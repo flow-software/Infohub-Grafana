@@ -10,6 +10,8 @@ interface Props {
   datasource: DataSource;
   /** The query's current chart. */
   selectedId?: number;
+  /** Every chart type can be picked (to read its measures), not only time-based ones. */
+  anyType?: boolean;
   onApply: (chart: { id: number; label: string }) => void;
   onDismiss: () => void;
 }
@@ -28,7 +30,7 @@ function errorText(err: unknown): string {
  * chart. Charts the plugin cannot show yet (event-based, widgets, ...) are
  * listed but cannot be picked.
  */
-export function ChartBrowser({ datasource, selectedId, onApply, onDismiss }: Props) {
+export function ChartBrowser({ datasource, selectedId, anyType, onApply, onDismiss }: Props) {
   const styles = useStyles2(getStyles);
   const [children, setChildren] = useState<Record<number, Children>>({});
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -124,12 +126,16 @@ export function ChartBrowser({ datasource, selectedId, onApply, onDismiss }: Pro
           role="treeitem"
           aria-level={depth + 1}
           aria-selected={isPicked}
-          aria-disabled={!n.supported}
-          className={cx(styles.row, isPicked && styles.picked, !n.supported && styles.unsupported)}
+          aria-disabled={!(n.supported || anyType)}
+          className={cx(styles.row, isPicked && styles.picked, !(n.supported || anyType) && styles.unsupported)}
           style={{ paddingLeft: depth * 20 + 24 }}
-          title={n.supported ? undefined : `${n.chartType} charts cannot be shown as a table yet`}
-          onClick={() => n.supported && setPicked({ id: n.id, label })}
-          onDoubleClick={() => n.supported && onApply({ id: n.id, label })}
+          title={
+            n.supported || anyType
+              ? n.chartType
+              : `${n.chartType} charts cannot be laid out as configured yet; show their measures instead`
+          }
+          onClick={() => (n.supported || anyType) && setPicked({ id: n.id, label })}
+          onDoubleClick={() => (n.supported || anyType) && onApply({ id: n.id, label })}
         >
           <Icon name="table" className={styles.icon} />
           <span className={styles.label}>{n.name}</span>

@@ -88,9 +88,10 @@ type Datasource struct {
 	calendars    []flow.Calendar
 	calendarsAge time.Time
 
-	charts chartCache
-	deps   depIndex
-	attrs  attributeCache
+	charts     chartCache
+	chartLists chartMeasureCache
+	deps       depIndex
+	attrs      attributeCache
 }
 
 func (d *Datasource) Dispose() {
@@ -163,6 +164,18 @@ func (d *Datasource) query(ctx context.Context, q backend.DataQuery) backend.Dat
 	var qm queryModel
 	if err := json.Unmarshal(q.JSON, &qm); err != nil {
 		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("invalid query: %v", err))
+	}
+	// A chart read as measures is a measures query over the chart's measures.
+	if qm.QueryType == queryTypeChart && qm.ChartMode == chartModeMeasures {
+		if qm.ChartID == 0 {
+			return backend.DataResponse{}
+		}
+		label := qm.ChartLabel
+		if label == "" {
+			label = fmt.Sprintf("chart %d", qm.ChartID)
+		}
+		qm.QueryType = queryTypeMeasures
+		qm.Items = []queryItem{{Tree: flow.TreeModel, Type: itemChart, ID: qm.ChartID, Label: label}}
 	}
 	if err := qm.validate(); err != nil {
 		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, err.Error())
