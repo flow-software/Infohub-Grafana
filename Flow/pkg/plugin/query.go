@@ -117,8 +117,10 @@ type queryModel struct {
 	BadQualityAsNull bool   `json:"badQualityAsNull"`
 	// IncludeVersion adds each value's version, its type and who entered it.
 	IncludeVersion bool `json:"includeVersion"`
-	// Versions "all" reads every version of each period's value: the
-	// preferred ones as usual, and the superseded ones as markers.
+	// Versions reads every version of each period's value: "corrections"
+	// draws the preferred values as usual and marks each corrected period
+	// with an annotation listing its versions; "history" returns one table
+	// of every version, like Flow's History tab.
 	Versions string `json:"versions"`
 	// Legend names each series; {{path}}, {{folder}}, {{metric}},
 	// {{measure}}, {{id}} and {{uom}} are replaced. Empty uses the full path.
@@ -302,14 +304,24 @@ type point struct {
 	value   *float64
 	text    *string
 	quality int
-	// version, versionType and user describe the value's version, when read.
+	// version, versionType and user describe the value's version, when read;
+	// captured is when Flow stored it.
 	version     *int
 	versionType string
 	user        string
+	captured    time.Time
 }
 
-// versionsAll is the query value that reads every version of each value.
-const versionsAll = "all"
+// Versions modes: read every version of each value.
+const (
+	versionsCorrections = "corrections"
+	versionsHistory     = "history"
+)
+
+// allVersions reports a query that reads every version.
+func (qm queryModel) allVersions() bool {
+	return qm.Versions == versionsCorrections || qm.Versions == versionsHistory
+}
 
 // versionTypes name Flow's VersionType values, by number and by the enum
 // name the public API sends (in any case).
@@ -334,6 +346,9 @@ func withVersion(pt *point, v flow.PeriodValue) {
 		}
 	}
 	pt.user = userName(v.User)
+	if v.DateTime != nil {
+		pt.captured = v.DateTime.Time
+	}
 }
 
 func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery) (backend.DataResponse, error) {
@@ -435,13 +450,39 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 		}
 		return !all[i].superseded && all[j].superseded
 	})
-	var resp backend.DataResponse
-	for _, s := range all {
-		info, ok := infos[s.id]
-		if !ok {
-			info = seriesInfo{ID: s.id, Path: fmt.Sprintf("measure %d", s.id)}
+	infoOf := func(id int) seriesInfo {
+		if info, ok := infos[id]; ok {
+			return info
 		}
-		resp.Frames = append(resp.Frames, buildFrame(s, info, qm))
+		return seriesInfo{ID: id, Path: fmt.Sprintf("measure %d", id)}
+	}
+	// Superseded versions are not series of their own: they mark corrected
+	// periods, or join the preferred values in the history table.
+	var superseded []series
+	kept := all[:0]
+	for _, s := range all {
+		if s.superseded {
+			superseded = append(superseded, s)
+		} else {
+			kept = append(kept, s)
+		}
+	}
+	all = kept
+	var resp backend.DataResponse
+	if qm.Versions == versionsHistory {
+		resp.Frames = data.Frames{historyFrame(all, superseded, infoOf, qm)}
+		if hasTags(all) {
+			notices = append(notices, "Tags have no versions, so they are left out of the history table.")
+		}
+		all = nil
+	}
+	for _, s := range all {
+		resp.Frames = append(resp.Frames, buildFrame(s, infoOf(s.id), qm))
+	}
+	if qm.Versions == versionsCorrections {
+		if f := correctionsFrame(all, superseded, infoOf, qm); f != nil {
+			resp.Frames = append(resp.Frames, f)
+		}
 	}
 	if qm.Limits == limitsLines && len(all) > 0 {
 		notices = append(notices, d.applyLimits(ctx, resp.Frames, all, qm)...)
@@ -470,7 +511,7 @@ func pathOf(infos map[int]seriesInfo, id int) string {
 
 func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID int, tr backend.TimeRange, qm queryModel) ([]series, []string, error) {
 	atEnd := qm.TimeAt == "end"
-	all := qm.Versions == versionsAll
+	all := qm.allVersions()
 	res, err := d.client.MeasureData(ctx, flow.MeasureDataRequest{
 		IDs: sel.periodIDs, TemplateIDs: sel.periodTemplateIDs,
 		CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit,

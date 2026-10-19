@@ -457,47 +457,68 @@ func TestOneBadTagDoesNotFailTheRest(t *testing.T) {
 	}
 }
 
-// All versions: the preferred values form the measure's series, superseded
-// ones a second series drawn as markers; both carry version, type and user.
-func TestAllVersions(t *testing.T) {
+// Every version of a value: "corrections" keeps the preferred values as the
+// series and marks corrected periods with an annotation; "history" returns
+// one table of every version, newest first.
+func TestValueVersions(t *testing.T) {
 	f, srv := newFakeFlow(t)
 	var query string
 	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
 		query = r.URL.RawQuery
-		v := func(start string, value float64, preferred bool, version int, typ string, user any) map[string]any {
-			return map[string]any{"start": start, "value": value, "user": user,
+		v := func(start string, value float64, preferred bool, version int, typ, captured string, user any) map[string]any {
+			return map[string]any{"start": start, "value": value, "user": user, "datetime": captured,
 				"detail": map[string]any{"preferred": preferred, "quality": map[string]any{"value": 192}, "version": map[string]any{"value": version, "type": typ}}}
 		}
+		charl := map[string]any{"username": "charl", "name": "Charl"}
 		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 200, "data": []any{
-			v("2026-10-06T00:00:00Z", 5, true, 1, "original", nil),
-			v("2026-10-06T01:00:00Z", 6, true, 2, "manual", map[string]any{"username": "charl", "name": "Charl"}),
-			v("2026-10-06T01:00:00Z", 5, false, 1, "original", nil),
+			v("2026-10-06T00:00:00Z", 5, true, 1, "original", "2026-10-06T00:05:00Z", nil),
+			v("2026-10-06T01:00:00Z", 6, true, 3, "manual", "2026-10-07T09:00:00Z", charl),
+			v("2026-10-06T01:00:00Z", 5, false, 1, "original", "2026-10-06T01:05:00Z", nil),
+			v("2026-10-06T01:00:00Z", 9, false, 2, "manual", "2026-10-07T08:00:00Z", charl),
 		}}}})
 	}
 	d := testDatasource(srv)
-	resp := runQuery(t, d, queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 200}}, Versions: versionsAll})
+	item := []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 200}}
+
+	resp := runQuery(t, d, queryModel{Items: item, Versions: versionsCorrections})
 	if resp.Error != nil {
 		t.Fatal(resp.Error)
 	}
 	if !strings.Contains(query, "preferred=false") || !strings.Contains(query, "users=true") {
 		t.Errorf("query = %s", query)
 	}
-	if len(resp.Frames) != 2 {
-		t.Fatalf("frames = %d, want preferred and superseded", len(resp.Frames))
+	if len(resp.Frames) != 2 || resp.Frames[0].Rows() != 2 {
+		t.Fatalf("frames = %d, want the preferred series and the corrections", len(resp.Frames))
 	}
-	preferred, old := resp.Frames[0], resp.Frames[1]
-	if preferred.Rows() != 2 || old.Rows() != 1 || !strings.HasSuffix(old.Name, "(superseded)") {
-		t.Errorf("rows %d/%d, names %q %q", preferred.Rows(), old.Rows(), preferred.Name, old.Name)
+	anno := resp.Frames[1]
+	if anno.Meta == nil || anno.Meta.DataTopic != data.DataTopicAnnotations || anno.Rows() != 1 {
+		t.Fatalf("corrections frame = %+v", anno.Meta)
 	}
-	if got := fmt.Sprint(strAt(fieldByName(t, preferred, "Version"), 1), " ", strAt(fieldByName(t, preferred, "Version type"), 1), " ", strAt(fieldByName(t, preferred, "Entered by"), 1)); got != "2 Manual Charl" {
-		t.Errorf("version detail = %q", got)
+	title := strAt(fieldByName(t, anno, "title"), 0)
+	text := strAt(fieldByName(t, anno, "text"), 0)
+	if !strings.Contains(title, ": 3 versions · latest by Charl, 2026-10-07 09:00 UTC") ||
+		text != "v3 · 6 · Manual · Charl 2026-10-07 09:00<br>v2 · 9 · Manual · Charl 2026-10-07 08:00<br>v1 · 5 · Original · 2026-10-06 01:05" {
+		t.Errorf("title %q, text %q", title, text)
 	}
-	if style, _ := old.Fields[1].Config.Custom["drawStyle"].(string); style != "points" {
-		t.Errorf("superseded draw style = %v", old.Fields[1].Config.Custom)
+
+	resp = runQuery(t, d, queryModel{Items: item, Versions: versionsHistory})
+	if resp.Error != nil || len(resp.Frames) != 1 {
+		t.Fatalf("history: %v, %d frames", resp.Error, len(resp.Frames))
+	}
+	h := resp.Frames[0]
+	var got []string
+	for i := 0; i < h.Rows(); i++ {
+		v, _ := fieldByName(t, h, "Version").ConcreteAt(i)
+		p, _ := fieldByName(t, h, "Preferred").ConcreteAt(i)
+		got = append(got, fmt.Sprintf("%v/%v", v, p))
+	}
+	// Newest period first; the latest version first within it.
+	if strings.Join(got, " ") != "3/Yes 2/ 1/ 1/Yes" {
+		t.Errorf("history rows = %v", got)
 	}
 
 	// Without the options: the preferred values only, as before.
-	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 200}}})
+	resp = runQuery(t, d, queryModel{Items: item})
 	if strings.Contains(query, "preferred=false") || len(resp.Frames) != 1 || len(resp.Frames[0].Fields) != 2 {
 		t.Errorf("plain query %s gave %d frames", query, len(resp.Frames))
 	}

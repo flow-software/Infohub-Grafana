@@ -65,18 +65,8 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 		value.Config.Unit = "suffix: " + info.UOM
 	}
 
-	if s.superseded {
-		// Older versions: markers only, in one neutral colour, so corrections
-		// stand out against the preferred line.
-		labels["version"] = "superseded"
-		value.Config.DisplayNameFromDS += " · superseded"
-		name += " (superseded)"
-		value.Config.Color = map[string]any{"mode": "fixed", "fixedColor": supersededColor}
-		value.Config.Custom = map[string]any{"drawStyle": "points", "pointSize": 9, "showPoints": "always"}
-	}
-
 	frame := data.NewFrame(name, data.NewField("Time", nil, times), value)
-	withVersions := qm.IncludeVersion || qm.Versions == versionsAll
+	withVersions := qm.IncludeVersion || qm.allVersions()
 	if qm.IncludeQuality {
 		frame.Fields = append(frame.Fields, data.NewField("Quality", labels, qualities))
 	}
@@ -108,9 +98,6 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 	}
 	return frame
 }
-
-// supersededColor marks older versions of values.
-const supersededColor = "#CCCCDC"
 
 // seriesLabels identify a series to alerting and to legend {{label}} syntax.
 func seriesLabels(info seriesInfo) data.Labels {
