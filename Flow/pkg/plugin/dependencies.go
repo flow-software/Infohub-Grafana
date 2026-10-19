@@ -400,7 +400,6 @@ func (d *Datasource) runDependencies(ctx context.Context, qm queryModel, q backe
 			opt.processing, opt.ringProcessing = proc, qm.DepRing == depRingProcessing
 		}
 	}
-	opt.ringVersions = qm.DepRing == depRingVersions
 	frames := depNodeGraph(rows, names, values, treeOf, graphs, direction, opt)
 	if len(notices) > 0 {
 		frames[0].Meta.Notices = append(frames[0].Meta.Notices, noticesOf(notices)...)
@@ -659,25 +658,12 @@ type depGraphOptions struct {
 	// processing is each model measure's processing state; nil leaves it
 	// out (not asked for, or the Flow database is not set up).
 	processing map[int]flowdb.Processing
-	// ringProcessing colours rings by processing state, ringVersions by how
-	// the latest value's version came about, instead of retrieval type.
-	ringProcessing, ringVersions bool
+	// ringProcessing colours rings by processing state, not retrieval type.
+	ringProcessing bool
 }
 
-// Ring colour query values, besides the default retrieval type.
-const (
-	depRingProcessing = "processing"
-	depRingVersions   = "versions"
-)
-
-// verKinds are the Versions ring colours: how the latest value's version
-// came about.
-var verKinds = []struct{ key, label, color string }{
-	{versionOriginal, "Original (v1)", "#73BF69"},
-	{versionUpdated, "Updated by the engine", retrievalColors["calculated"]},
-	{versionManual, "Entered by hand", retrievalColors["manual"]},
-	{"none", "No value", "#8E8E8E"},
-}
+// depRingProcessing is the query value that colours rings by processing.
+const depRingProcessing = "processing"
 
 // Processing states, as ring colours.
 const (
@@ -778,7 +764,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 	type node struct {
 		id, title, subtitle, mainstat, kind, measureID             string
 		path, calculation, aggregation, source, enteredBy, valueAt string
-		limits, note, processing, procKind, version, verKind       string
+		limits, note, processing, procKind, version                string
 		retrieval                                                  string
 		outside                                                    bool
 	}
@@ -808,12 +794,11 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 					n.measureID += " (template)"
 				}
 			}
-			n.verKind = "none"
 			if m, ok := graphs[tree].measures[r.MeasureID]; ok && r.Type == "measure" {
 				// The ring shows the retrieval type by default, so the subtitle
 				// leaves it out; with another ring colour it says it.
 				n.subtitle = m.Interval
-				if opt.ringProcessing || opt.ringVersions {
+				if opt.ringProcessing {
 					n.subtitle = depStats(m)
 				}
 				n.retrieval = strings.ToLower(m.Retrieval)
@@ -832,10 +817,6 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 						n.outside, n.limits = true, "Outside: "+v.Outside
 					}
 					n.version = v.Version
-					if opt.ringVersions && v.VersionKind != "" {
-						n.verKind = v.VersionKind
-						n.subtitle = fmt.Sprintf("v%d · %s", v.VersionNumber, n.subtitle)
-					}
 				} else if ok {
 					n.mainstat = "–"
 					n.note = v.Note
@@ -936,11 +917,8 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 	// the panel then lists them as its legend. Only the kinds in this graph
 	// get a field, so the legend stays short.
 	kinds, kindOf := nodeKinds, func(n node) string { return n.kind }
-	switch {
-	case opt.ringProcessing:
+	if opt.ringProcessing {
 		kinds, kindOf = procKinds, func(n node) string { return n.procKind }
-	case opt.ringVersions:
-		kinds, kindOf = verKinds, func(n node) string { return n.verKind }
 	}
 	present := map[string]bool{}
 	for _, n := range nodes {

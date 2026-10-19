@@ -5,7 +5,7 @@ Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in
 ## Get started
 
 1. Install the plugin and restart Grafana.
-2. Add a **Flow** data source with the Flow Server URL and a server token (see [Configuration](#configuration)), then select **Save & test**.
+2. Add an **Infohub by Flow** data source with the Flow Server URL and a server token (see [Configuration](#configuration)), then select **Save & test**.
 3. Open the data source's **Dashboards** tab and import the example dashboards. They pick measures, events and charts from dropdowns, so they work on any Flow model. Open any of their panels to see how its query is set up.
 
 | Dashboard                          | What it shows                                                                                                                           |
@@ -23,6 +23,10 @@ Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in
 
 Period measures (hourly, shift, daily, ...) are read per calendar period; tags (timestamp measures) raw, averaged per panel interval only when there are more values than the panel can show. **Show limits** draws a measure's Flow limits as dashed lines (all of them, or the ones you pick), and an annotation query marks the comments on its values, with who wrote them and when.
 
+Flow keeps every version of a value: the original, recalculations and manual entries. **Mark corrections** marks each period whose value was changed; hover the mark for every version, newest first, with who changed it and when. **History table** lists them all, like Flow's History tab.
+
+![Corrected periods marked on a trend; the mark's tooltip lists every version of the value](/public/plugins/%PLUGIN_ID%/img/screenshots/versions.png)
+
 Pick items in the query editor: **Browse** walks the model folder by folder, or searches by name or measure ID (`4304`, `#4304` or `id:4304`), and can show only measures of some intervals (tags, hourly, daily, ...) or retrieval types (calculated, manual, ...). Each measure shows its ID, interval and retrieval type as Flow Config draws them. A metric stands for all of its measures, and a template metric or measure returns every model measure created from it, named by folder path so `Line 1/Production/Good` and `Line 2/Production/Good` stay apart.
 
 ![The query editor: Measures tab with a measure variable and Show limits on](/public/plugins/%PLUGIN_ID%/img/screenshots/editor.png)
@@ -31,7 +35,7 @@ Pick items in the query editor: **Browse** walks the model folder by folder, or 
 
 ![A dependency graph: each node is a measure with its latest value, its ring coloured by retrieval type](/public/plugins/%PLUGIN_ID%/img/screenshots/dependencies.png)
 
-The **Dependencies** query draws what a measure is calculated, aggregated, transformed, set or retrieved from, and theirs in turn, or the other way round, what uses it. Each node shows the measure's latest value; its ring colour is the retrieval type, and a red fill means the latest value is outside its limits. Click a node for its calculation, data source, limits and who entered it. With the Flow database set up, **Ring colour** _Processing_ shows how far the engine has got with each measure, as the Flow Config monitor counts it: periods behind, pending and queued, and rings that turn orange where the backlog is.
+The **Dependencies** query draws what a measure is calculated, aggregated, transformed, set or retrieved from, and theirs in turn, or the other way round, what uses it. Each node shows the measure's latest value; its ring colour is the retrieval type, and a red fill means the latest value is outside its limits. Click a node for its calculation, data source, limits, and the latest value's version: who entered or recalculated it, and when. With the Flow database set up, **Ring colour** _Processing_ shows how far the engine has got with each measure, as the Flow Config monitor counts it: periods behind, pending and queued, and rings that turn orange where the backlog is.
 
 ### Analyse events
 
@@ -51,7 +55,7 @@ Pick a time-based chart set up in Flow and see it as Flow lays it out: sections,
 
 ![Every measure where Line = Line 1, with a table of their latest values](/public/plugins/%PLUGIN_ID%/img/screenshots/attributes.png)
 
-Dashboard variables are filled from Flow: model attributes (_Line_, _Site_, ...) and their values (every _Line_), measures, events, event attribute values and charts. Panels follow them through an attribute filter (_Line_ = `$line`) or a variable of measure, event or chart ids, so one dashboard serves every line, site or product.
+Dashboard variables are filled from Flow: model attributes (_Line_, _Site_, ...) and their values (every _Line_), measures, events, event attribute values, limit names and charts. Panels follow them through an attribute filter (_Line_ = `$line`) or a variable of measure, event or chart ids, so one dashboard serves every line, site or product.
 
 ### Alert on Flow data
 
@@ -104,7 +108,7 @@ The options below the selection depend on what it holds. **Period measures** opt
 - **Variable**: a dashboard variable holding measure ids, such as a _Measures_ variable of this data source (`$measure`). Its measures are added to those picked with Browse; with Multi-value or All, every selected one.
 - **Filter**: keep only measures whose model attribute has one of the values, e.g. _Line_ = _Line 1_. The attribute and its values can be dashboard variables: pick a template measure and _Line_ = `$line` to get one dashboard for every line.
 - **Context**: _Calendar_ reads period measures per calendar period; _Event_ reads them per period of an event (see below). It is offered only when a selected measure has an event as context in Flow.
-- **Calendar**: period measures are read in this calendar. Only the calendars the selected measures have as context in Flow are listed, with how many of the measures have each when not all do; a measure without the chosen calendar is named in a warning on the panel. With measures from a **Variable** every calendar is listed, since they are only known when the panel runs. Choose whether each value is placed at the **period start** or **end**.
+- **Calendar**: period measures are read in this calendar. Only the calendars the selected measures have as context in Flow are listed, with how many of the measures have each when not all do; a measure without the chosen calendar is named in a warning on the panel. With measures from a **Variable** every calendar is listed, since they are only known when the panel runs. With no calendar picked, measures Flow cannot read in the data source's default calendar are read in the calendar most of them have, and the panel says which. Choose whether each value is placed at the **period start** or **end**.
 - **Event** (event context): the event whose periods the measures are read in. The list holds the events the selected model measures have as context in Flow; **Event variable** takes it from a dashboard variable (`$event`) instead. Optionally pick an **Attribute** to keep only periods with some of its values (the values seen in the last 90 days are suggested; others can be typed), and turn on **Series per value** to get a series per value, coloured as in Flow. **Time at** _Whole period_ (the default in event context) draws each value as a line from its event period's start to its end, with a gap until the next period: unlike calendar periods, event periods do not run back to back, so a single timestamp would hide when each one ran. _Period start_ or _end_ places the value at one of them instead. Template measures are not read in event context, because each instance has its own event. Measures that belong to an event themselves (rather than to a metric) are not supported yet.
 - **Tags** applies to timestamp measures only. By default the panel gets raw values when it can show them all; a tag with more values than that is averaged per panel interval, and the panel says so. Turn on **All raw values** to get every stored value (slow over long ranges). A tag Flow cannot read (for example a Latch transform without a latch source) is named in a warning, and the other tags still show.
 - **Legend** names each series. Pick a preset (_Full path_, the default; _Full path and unit_; _Folder and measure_; _Metric and measure_; _Measure_; _Measure and unit_; _Folder_), or type your own pattern with `{{path}}`, `{{folder}}`, `{{metric}}`, `{{measure}}`, `{{id}}` and `{{uom}}`. An empty unit or folder is left out cleanly. Template instances share their metric and measure names, so keep the folder or path in the name to tell them apart.
@@ -149,8 +153,6 @@ _Attribute values_ and _Measures_ can be narrowed with **Where** (a model attrib
 
 Select **Choose chart** and pick a chart from Flow's chart folders, or give a **Variable** holding a chart id (`$chart`).
 
-When a query picks no calendar and Flow cannot read the measures in the data source's default calendar, they are read in the calendar most of them have, and the panel says which.
-
 The chart is laid out as Flow's time-based table: one row per measure, grouped by section, with the UOM, model attribute and Low Limit, Limit and High Limit columns the chart shows (a measure without a value for a model attribute gets a blank cell), then one column per period in the dashboard's time range, labelled as Flow labels it. A value outside its limit takes the limit's high or low colour from the chart, using the exceptions Flow itself records. A value within its limit is green, unless the limit sets a target colour of its own.
 
 A value with comments in Flow gets a small marker in the corner of its cell. Hover over the cell, or click the marker, to read the comments, each with who added it and when (in UTC) on the line below. The box grows to fit them.
@@ -169,7 +171,7 @@ Pick measures with **Browse** or a measure **Variable**; each becomes the root o
 
 **Values**: each model measure's latest value in the dashboard's time range is included (the latest period with a value for period measures, in the chosen **Calendar** or the datasource's default; the last value for tags), in Flow's own format with the unit. Turn **Latest values** off to leave them out. Template measures hold no values. The calendar matters for weekly, monthly and yearly measures, whose periods depend on where the calendar's weeks and months start. A period measure that does not have the calendar as context in Flow shows a dash; click it for why.
 
-**Ring colour**: _Retrieval type_ (the default; the subtitle then leaves it out, and the node menu always lists it), _Versions_ (how each latest value came about: green the original v1, blue updated by the engine, purple entered by hand; the subtitle leads with the version number, e.g. _v15 · daily · manual_) or _Processing_ (needs the [Flow database](#flow-database-optional)). _Processing_ shows how far the engine has got with each model measure, read from the Flow database with the same sums as the Flow Config monitor:
+**Ring colour**: _Retrieval type_ (the default) or _Processing_ (needs the [Flow database](#flow-database-optional)). _Processing_ shows how far the engine has got with each model measure, read from the Flow database with the same sums as the Flow Config monitor:
 
 - **behind**: the periods still to process up to now, per calendar, from where the engine has got to (its refresh point), the refresh offset and projected periods;
 - **pending**: periods marked for recalculation;
@@ -181,7 +183,7 @@ The counts lead each node's subtitle (e.g. _90 behind · daily · retrieved_), a
 
 **Direction**: _Built from_ follows those links to a measure's inputs, then theirs, and so on. _Used by_ goes the other way: the measures built from it. _Used by_ reads how every measure in the model is built (cached for five minutes), so it takes longer on large models. **Depth** limits how many levels are followed (default 10). A measure that appears again on its own branch is a cycle, and the walk stops there.
 
-**Output**: nodes and edges for Grafana's **Node graph** panel. Each measure appears once with its latest value in the circle and how it gets its values (its period, then its retrieval type, e.g. _hourly · calculated_) under its name, with arrows pointing the way values flow. Each node's ring is coloured by its retrieval type (calculated blue, aggregated orange, manual purple, retrieved green, replicated light blue; events grey). With **Show limits** on, a node whose latest value is outside its limits in the chosen calendar, as Flow flags it, is **filled red**, and its click menu names the limit it breaks. The panel's legend lists the ring colours in the graph and explains the red fill. A cycle shows as arrows both ways. Click a node for its measure ID, path, the latest value's version (e.g. _v15 · Manual · Charl, 2026-10-19 10:26 UTC_), calculation, aggregation or transform, data source (e.g. _Flow Data Simulator · 110-FQ-001.PV · Average_), who entered it (manual measures: who entered the latest value, or the last value entered in the range when Flow filled in the latest), the latest value's time, and a note when the depth limit cut its links short. Click an edge for its formula, aggregation or transform.
+**Output**: nodes and edges for Grafana's **Node graph** panel. Each measure appears once with its latest value in the circle and its period (e.g. _hourly_) under its name, with arrows pointing the way values flow. Each node's ring is coloured by its retrieval type (calculated blue, aggregated orange, manual purple, retrieved green, replicated light blue; events grey); with _Processing_ rings the subtitle names the retrieval type instead (e.g. _hourly · calculated_). With **Show limits** on, a node whose latest value is outside its limits in the chosen calendar, as Flow flags it, is **filled red**, and its click menu names the limit it breaks. The panel's legend lists the ring colours in the graph and explains the red fill. A cycle shows as arrows both ways. Click a node for its measure ID, path, retrieval type, the latest value's version (e.g. _v15 · Manual · Charl, 2026-10-19 10:26 UTC_; a value is only given a new version when it changes), calculation, aggregation or transform, data source (e.g. _Flow Data Simulator · 110-FQ-001.PV · Average_), who entered it (manual measures: who entered the latest value, or the last value entered in the range when Flow filled in the latest), the latest value's time, and a note when the depth limit cut its links short. Click an edge for its formula, aggregation or transform.
 
 Older Flow servers return a server error for the metadata of tag transforms; those are named in a warning on the panel and their own inputs are not shown.
 

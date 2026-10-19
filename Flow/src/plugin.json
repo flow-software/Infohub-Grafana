@@ -23,6 +23,7 @@
     "screenshots": [
       { "name": "Measures with limits and comments", "path": "img/screenshots/measures.png" },
       { "name": "Query editor", "path": "img/screenshots/editor.png" },
+      { "name": "Corrected values", "path": "img/screenshots/versions.png" },
       { "name": "Dependency graph", "path": "img/screenshots/dependencies.png" },
       { "name": "Event periods", "path": "img/screenshots/events.png" },
       { "name": "Measures per event period", "path": "img/screenshots/event-context.png" },

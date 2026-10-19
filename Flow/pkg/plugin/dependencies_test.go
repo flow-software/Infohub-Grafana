@@ -428,8 +428,8 @@ func TestDependenciesProcessing(t *testing.T) {
 	}
 }
 
-// A node's latest value shows its version in the menu; the Versions ring
-// colour shows how it came about, and the subtitle leads with its number.
+// A node's menu shows its latest value's version and its retrieval type;
+// the subtitle, under a retrieval-type ring, leaves the type out.
 func TestDependenciesValueVersion(t *testing.T) {
 	_, d := depServer(t)
 	qm := queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}}
@@ -444,21 +444,6 @@ func TestDependenciesValueVersion(t *testing.T) {
 		t.Errorf("subtitles = %q", sub)
 	}
 
-	qm.DepRing = depRingVersions
-	frames = runDeps(t, d, qm)
-	sub := nodeCol(t, frames, "subtitle")
-	if sub["model:measure:12"] != "v2 · hourly · manual" || sub["model:measure:10"] != "hourly · calculated" {
-		t.Errorf("subtitles with versions rings = %q", sub)
-	}
-	if updated := nodeCol(t, frames, "arc__updated"); updated["model:measure:12"] != "1" || updated["model:measure:10"] != "0" {
-		t.Errorf("updated arcs = %q", updated)
-	}
-	if none := nodeCol(t, frames, "arc__none"); none["model:measure:10"] != "1" {
-		t.Errorf("no-version arcs = %q", none)
-	}
-	if f, _ := frames[0].FieldByName("arc__calculated"); f != nil {
-		t.Error("retrieval rings with versions rings")
-	}
 }
 
 func TestProcessingText(t *testing.T) {
