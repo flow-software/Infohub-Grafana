@@ -870,20 +870,21 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
         label="Ring colour"
         labelWidth={LABEL_WIDTH}
         tooltip={
-          'Retrieval type: calculated, aggregated, manual, ... Processing: how far the engine has got with each measure, as the Flow Config monitor counts it. Rings turn green when up to date and orange when periods are behind, pending or queued to become pending (queued ones that stay mean something is stuck); the counts lead each subtitle and are in full in the node menu. Grey is what the monitor does not track (tags, events, templates). Quarantine is not shown: Flow keeps it in the engine, not the database.' +
+          'Retrieval type: calculated, aggregated, manual, ... (the subtitle then leaves it out; the node menu always has it). Versions: how each latest value came about: green the original (v1), blue updated by the engine, purple entered by hand; the subtitle leads with its version number, and the node menu has who and when. Processing: how far the engine has got with each measure, as the Flow Config monitor counts it. Rings turn green when up to date and orange when periods are behind, pending or queued to become pending (queued ones that stay mean something is stuck); the counts lead each subtitle and are in full in the node menu. Grey is what the monitor does not track (tags, events, templates). Quarantine is not shown: Flow keeps it in the engine, not the database.' +
           (datasource.processingAvailable
             ? ''
             : ' Processing needs the Flow database: set it up in the data source settings.')
         }
       >
-        <RadioButtonGroup<'retrieval' | 'processing'>
+        <RadioButtonGroup<'retrieval' | 'versions' | 'processing'>
           options={[
             { label: 'Retrieval type', value: 'retrieval' },
+            { label: 'Versions', value: 'versions' },
             { label: 'Processing', value: 'processing' },
           ]}
           disabledOptions={datasource.processingAvailable || ringProcessing ? [] : ['processing']}
-          value={ringProcessing ? 'processing' : 'retrieval'}
-          onChange={(v) => update({ depRing: v === 'processing' ? 'processing' : undefined, depProcessing: undefined })}
+          value={ringProcessing ? 'processing' : query.depRing === 'versions' ? 'versions' : 'retrieval'}
+          onChange={(v) => update({ depRing: v === 'retrieval' ? undefined : v, depProcessing: undefined })}
         />
       </InlineField>
       <InlineField

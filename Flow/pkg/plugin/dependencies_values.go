@@ -33,10 +33,33 @@ type depValue struct {
 	// e.g. "above high limit 5"; empty when it is within its limits.
 	Outside string
 	// Version describes the value's version, e.g. "v15 · Manual · Charl,
-	// 2026-10-19 10:26 UTC"; Corrected marks a value past its first version
-	// (recalculated or entered over).
-	Version   string
-	Corrected bool
+	// 2026-10-19 10:26 UTC"; VersionNumber is its number and VersionKind
+	// how it came about: original, updated (by the engine) or manual.
+	Version       string
+	VersionNumber int
+	VersionKind   string
+}
+
+// Version kinds, as the Versions ring colours.
+const (
+	versionOriginal = "original"
+	versionUpdated  = "updated"
+	versionManual   = "manual"
+)
+
+// versionKindOf says how a value's version came about: entered by hand,
+// recalculated by the engine, or still the first version.
+func versionKindOf(p point) string {
+	switch {
+	case p.version == nil:
+		return ""
+	case p.versionType == "Manual" || p.versionType == "Manual request":
+		return versionManual
+	case *p.version > 1:
+		return versionUpdated
+	default:
+		return versionOriginal
+	}
 }
 
 // versionText describes a value's version for a node's menu.
@@ -201,7 +224,7 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 						if text := versionText(pt); text != "" {
 							key := depKey(flow.TreeModel, "measure", s.ID)
 							v := values[key]
-							v.Version, v.Corrected = text, *pt.version > 1
+							v.Version, v.VersionNumber, v.VersionKind = text, *pt.version, versionKindOf(pt)
 							values[key] = v
 						}
 						if out := outsideText(best.Limits); out != "" && qm.Limits == limitsLines {

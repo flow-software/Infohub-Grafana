@@ -320,7 +320,7 @@ func TestDependenciesNodeGraph(t *testing.T) {
 	if got := column(t, frames[0], "mainstat"); got[0] != "81.50" {
 		t.Errorf("mainstat = %v", got)
 	}
-	if got := column(t, frames[0], "subtitle"); got[0] != "hourly · calculated" {
+	if got := column(t, frames[0], "subtitle"); got[0] != "hourly" {
 		t.Errorf("subtitle = %v", got)
 	}
 	if f, _ := frames[0].FieldByName("secondarystat"); f != nil {
@@ -395,7 +395,8 @@ func TestDependenciesProcessing(t *testing.T) {
 		t.Errorf("processing = %q", proc)
 	}
 	sub := nodeCol(t, frames, "subtitle")
-	if sub["model:measure:10"] != "hourly · calculated" || sub["model:measure:11"] != "12 behind · hourly · aggregated" || sub["model:measure:13"] != "3 pending · 1 queued · hourly · retrieved" || sub["model:measure:12"] != "inactive · corrected · hourly · manual" {
+	// With retrieval-type rings the subtitle leaves the retrieval type out.
+	if sub["model:measure:10"] != "hourly" || sub["model:measure:11"] != "12 behind · hourly" || sub["model:measure:13"] != "3 pending · 1 queued · hourly" || sub["model:measure:12"] != "inactive · hourly" {
 		t.Errorf("subtitles = %q", sub)
 	}
 	// Rings keep the retrieval type unless asked for processing.
@@ -414,6 +415,10 @@ func TestDependenciesProcessing(t *testing.T) {
 	if f, _ := frames[0].FieldByName("arc__calculated"); f != nil {
 		t.Error("retrieval rings with processing rings")
 	}
+	// The ring no longer shows the retrieval type, so the subtitle does.
+	if got := nodeCol(t, frames, "subtitle")["model:measure:11"]; got != "12 behind · hourly · aggregated" {
+		t.Errorf("subtitle with processing rings = %q", got)
+	}
 
 	// A database error leaves processing out and says so.
 	fake.err = errors.New("login failed")
@@ -423,17 +428,36 @@ func TestDependenciesProcessing(t *testing.T) {
 	}
 }
 
-// A node's latest value shows its version in the menu, and a corrected
-// value (past its first version) is flagged in the subtitle.
+// A node's latest value shows its version in the menu; the Versions ring
+// colour shows how it came about, and the subtitle leads with its number.
 func TestDependenciesValueVersion(t *testing.T) {
 	_, d := depServer(t)
-	frames := runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}})
+	qm := queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}}
+	frames := runDeps(t, d, qm)
 	if got := nodeCol(t, frames, "detail__version")["model:measure:12"]; got != "v2 · Updated · 2026-10-06 02:30 UTC" {
 		t.Errorf("version = %q", got)
 	}
-	sub := nodeCol(t, frames, "subtitle")
-	if sub["model:measure:12"] != "corrected · hourly · manual" || sub["model:measure:10"] != "hourly · calculated" {
+	if got := nodeCol(t, frames, "detail__retrieval")["model:measure:12"]; got != "manual" {
+		t.Errorf("retrieval = %q", got)
+	}
+	if sub := nodeCol(t, frames, "subtitle"); sub["model:measure:12"] != "hourly" {
 		t.Errorf("subtitles = %q", sub)
+	}
+
+	qm.DepRing = depRingVersions
+	frames = runDeps(t, d, qm)
+	sub := nodeCol(t, frames, "subtitle")
+	if sub["model:measure:12"] != "v2 · hourly · manual" || sub["model:measure:10"] != "hourly · calculated" {
+		t.Errorf("subtitles with versions rings = %q", sub)
+	}
+	if updated := nodeCol(t, frames, "arc__updated"); updated["model:measure:12"] != "1" || updated["model:measure:10"] != "0" {
+		t.Errorf("updated arcs = %q", updated)
+	}
+	if none := nodeCol(t, frames, "arc__none"); none["model:measure:10"] != "1" {
+		t.Errorf("no-version arcs = %q", none)
+	}
+	if f, _ := frames[0].FieldByName("arc__calculated"); f != nil {
+		t.Error("retrieval rings with versions rings")
 	}
 }
 

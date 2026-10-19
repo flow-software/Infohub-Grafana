@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Dependencies: each node's menu shows its latest value's version (number, type, who and when), and a corrected value (past its first version) starts the node's subtitle with _corrected_.
+- Dependencies: each node's menu shows its latest value's version (number, type, who and when) and its retrieval type. **Ring colour** _Versions_ colours each node by how its latest value came about (green the original v1, blue updated by the engine, purple entered by hand), with the version number leading the subtitle. With retrieval-type rings the subtitle no longer repeats the retrieval type.
 - Value versions: **Version field** adds each period value's version, type (original, updated, manual, ...) and who entered it. _Mark corrections_ marks every period with more than one version on the time axis, listing its versions in the mark's tooltip, newest first; _History table_ returns every version in one table, like Flow's History tab, with when each was captured.
 - Charts can be shown as their **measures**: **Show** _Measures_ in the Chart tab reads the measures in any chart, of any chart type (event-based tables and forms, widgets, trends), as series for any panel, with every option of the Measures tab. _As configured_ is the Flow layout as before. Template measures in a chart come back as their instances, and an event-based chart starts in its event's context.
 - A measures query with no calendar picked, whose measures Flow cannot read in the default calendar, now reads them in the calendar they have and says so, instead of failing.

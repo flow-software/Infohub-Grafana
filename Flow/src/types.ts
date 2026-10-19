@@ -62,7 +62,7 @@ export interface FlowQuery extends DataQuery {
   /** Adds how far the engine has got with each measure, from the Flow database. */
   depProcessing?: boolean;
   /** "processing" colours rings by processing state instead of retrieval type. */
-  depRing?: 'processing';
+  depRing?: 'processing' | 'versions';
 
   /** Events queries: table (default), state timeline, or annotations. */
   eventFormat?: EventFormat;
