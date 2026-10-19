@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.7.0
 
 - Times in dependency node menus, correction and comment tooltips are shown in the dashboard's time zone (they were UTC), and a node's **Value at** is now its **Period**, e.g. _2026-10-07 06:00 – 2026-10-08 06:00_.
 - Dependencies: each node's menu shows its latest value's version (number, type, who and when) and its retrieval type. With retrieval-type rings the subtitle no longer repeats the retrieval type.
