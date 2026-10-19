@@ -122,6 +122,10 @@ export interface FlowQuery extends DataQuery {
    */
   timeAt?: 'start' | 'end' | 'period';
   includeQuality?: boolean;
+  /** Adds each period value's version, its type (original, updated, manual, ...) and who entered it. */
+  includeVersion?: boolean;
+  /** "all" reads every version of each period value: preferred ones as usual, superseded ones as markers. */
+  versions?: 'all';
   badQualityAsNull?: boolean;
   /** Series name pattern: {{path}}, {{folder}}, {{metric}}, {{measure}}, {{id}}, {{uom}}. */
   legend?: string;

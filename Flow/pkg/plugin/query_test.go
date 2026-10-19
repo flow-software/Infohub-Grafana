@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -453,6 +454,52 @@ func TestOneBadTagDoesNotFailTheRest(t *testing.T) {
 	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 301}}})
 	if resp.Error == nil || !strings.Contains(resp.Error.Error(), "latch source") {
 		t.Errorf("error = %v", resp.Error)
+	}
+}
+
+// All versions: the preferred values form the measure's series, superseded
+// ones a second series drawn as markers; both carry version, type and user.
+func TestAllVersions(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	var query string
+	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.RawQuery
+		v := func(start string, value float64, preferred bool, version int, typ string, user any) map[string]any {
+			return map[string]any{"start": start, "value": value, "user": user,
+				"detail": map[string]any{"preferred": preferred, "quality": map[string]any{"value": 192}, "version": map[string]any{"value": version, "type": typ}}}
+		}
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 200, "data": []any{
+			v("2026-10-06T00:00:00Z", 5, true, 1, "original", nil),
+			v("2026-10-06T01:00:00Z", 6, true, 2, "manual", map[string]any{"username": "charl", "name": "Charl"}),
+			v("2026-10-06T01:00:00Z", 5, false, 1, "original", nil),
+		}}}})
+	}
+	d := testDatasource(srv)
+	resp := runQuery(t, d, queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 200}}, Versions: versionsAll})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if !strings.Contains(query, "preferred=false") || !strings.Contains(query, "users=true") {
+		t.Errorf("query = %s", query)
+	}
+	if len(resp.Frames) != 2 {
+		t.Fatalf("frames = %d, want preferred and superseded", len(resp.Frames))
+	}
+	preferred, old := resp.Frames[0], resp.Frames[1]
+	if preferred.Rows() != 2 || old.Rows() != 1 || !strings.HasSuffix(old.Name, "(superseded)") {
+		t.Errorf("rows %d/%d, names %q %q", preferred.Rows(), old.Rows(), preferred.Name, old.Name)
+	}
+	if got := fmt.Sprint(strAt(fieldByName(t, preferred, "Version"), 1), " ", strAt(fieldByName(t, preferred, "Version type"), 1), " ", strAt(fieldByName(t, preferred, "Entered by"), 1)); got != "2 Manual Charl" {
+		t.Errorf("version detail = %q", got)
+	}
+	if style, _ := old.Fields[1].Config.Custom["drawStyle"].(string); style != "points" {
+		t.Errorf("superseded draw style = %v", old.Fields[1].Config.Custom)
+	}
+
+	// Without the options: the preferred values only, as before.
+	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 200}}})
+	if strings.Contains(query, "preferred=false") || len(resp.Frames) != 1 || len(resp.Frames[0].Fields) != 2 {
+		t.Errorf("plain query %s gave %d frames", query, len(resp.Frames))
 	}
 }
 

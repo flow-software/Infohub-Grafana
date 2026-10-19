@@ -379,6 +379,9 @@ type MeasureDataRequest struct {
 	Comments bool
 	// Exceptions asks for the limits each value breaks.
 	Exceptions bool
+	// AllVersions returns every version of each period's value, not only
+	// the preferred one (preferred=false).
+	AllVersions bool
 }
 
 func (c *Client) MeasureData(ctx context.Context, r MeasureDataRequest) (*MeasureData, error) {
@@ -397,6 +400,9 @@ func (c *Client) MeasureData(ctx context.Context, r MeasureDataRequest) (*Measur
 	addIDs(q, "templateid", r.TemplateIDs)
 	if r.Limit > 0 {
 		q.Set("limit", strconv.Itoa(r.Limit))
+	}
+	if r.AllVersions {
+		q.Set("preferred", "false")
 	}
 	if r.Users || r.Comments {
 		q.Set("users", "true")

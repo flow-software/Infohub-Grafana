@@ -179,6 +179,17 @@ type PeriodValue struct {
 	Detail    *struct {
 		Quality Quality `json:"quality"`
 		Pending bool    `json:"pending"`
+		// Preferred marks the version Flow shows; with preferred=false a
+		// period has one value per version.
+		Preferred bool `json:"preferred"`
+		// Version is the value's version number and how it came about
+		// (Flow's VersionType: 1 original updateable, 2 original,
+		// 3 updated, 4 manual, 5 deleted, 6 manual request).
+		Version struct {
+			Value *int `json:"value"`
+			// Type is sent as the enum's name ("Original"), or its number.
+			Type json.RawMessage `json:"type"`
+		} `json:"version"`
 	} `json:"detail"`
 	// User is who entered the value; only sent when asked for (users=true).
 	User *User `json:"user"`

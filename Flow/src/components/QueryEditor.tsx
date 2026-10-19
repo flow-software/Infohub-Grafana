@@ -462,6 +462,32 @@ function MeasuresQueryEditor({
               />
             </Stack>
           </InlineField>
+          {showPeriods && (
+            <InlineField
+              label="Versions"
+              labelWidth={LABEL_WIDTH}
+              tooltip="Flow keeps every version of a period's value: the original, recalculations (updated) and manual entries; one is preferred. Version field: add each value's version number, its type and who entered it, e.g. for a table. All versions: also read the versions that were superseded, shown as grey markers (in a table, as their own rows), so corrections stand out. Calendar periods only; tags have no versions."
+            >
+              <Stack gap={1}>
+                <InlineSwitch
+                  id="query-editor-include-version"
+                  label="Version field"
+                  showLabel
+                  value={!!query.includeVersion || query.versions === 'all'}
+                  disabled={query.versions === 'all'}
+                  onChange={(e) => update({ includeVersion: e.currentTarget.checked || undefined })}
+                />
+                <InlineSwitch
+                  id="query-editor-all-versions"
+                  label="All versions"
+                  showLabel
+                  disabled={eventContext && query.versions !== 'all'}
+                  value={query.versions === 'all'}
+                  onChange={(e) => update({ versions: e.currentTarget.checked ? 'all' : undefined })}
+                />
+              </Stack>
+            </InlineField>
+          )}
           <LimitsField datasource={datasource} query={query} items={items} update={update} />
         </>
       )}

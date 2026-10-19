@@ -229,6 +229,10 @@ func (d *Datasource) applyLimits(ctx context.Context, frames data.Frames, series
 		notices = append(notices, fmt.Sprintf("Flow could not return the limits of %d measure(s), so they are not drawn.", len(failed)))
 	}
 	for i, s := range series {
+		if s.superseded {
+			// Limits are drawn once, on the measure's preferred values.
+			continue
+		}
 		m := byID[s.id]
 		limits := pickLimits(measureLimits(m, context, m.IsTag()), qm.LimitNames)
 		if len(limits) == 0 {

@@ -115,6 +115,11 @@ type queryModel struct {
 	TimeAt           string `json:"timeAt"`
 	IncludeQuality   bool   `json:"includeQuality"`
 	BadQualityAsNull bool   `json:"badQualityAsNull"`
+	// IncludeVersion adds each value's version, its type and who entered it.
+	IncludeVersion bool `json:"includeVersion"`
+	// Versions "all" reads every version of each period's value: the
+	// preferred ones as usual, and the superseded ones as markers.
+	Versions string `json:"versions"`
 	// Legend names each series; {{path}}, {{folder}}, {{metric}},
 	// {{measure}}, {{id}} and {{uom}} are replaced. Empty uses the full path.
 	// Not ${...}, which Grafana would take for dashboard variables.
@@ -288,6 +293,8 @@ type series struct {
 	// attribute and value name a series split by an event attribute, and
 	// color is the value's colour in Flow.
 	attribute, value, color string
+	// superseded holds a measure's older versions, drawn as markers.
+	superseded bool
 }
 
 type point struct {
@@ -295,6 +302,38 @@ type point struct {
 	value   *float64
 	text    *string
 	quality int
+	// version, versionType and user describe the value's version, when read.
+	version     *int
+	versionType string
+	user        string
+}
+
+// versionsAll is the query value that reads every version of each value.
+const versionsAll = "all"
+
+// versionTypes name Flow's VersionType values, by number and by the enum
+// name the public API sends (in any case).
+var versionTypes = map[string]string{
+	"1": "Original (updateable)", "originalupdateable": "Original (updateable)",
+	"2": "Original", "original": "Original",
+	"3": "Updated", "updated": "Updated",
+	"4": "Manual", "manual": "Manual",
+	"5": "Deleted", "deleted": "Deleted",
+	"6": "Manual request", "manualrequest": "Manual request",
+}
+
+// withVersion fills a point's version, its type and who entered it.
+func withVersion(pt *point, v flow.PeriodValue) {
+	if v.Detail != nil {
+		pt.version = v.Detail.Version.Value
+		if raw := strings.Trim(string(v.Detail.Version.Type), `"`); raw != "" && raw != "null" {
+			pt.versionType = versionTypes[strings.ToLower(raw)]
+			if pt.versionType == "" {
+				pt.versionType = raw
+			}
+		}
+	}
+	pt.user = userName(v.User)
 }
 
 func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery) (backend.DataResponse, error) {
@@ -340,12 +379,12 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 		if err != nil {
 			return backend.DataResponse{}, err
 		}
-		got, warn, err := d.readPeriods(ctx, sel, calendarID, q.TimeRange, qm.TimeAt == "end")
+		got, warn, err := d.readPeriods(ctx, sel, calendarID, q.TimeRange, qm)
 		if err != nil && qm.CalendarID == 0 && flow.IsCalendarMismatch(err) {
 			// No calendar picked and the default is not one of these
 			// measures': read them in the calendar most of them have.
 			if alt, name := d.contextCalendar(ctx, sel); alt != 0 && alt != calendarID {
-				got, warn, err = d.readPeriods(ctx, sel, alt, q.TimeRange, qm.TimeAt == "end")
+				got, warn, err = d.readPeriods(ctx, sel, alt, q.TimeRange, qm)
 				notices = append(notices, fmt.Sprintf("Read in the %s calendar: the data source's default calendar is not a calendar of these measures in Flow. Pick a calendar to read them in another.", name))
 			}
 		}
@@ -391,7 +430,10 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 		if a, b := pathOf(infos, all[i].id), pathOf(infos, all[j].id); a != b {
 			return a < b
 		}
-		return all[i].value < all[j].value
+		if all[i].value != all[j].value {
+			return all[i].value < all[j].value
+		}
+		return !all[i].superseded && all[j].superseded
 	})
 	var resp backend.DataResponse
 	for _, s := range all {
@@ -426,10 +468,13 @@ func pathOf(infos map[int]seriesInfo, id int) string {
 	return ""
 }
 
-func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID int, tr backend.TimeRange, atEnd bool) ([]series, []string, error) {
+func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID int, tr backend.TimeRange, qm queryModel) ([]series, []string, error) {
+	atEnd := qm.TimeAt == "end"
+	all := qm.Versions == versionsAll
 	res, err := d.client.MeasureData(ctx, flow.MeasureDataRequest{
 		IDs: sel.periodIDs, TemplateIDs: sel.periodTemplateIDs,
 		CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit,
+		Users: qm.IncludeVersion || all, AllVersions: all,
 	})
 	if flow.IsNoData(err) {
 		return nil, nil, nil
@@ -448,6 +493,7 @@ func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID
 	out := make([]series, 0, len(res.Values))
 	for _, v := range res.Values {
 		s := series{id: v.ID, points: make([]point, 0, len(v.Data))}
+		old := series{id: v.ID, superseded: true}
 		for _, p := range v.Data {
 			t := p.Start
 			if atEnd && p.End != nil {
@@ -460,10 +506,19 @@ func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID
 			if p.Detail != nil {
 				pt.quality = p.Detail.Quality.Value
 			}
+			withVersion(&pt, p)
+			if all && p.Detail != nil && !p.Detail.Preferred {
+				old.points = append(old.points, pt)
+				continue
+			}
 			s.points = append(s.points, pt)
 		}
 		sort.SliceStable(s.points, func(i, j int) bool { return s.points[i].t.Before(s.points[j].t) })
 		out = append(out, s)
+		if len(old.points) > 0 {
+			sort.SliceStable(old.points, func(i, j int) bool { return old.points[i].t.Before(old.points[j].t) })
+			out = append(out, old)
+		}
 	}
 	return out, warnings, nil
 }

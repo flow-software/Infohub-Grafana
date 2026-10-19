@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Value versions: **Version field** adds each period value's version, type (original, updated, manual, ...) and who entered it; **All versions** also reads the superseded versions, drawn as grey markers next to the preferred line (or as rows of a _superseded_ series in a table).
 - Charts can be shown as their **measures**: **Show** _Measures_ in the Chart tab reads the measures in any chart, of any chart type (event-based tables and forms, widgets, trends), as series for any panel, with every option of the Measures tab. _As configured_ is the Flow layout as before. Template measures in a chart come back as their instances, and an event-based chart starts in its event's context.
 - A measures query with no calendar picked, whose measures Flow cannot read in the default calendar, now reads them in the calendar they have and says so, instead of failing.
 

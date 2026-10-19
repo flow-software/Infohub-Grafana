@@ -65,16 +65,52 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 		value.Config.Unit = "suffix: " + info.UOM
 	}
 
+	if s.superseded {
+		// Older versions: markers only, in one neutral colour, so corrections
+		// stand out against the preferred line.
+		labels["version"] = "superseded"
+		value.Config.DisplayNameFromDS += " · superseded"
+		name += " (superseded)"
+		value.Config.Color = map[string]any{"mode": "fixed", "fixedColor": supersededColor}
+		value.Config.Custom = map[string]any{"drawStyle": "points", "pointSize": 9, "showPoints": "always"}
+	}
+
 	frame := data.NewFrame(name, data.NewField("Time", nil, times), value)
+	withVersions := qm.IncludeVersion || qm.Versions == versionsAll
 	if qm.IncludeQuality {
 		frame.Fields = append(frame.Fields, data.NewField("Quality", labels, qualities))
-	} else if !text {
+	}
+	if withVersions {
+		// Text, so a time series panel does not draw the version numbers as
+		// a series of their own; tables show them as they are.
+		versions, types, users := make([]string, n), make([]string, n), make([]string, n)
+		for i, p := range s.points {
+			if p.version != nil {
+				versions[i] = strconv.Itoa(*p.version)
+			}
+			types[i], users[i] = p.versionType, p.user
+		}
+		// Short column names, without the series labels.
+		detail := func(f *data.Field) *data.Field {
+			f.Config = &data.FieldConfig{DisplayNameFromDS: f.Name}
+			return f
+		}
+		frame.Fields = append(frame.Fields,
+			detail(data.NewField("Version", labels, versions)),
+			detail(data.NewField("Version type", labels, types)),
+			detail(data.NewField("Entered by", labels, users)),
+		)
+	}
+	if !qm.IncludeQuality && !withVersions && !text {
 		// A time field plus one numeric field is the multi-frame time series
 		// shape that alerting and server-side expressions expect.
 		frame.Meta = &data.FrameMeta{Type: data.FrameTypeTimeSeriesMulti, TypeVersion: data.FrameTypeVersion{0, 1}}
 	}
 	return frame
 }
+
+// supersededColor marks older versions of values.
+const supersededColor = "#CCCCDC"
 
 // seriesLabels identify a series to alerting and to legend {{label}} syntax.
 func seriesLabels(info seriesInfo) data.Labels {
