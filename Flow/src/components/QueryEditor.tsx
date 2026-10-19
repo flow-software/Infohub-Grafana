@@ -28,6 +28,7 @@ import {
   itemKey,
   QueryItem,
   QueryType,
+  SelectionContext,
   SelectionSummary,
 } from '../types';
 import { AttributeFilterField } from './AttributeFilterField';
@@ -208,6 +209,11 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
   // Measures from a variable are unknown until the panel runs, so their
   // period options show too.
   const fromVariable = !!query.measureVariable;
+  // Event context is offered when a measure has an event as context, or when
+  // that is not known (measures from a variable, or the lookup failed), or
+  // the query already uses it.
+  const offerEventContext =
+    fromVariable || !summary?.context || summary.context.eventMeasures > 0 || query.context === 'event';
   const showPeriods = (items.length > 0 && (!summary || summary.periodMeasures > 0)) || fromVariable;
   const showTags = items.length > 0 && (!summary || summary.tags > 0);
   const eventContext = query.context === 'event';
@@ -260,7 +266,7 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
       )}
 
       {showPeriods && <GroupHeading title="Period measures" count={summary?.periodMeasures} />}
-      {showPeriods && (
+      {showPeriods && offerEventContext && (
         <InlineField
           label="Context"
           labelWidth={LABEL_WIDTH}
@@ -305,8 +311,9 @@ function MeasuresQueryEditor({ datasource, query, onChange, onRunQuery }: Props)
         <CalendarField
           datasource={datasource}
           value={query.calendarId}
+          context={fromVariable ? undefined : summary?.context}
           onChange={(calendarId) => update({ calendarId })}
-          tooltip="Period measures (hourly, shift, daily, ...) are read in this calendar; the measure must have it as context in Flow. Calendar buckets of tag aggregations use it too."
+          tooltip="Period measures (hourly, shift, daily, ...) are read in this calendar. Only the calendars the selected measures have as context in Flow are listed."
         />
       )}
       {showPeriods && (
@@ -683,6 +690,8 @@ function EventContextFields({
 
 function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
   const items = useMemo(() => query.items ?? [], [query.items]);
+  const summary = useSummary(datasource, items);
+  const ringProcessing = query.depRing === 'processing' || !!query.depProcessing;
   const update = (patch: Partial<FlowQuery>) => {
     onChange({ ...query, ...patch });
     onRunQuery();
@@ -741,8 +750,9 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
         <CalendarField
           datasource={datasource}
           value={query.calendarId}
+          context={query.measureVariable ? undefined : summary?.context}
           onChange={(calendarId) => update({ calendarId })}
-          tooltip="Period measures show their latest value in this calendar. A measure that does not have the calendar as context in Flow shows a dash; click it for why. Tags do not use a calendar."
+          tooltip="Period measures show their latest value in this calendar. Only the calendars the picked measures have as context in Flow are listed; an input measure without it shows a dash (click it for why). Tags do not use a calendar."
         />
       )}
       {query.depValues !== 'none' && (
@@ -761,44 +771,25 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
         </InlineField>
       )}
       <InlineField
-        label="Processing"
+        label="Ring colour"
         labelWidth={LABEL_WIDTH}
         tooltip={
-          datasource.processingAvailable
-            ? 'How far the engine has got with each measure, as the Flow Config monitor counts it: periods still to process, periods pending recalculation, and periods queued to become pending (queued ones that stay mean something is stuck). Shown under the name and in the node menu. Read from the Flow database. Quarantined measures are not shown: Flow keeps that in the engine, not the database.'
-            : 'Needs the Flow database: set it up in the data source settings.'
+          'Retrieval type: calculated, aggregated, manual, ... Processing: how far the engine has got with each measure, as the Flow Config monitor counts it. Rings turn green when up to date and orange when periods are behind, pending or queued to become pending (queued ones that stay mean something is stuck); the counts lead each subtitle and are in full in the node menu. Grey is what the monitor does not track (tags, events, templates). Quarantine is not shown: Flow keeps it in the engine, not the database.' +
+          (datasource.processingAvailable
+            ? ''
+            : ' Processing needs the Flow database: set it up in the data source settings.')
         }
       >
-        <InlineSwitch
-          id="query-editor-dep-processing"
-          label="Show processing"
-          showLabel
-          disabled={!datasource.processingAvailable && !query.depProcessing}
-          value={!!query.depProcessing}
-          onChange={(e) =>
-            update({
-              depProcessing: e.currentTarget.checked || undefined,
-              depRing: e.currentTarget.checked ? query.depRing : undefined,
-            })
-          }
+        <RadioButtonGroup<'retrieval' | 'processing'>
+          options={[
+            { label: 'Retrieval type', value: 'retrieval' },
+            { label: 'Processing', value: 'processing' },
+          ]}
+          disabledOptions={datasource.processingAvailable || ringProcessing ? [] : ['processing']}
+          value={ringProcessing ? 'processing' : 'retrieval'}
+          onChange={(v) => update({ depRing: v === 'processing' ? 'processing' : undefined, depProcessing: undefined })}
         />
       </InlineField>
-      {query.depProcessing && (
-        <InlineField
-          label="Ring colour"
-          labelWidth={LABEL_WIDTH}
-          tooltip="Retrieval type: calculated, aggregated, manual, ... Processing: green when up to date, orange when behind or pending, grey for what is not tracked (tags, events, templates)."
-        >
-          <RadioButtonGroup<'retrieval' | 'processing'>
-            options={[
-              { label: 'Retrieval type', value: 'retrieval' },
-              { label: 'Processing', value: 'processing' },
-            ]}
-            value={query.depRing === 'processing' ? 'processing' : 'retrieval'}
-            onChange={(v) => update({ depRing: v === 'processing' ? 'processing' : undefined })}
-          />
-        </InlineField>
-      )}
       <InlineField
         label="Names"
         labelWidth={LABEL_WIDTH}
@@ -904,11 +895,14 @@ function LimitsField({
 function CalendarField({
   datasource,
   value,
+  context,
   onChange,
   tooltip,
 }: {
   datasource: DataSource;
   value?: number;
+  /** The measures' context: only its calendars are listed. Undefined lists all. */
+  context?: SelectionContext;
   onChange: (calendarId: number | undefined) => void;
   tooltip: string;
 }) {
@@ -926,13 +920,23 @@ function CalendarField({
     };
   }, [datasource]);
 
-  const options = useMemo<Array<ComboboxOption<number>>>(
-    () => [
-      { label: 'Datasource default', value: 0 },
-      ...calendars.map((c) => ({ label: c.name, value: c.id, description: c.description })),
-    ],
-    [calendars]
-  );
+  const options = useMemo<Array<ComboboxOption<number>>>(() => {
+    // With no calendar context to go by (none recorded), list them all.
+    const inContext = context?.calendars.length ? new Map(context.calendars.map((c) => [c.id, c.measures])) : undefined;
+    const listed = calendars
+      .filter((c) => !inContext || inContext.has(c.id) || c.id === value)
+      .map((c) => {
+        const n = inContext?.get(c.id);
+        let description = c.description;
+        if (inContext && n === undefined) {
+          description = 'Not in the context of the selected measures';
+        } else if (context && n !== undefined && n < context.measures) {
+          description = `In the context of ${n} of ${context.measures} measures`;
+        }
+        return { label: c.name, value: c.id, description };
+      });
+    return [{ label: 'Datasource default', value: 0 }, ...listed];
+  }, [calendars, context, value]);
 
   return (
     <InlineField label="Calendar" labelWidth={LABEL_WIDTH} invalid={!!error} error={error} tooltip={tooltip}>

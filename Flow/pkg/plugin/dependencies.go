@@ -391,7 +391,9 @@ func (d *Datasource) runDependencies(ctx context.Context, qm queryModel, q backe
 	}
 
 	opt := depGraphOptions{ownNames: qm.DepNames == depNamesMeasure, limits: qm.Limits == limitsLines}
-	if qm.DepProcessing {
+	// Ring colour "processing" brings the counts too; DepProcessing alone
+	// (queries saved before the two were merged) shows them with retrieval rings.
+	if qm.DepProcessing || qm.DepRing == depRingProcessing {
 		proc, warn := d.depProcessing(ctx, rows, treeOf)
 		notices = append(notices, warn...)
 		if proc != nil {

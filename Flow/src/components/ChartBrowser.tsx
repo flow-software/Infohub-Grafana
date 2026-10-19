@@ -96,7 +96,13 @@ export function ChartBrowser({ datasource, selectedId, onApply, onDismiss }: Pro
         const isOpen = expanded.has(n.id);
         return (
           <React.Fragment key={`f${n.id}`}>
-            <div role="treeitem" aria-level={depth + 1} aria-expanded={isOpen} className={styles.row} style={{ paddingLeft: depth * 20 }}>
+            <div
+              role="treeitem"
+              aria-level={depth + 1}
+              aria-expanded={isOpen}
+              className={styles.row}
+              style={{ paddingLeft: depth * 20 }}
+            >
               <IconButton
                 name={isOpen ? 'angle-down' : 'angle-right'}
                 aria-label={isOpen ? `Collapse ${n.name}` : `Expand ${n.name}`}
@@ -134,7 +140,7 @@ export function ChartBrowser({ datasource, selectedId, onApply, onDismiss }: Pro
   };
 
   return (
-    <Modal title="Choose a Flow chart" isOpen onDismiss={onDismiss} className={styles.modal}>
+    <Modal title="Choose an Infohub chart" isOpen onDismiss={onDismiss} className={styles.modal}>
       <div className={styles.list} role="tree" aria-label="Flow charts">
         {renderLevel(ROOT, 0, '')}
       </div>

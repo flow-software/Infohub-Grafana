@@ -229,6 +229,53 @@ func TestSummaryCountsKinds(t *testing.T) {
 	}
 }
 
+// The summary tells the editor which calendars and events the selection's
+// period measures can be read in, from their context metadata.
+func TestSummaryContext(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	context200 := map[string]any{"type": "context", "data": map[string]any{"calendars": []int{1, 2}, "events": []int{7}}}
+	context9000 := map[string]any{"type": "context", "data": map[string]any{"calendars": []int{1}}}
+	withMeta := func(all map[int]map[string]any, meta map[int]map[string]any) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			var out []map[string]any
+			for _, m := range byIDs(all, r) {
+				c := map[string]any{}
+				for k, v := range m {
+					c[k] = v
+				}
+				if r.URL.Query().Get("metadata") == "true" {
+					if md, ok := meta[int(c["id"].(int))]; ok {
+						c["metadata"] = []any{md}
+					}
+				}
+				out = append(out, c)
+			}
+			writeJSON(w, 200, map[string]any{"measures": out})
+		}
+	}
+	f.handlers["/api/v1/model/measures"] = withMeta(modelMeasures, map[int]map[string]any{200: context200})
+	f.handlers["/api/v1/template/measures"] = withMeta(templateMeasures, map[int]map[string]any{9000: context9000})
+	d := testDatasource(srv)
+
+	s, err := d.summary(context.Background(), []string{"template:measure:9000", "model:measure:200"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := s.Context
+	if c == nil || c.Measures != 2 || fmt.Sprint(c.Calendars) != "[{1 2} {2 1}]" || c.EventMeasures != 1 {
+		t.Errorf("context = %+v", c)
+	}
+
+	// A measure without context metadata: unknown, so the editor offers all.
+	s, err = d.summary(context.Background(), []string{"model:measure:200", "model:measure:300"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Context != nil {
+		t.Errorf("context = %+v, want unknown", s.Context)
+	}
+}
+
 func TestChartCommentsBecomeCellTooltips(t *testing.T) {
 	_, d := chartServer(t)
 	frame := runChartQuery(t, d, queryModel{})

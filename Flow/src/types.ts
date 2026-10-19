@@ -183,6 +183,17 @@ export interface SelectionSummary {
   periodMeasures: number;
   tags: number;
   warnings?: string[];
+  /** Which calendars and events the period measures can be read in; absent when not known. */
+  context?: SelectionContext;
+}
+
+export interface SelectionContext {
+  /** How many period measures were looked at. */
+  measures: number;
+  /** The calendars they have as context, with how many have each. */
+  calendars: Array<{ id: number; measures: number }>;
+  /** How many model measures have an event as context. */
+  eventMeasures: number;
 }
 
 /** An event the selected measures can be read in. */

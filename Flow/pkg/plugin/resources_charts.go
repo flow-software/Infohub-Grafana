@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 
@@ -82,7 +83,31 @@ type selectionSummary struct {
 	PeriodMeasures int      `json:"periodMeasures"`
 	Tags           int      `json:"tags"`
 	Warnings       []string `json:"warnings,omitempty"`
+	// Context is which calendars and events the period measures can be read
+	// in, for the editor to offer only those; nil when it is not known (the
+	// metadata could not be read, or a measure has none).
+	Context *selectionContext `json:"context,omitempty"`
 }
+
+// selectionContext is the context of a selection's period measures.
+type selectionContext struct {
+	// Measures is how many period measures were looked at.
+	Measures int `json:"measures"`
+	// Calendars the measures have as context, with how many have each.
+	Calendars []contextCount `json:"calendars"`
+	// EventMeasures is how many model measures have an event as context;
+	// template measures are not read in event context, so not counted.
+	EventMeasures int `json:"eventMeasures"`
+}
+
+type contextCount struct {
+	ID       int `json:"id"`
+	Measures int `json:"measures"`
+}
+
+// contextCap bounds the measures whose context the summary reads: a metric
+// can hold many, and the first ones tell the editor enough.
+const contextCap = 200
 
 // summary resolves items given as "<tree>:<type>:<id>", the editor's keys.
 func (d *Datasource) summary(ctx context.Context, keys []string) (*selectionSummary, error) {
@@ -98,5 +123,64 @@ func (d *Datasource) summary(ctx context.Context, keys []string) (*selectionSumm
 		PeriodMeasures: len(sel.periodIDs) + len(sel.periodTemplateIDs),
 		Tags:           len(sel.tagIDs) + len(sel.tagTemplateIDs),
 		Warnings:       sel.warnings,
+		Context:        d.selectionContext(ctx, sel),
 	}, nil
+}
+
+// selectionContext reads which calendars and events the period measures
+// have as context. Anything it cannot tell for certain makes it return nil,
+// so the editor offers everything rather than hide a choice that works.
+func (d *Datasource) selectionContext(ctx context.Context, sel *selection) *selectionContext {
+	out := &selectionContext{Calendars: []contextCount{}}
+	calendars := map[int]int{}
+	var order []int
+	for _, part := range []struct {
+		tree flow.Tree
+		ids  []int
+	}{{flow.TreeModel, sel.periodIDs}, {flow.TreeTemplate, sel.periodTemplateIDs}} {
+		ids := part.ids
+		if len(ids) == 0 {
+			continue
+		}
+		if len(ids) > contextCap {
+			ids = ids[:contextCap]
+		}
+		measures, failed, err := d.client.MeasuresWithMetadata(ctx, part.tree, ids)
+		if err != nil || len(failed) > 0 {
+			return nil
+		}
+		for _, m := range measures {
+			cals, events, ok := measureContext(m)
+			if !ok {
+				return nil
+			}
+			out.Measures++
+			for _, id := range cals {
+				if calendars[id] == 0 {
+					order = append(order, id)
+				}
+				calendars[id]++
+			}
+			if len(events) > 0 && part.tree == flow.TreeModel {
+				out.EventMeasures++
+			}
+		}
+	}
+	for _, id := range order {
+		out.Calendars = append(out.Calendars, contextCount{ID: id, Measures: calendars[id]})
+	}
+	return out
+}
+
+// measureContext reads a measure's context metadata: the calendars and
+// events it can be read in. ok is false when it has none to read.
+func measureContext(m flow.Measure) (calendars, events []int, ok bool) {
+	for _, md := range m.Metadata {
+		if strings.EqualFold(md.Type, "context") {
+			_ = json.Unmarshal(md.Data["calendars"], &calendars)
+			_ = json.Unmarshal(md.Data["events"], &events)
+			return calendars, events, true
+		}
+	}
+	return nil, nil, false
 }
