@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.8.0
 
 - Whole folders can be picked: a folder stands for every measure in it and the folders below it (new measures included), in measures, dependency and variable queries. Folders show up in the browser's search, and a ticked folder shows how many measures it holds.
 - The **Filter** lists only the model attributes the selected measures carry, and only the values among them; with measures from a variable, it lists all of them as before.
