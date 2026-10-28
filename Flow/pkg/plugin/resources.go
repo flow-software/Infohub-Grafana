@@ -127,10 +127,16 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 		qm.CalendarID, _ = strconv.Atoi(params.Get("calendarId"))
 		qm.EventID, _ = strconv.Atoi(params.Get("eventId"))
 		body, err = d.limitNames(ctx, qm)
-	case "attributes":
-		body, err = d.attributeNamesResource(ctx)
-	case "attributeValues":
-		body, err = d.attributeValuesResource(ctx, params.Get("attribute"))
+	case "attributes", "attributeValues":
+		items, perr := parseItems(params["item"])
+		if perr != nil {
+			return fail(http.StatusBadRequest, perr.Error())
+		}
+		if strings.Trim(req.Path, "/") == "attributes" {
+			body, err = d.attributeNamesResource(ctx, items)
+		} else {
+			body, err = d.attributeValuesResource(ctx, params.Get("attribute"), items)
+		}
 	case "eventValues":
 		id, _ := strconv.Atoi(params.Get("event"))
 		body, err = d.eventValues(ctx, id, params.Get("attribute"))
@@ -247,9 +253,9 @@ func (d *Datasource) search(ctx context.Context, tree flow.Tree, text string) ([
 	if text == "" {
 		return nodes, nil
 	}
-	types := []string{"Metric", "Measure"}
+	types := []string{"Folder", "Metric", "Measure"}
 	if tree == flow.TreeTemplate {
-		types = []string{"TemplateMetric", "TemplateMeasure"}
+		types = []string{"TemplateFolder", "TemplateMetric", "TemplateMeasure"}
 	}
 	// A number ("4304", "#4304", "id:4304") is also looked up as a measure
 	// id; it leads the results, ahead of names that contain the number.
@@ -279,6 +285,8 @@ func (d *Datasource) search(ctx context.Context, tree flow.Tree, text string) ([
 		}
 		t := strings.ToLower(o.Type)
 		switch {
+		case strings.HasSuffix(t, "folder"):
+			nodes = append(nodes, browseNode{Tree: tree, Type: itemFolder, ID: o.ID, Name: o.Name})
 		case strings.HasSuffix(t, "metric"):
 			nodes = append(nodes, browseNode{Tree: tree, Type: itemMetric, ID: o.ID, Name: o.Name})
 		case strings.HasSuffix(t, "measure"):
@@ -304,6 +312,21 @@ func (d *Datasource) search(ctx context.Context, tree flow.Tree, text string) ([
 				}
 			}
 		}
+	}
+	// Folders are found by name alone; their path tells same-named ones apart.
+	for _, n := range nodes {
+		if n.Type != itemFolder {
+			continue
+		}
+		if lists, err := d.treeLists(ctx, tree); err == nil {
+			paths := folderPaths(lists.folders)
+			for i := range nodes {
+				if nodes[i].Type == itemFolder && paths[nodes[i].ID] != "" {
+					nodes[i].Name = paths[nodes[i].ID]
+				}
+			}
+		}
+		break
 	}
 	d.markEventContext(ctx, tree, nodes)
 	sortNodes(nodes)

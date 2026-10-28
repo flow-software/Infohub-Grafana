@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Whole folders can be picked: a folder stands for every measure in it and the folders below it (new measures included), in measures, dependency and variable queries. Folders show up in the browser's search, and a ticked folder shows how many measures it holds.
+- The **Filter** lists only the model attributes the selected measures carry, and only the values among them; with measures from a variable, it lists all of them as before.
+
 ## 1.7.0
 
 - Times in dependency node menus, correction and comment tooltips are shown in the dashboard's time zone (they were UTC), and a node's **Value at** is now its **Period**, e.g. _2026-10-07 06:00 – 2026-10-08 06:00_.

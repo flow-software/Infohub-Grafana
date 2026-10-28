@@ -21,6 +21,7 @@ function fakeDatasource() {
       Promise.resolve(nodes[parent ? `${tree}:${parent.type}:${parent.id}` : `${tree}:root`] ?? [])
     ),
     search: jest.fn(() => Promise.resolve([])),
+    getSummary: jest.fn(() => Promise.resolve({ periodMeasures: 3, tags: 1 })),
   } as unknown as DataSource;
 }
 
@@ -96,6 +97,23 @@ describe('ModelBrowser', () => {
     // Both filters apply: no hourly measure is retrieved.
     fireEvent.click(screen.getByRole('button', { name: /Hourly/ }));
     expect(screen.getByText('No hourly retrieved measures here')).toBeInTheDocument();
+  });
+
+  it('picks a whole folder, saying how many measures it holds', async () => {
+    const onApply = jest.fn();
+    render(<ModelBrowser datasource={fakeDatasource()} selected={[]} onApply={onApply} onDismiss={() => {}} />);
+    fireEvent.click(await screen.findByLabelText('Select Site'));
+    expect(await screen.findByText('4 measures')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Apply'));
+    expect(onApply.mock.calls[0][0]).toEqual([{ tree: 'model', type: 'folder', id: 1, label: 'Site' }]);
+  });
+
+  it('does not offer folders when browsing events', async () => {
+    render(
+      <ModelBrowser datasource={fakeDatasource()} selected={[]} onApply={() => {}} onDismiss={() => {}} kind="events" />
+    );
+    await screen.findByText('Site');
+    expect(screen.queryByLabelText('Select Site')).not.toBeInTheDocument();
   });
 
   it('unticking removes an existing pick', async () => {

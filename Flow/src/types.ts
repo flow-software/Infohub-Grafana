@@ -9,7 +9,7 @@ export type Tree = 'model' | 'template';
  * Events are picked in events queries; a template event stands for every
  * event created from it.
  */
-export type ItemType = 'metric' | 'measure' | 'event' | 'chart';
+export type ItemType = 'folder' | 'metric' | 'measure' | 'event' | 'chart';
 
 export interface QueryItem {
   tree: Tree;

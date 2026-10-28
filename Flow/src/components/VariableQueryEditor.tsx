@@ -140,6 +140,7 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
           tooltip="Optional: only measures whose model attribute has one of these values. Use another variable, such as $line, to make this list follow it."
           attribute={query.attributeFilter}
           values={query.attributeValues}
+          items={items}
           onChange={(attributeFilter, attributeValues) => update({ attributeFilter, attributeValues })}
         />
       )}

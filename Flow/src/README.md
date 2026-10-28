@@ -27,7 +27,7 @@ Flow keeps every version of a value: the original, recalculations and manual ent
 
 ![Corrected periods marked on a trend; the mark's tooltip lists every version of the value](/public/plugins/%PLUGIN_ID%/img/screenshots/versions.png)
 
-Pick items in the query editor: **Browse** walks the model folder by folder, or searches by name or measure ID (`4304`, `#4304` or `id:4304`), and can show only measures of some intervals (tags, hourly, daily, ...) or retrieval types (calculated, manual, ...). Each measure shows its ID, interval and retrieval type as Flow Config draws them. A metric stands for all of its measures, and a template metric or measure returns every model measure created from it, named by folder path so `Line 1/Production/Good` and `Line 2/Production/Good` stay apart.
+Pick items in the query editor: **Browse** walks the model folder by folder, or searches folders, metrics and measures by name or a measure by ID (`4304`, `#4304` or `id:4304`), and can show only measures of some intervals (tags, hourly, daily, ...) or retrieval types (calculated, manual, ...). Each measure shows its ID, interval and retrieval type as Flow Config draws them. A folder stands for every measure below it, a metric for all of its measures, and a template metric or measure returns every model measure created from it, named by folder path so `Line 1/Production/Good` and `Line 2/Production/Good` stay apart.
 
 ![The query editor: Measures tab with a measure variable and Show limits on](/public/plugins/%PLUGIN_ID%/img/screenshots/editor.png)
 
@@ -98,15 +98,15 @@ Each query is **Measures**, **Events**, **Chart** or **Dependencies**.
 
 ### Measures
 
-Select **Browse** to open the model browser. The **Model** tab shows the folders, metrics and measures in your model. The **Templates** tab shows the template library. Tick metrics or measures and select **Apply**. The **Interval** and **Retrieval** chips under the search box show only measures of those intervals and retrieval types, in the tree and in search results (both apply together; **All** shows every one); folders and metrics stay, since what they hold shows once they are opened. Ticking a metric still picks all of its measures.
+Select **Browse** to open the model browser. The **Model** tab shows the folders, metrics and measures in your model. The **Templates** tab shows the template library. Tick folders, metrics or measures and select **Apply**; a ticked folder shows how many measures it holds. The **Interval** and **Retrieval** chips under the search box show only measures of those intervals and retrieval types, in the tree and in search results (both apply together; **All** shows every one); folders and metrics stay, since what they hold shows once they are opened. Ticking a metric still picks all of its measures.
 
-- A **metric** stands for all of its measures. Measures added to it later are picked up automatically.
+- A **folder** stands for every measure in it and in the folders below it, and a **metric** for all of its measures. Measures added later are picked up automatically. A big folder can pass the query limit below, so check its count.
 - A **template** metric or measure returns every model measure created from it.
 
 The options below the selection depend on what it holds. **Period measures** options appear only when it contains period measures, and **Tags** options only when it contains tags; each heading shows how many. Each chip shows what the item is (tag, hourly, daily, metric) and whether it comes from a template.
 
 - **Variable**: a dashboard variable holding measure ids, such as a _Measures_ variable of this data source (`$measure`). Its measures are added to those picked with Browse; with Multi-value or All, every selected one.
-- **Filter**: keep only measures whose model attribute has one of the values, e.g. _Line_ = _Line 1_. The attribute and its values can be dashboard variables: pick a template measure and _Line_ = `$line` to get one dashboard for every line.
+- **Filter**: keep only measures whose model attribute has one of the values, e.g. _Line_ = _Line 1_. Only the attributes the selected measures carry are listed, and only the values among them (all of them with measures from a **Variable**). The attribute and its values can be dashboard variables: pick a template measure and _Line_ = `$line` to get one dashboard for every line.
 - **Context**: _Calendar_ reads period measures per calendar period; _Event_ reads them per period of an event (see below). It is offered only when a selected measure has an event as context in Flow.
 - **Calendar**: period measures are read in this calendar. Only the calendars the selected measures have as context in Flow are listed, with how many of the measures have each when not all do; a measure without the chosen calendar is named in a warning on the panel. With measures from a **Variable** every calendar is listed, since they are only known when the panel runs. With no calendar picked, measures Flow cannot read in the data source's default calendar are read in the calendar most of them have, and the panel says which. Choose whether each value is placed at the **period start** or **end**.
 - **Event** (event context): the event whose periods the measures are read in. The list holds the events the selected model measures have as context in Flow; **Event variable** takes it from a dashboard variable (`$event`) instead. Optionally pick an **Attribute** to keep only periods with some of its values (the values seen in the last 90 days are suggested; others can be typed), and turn on **Series per value** to get a series per value, coloured as in Flow. **Time at** _Whole period_ (the default in event context) draws each value as a line from its event period's start to its end, with a gap until the next period: unlike calendar periods, event periods do not run back to back, so a single timestamp would hide when each one ran. _Period start_ or _end_ places the value at one of them instead. Template measures are not read in event context, because each instance has its own event. Measures that belong to an event themselves (rather than to a metric) are not supported yet.
@@ -136,7 +136,7 @@ Add a _Query_ variable with this data source and choose what it lists:
 
 - _Attributes_: the model attributes the measures carry, e.g. _Line_ and _Site_. Use it as `$attribute` in an _Attribute values_ variable and a panel's **Filter**, so people pick the attribute too.
 - _Attribute values_: the values of a model attribute, e.g. every _Line_. Optionally only on some measures (template items stand for their instances).
-- _Measures_: measures by folder path, valued by measure id: the instances of template measures or metrics, a model metric's measures, or with nothing picked every measure in the model. Use it with a panel's **Variable** field.
+- _Measures_: measures by folder path, valued by measure id: the instances of template measures or metrics, the measures of a model metric or folder, or with nothing picked every measure in the model. Use it with a panel's **Variable** field.
 - _Events_: events by folder path, valued by event id; optionally only the instances of template events. Use it with an events query's **Variable** or a measures query's **Event variable**.
 - _Event values_: the values of an event attribute seen in the last 90 days.
 - _Limits_: the limit names (e.g. _Site_) of some measures, or of a measure variable such as `$measure`, in the default calendar. Use it as `$limit` in a panel's limit picker, so people choose which limits are drawn.
@@ -161,7 +161,7 @@ The chart's measures, sections and limits come from Flow, so changing the chart 
 
 ### Dependencies
 
-Pick measures with **Browse** or a measure **Variable**; each becomes the root of a tree (a metric adds a tree for each of its measures). The plugin follows the links Flow records for each measure:
+Pick measures with **Browse** or a measure **Variable**; each becomes the root of a tree (a metric or folder adds a tree for each of its measures). The plugin follows the links Flow records for each measure:
 
 - **calculation**: the measures a calculation's formula uses,
 - **aggregation**: the measure (or event) an aggregated measure is built from, with the aggregation, e.g. _sum, weekly_,

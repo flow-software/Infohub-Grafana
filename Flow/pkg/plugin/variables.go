@@ -53,7 +53,7 @@ func (d *Datasource) runVariable(ctx context.Context, qm queryModel) (backend.Da
 	switch qm.VariableKind {
 	case varAttributeNames:
 		var names []string
-		names, err = d.attributeNamesResource(ctx)
+		names, err = d.attributeNamesResource(ctx, nil)
 		for _, n := range names {
 			opts = append(opts, variableOption{n, n})
 		}
@@ -108,16 +108,35 @@ func (d *Datasource) scopeMeasures(ctx context.Context, items []queryItem) (map[
 			templateIDs[it.ID] = true
 		case it.Type == itemMeasure:
 			modelIDs[it.ID] = true
-		case it.Type == itemMetric:
-			ms, err := d.client.MetricMeasures(ctx, it.Tree, it.ID)
+		case it.Type == itemMetric || it.Type == itemFolder:
+			var ms []flow.Measure
+			var err error
+			if it.Type == itemFolder {
+				ms, err = d.folderMeasures(ctx, it.Tree, it.ID)
+			} else {
+				ms, err = d.client.MetricMeasures(ctx, it.Tree, it.ID)
+			}
 			if err != nil {
-				return nil, fmt.Errorf("measures of %s metric %d: %w", it.Tree, it.ID, err)
+				return nil, fmt.Errorf("measures of %s %s %d: %w", it.Tree, it.Type, it.ID, err)
 			}
 			for _, m := range ms {
 				if it.Tree == flow.TreeTemplate {
 					templateIDs[m.ID] = true
 				} else {
 					modelIDs[m.ID] = true
+				}
+			}
+		case it.Type == itemChart:
+			// Flow lists a chart's model and template measures together.
+			ms, err := d.chartMeasures(ctx, it.ID)
+			if err != nil {
+				return nil, fmt.Errorf("measures of chart %d: %w", it.ID, err)
+			}
+			for _, m := range ms {
+				if _, ok := all[m.ID]; ok {
+					modelIDs[m.ID] = true
+				} else {
+					templateIDs[m.ID] = true
 				}
 			}
 		}
@@ -274,8 +293,9 @@ func (d *Datasource) variableEventValues(ctx context.Context, qm queryModel) ([]
 
 // attributeNamesResource lists the model attribute names measures carry,
 // for the editors' attribute pickers.
-func (d *Datasource) attributeNamesResource(ctx context.Context) ([]string, error) {
-	measures, err := d.modelMeasures(ctx)
+func (d *Datasource) attributeNamesResource(ctx context.Context, items []queryItem) ([]string, error) {
+	// Only the attributes the selected measures carry; all with none picked.
+	measures, err := d.scopeMeasures(ctx, items)
 	if err != nil {
 		return nil, err
 	}
@@ -284,11 +304,12 @@ func (d *Datasource) attributeNamesResource(ctx context.Context) ([]string, erro
 
 // attributeValuesResource lists the values of one model attribute, for the
 // editors' value pickers.
-func (d *Datasource) attributeValuesResource(ctx context.Context, name string) ([]string, error) {
+func (d *Datasource) attributeValuesResource(ctx context.Context, name string, items []queryItem) ([]string, error) {
 	if name == "" {
 		return nil, &badRequest{"attribute is required"}
 	}
-	measures, err := d.modelMeasures(ctx)
+	// Only the values among the selected measures; all with none picked.
+	measures, err := d.scopeMeasures(ctx, items)
 	if err != nil {
 		return nil, err
 	}

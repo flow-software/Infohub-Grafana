@@ -328,6 +328,14 @@ func (d *Datasource) runDependencies(ctx context.Context, qm queryModel, q backe
 			for _, m := range ms {
 				roots[it.Tree] = appendUnique(roots[it.Tree], m.ID)
 			}
+		case itemFolder:
+			ms, err := d.folderMeasures(ctx, it.Tree, it.ID)
+			if err != nil {
+				return backend.DataResponse{}, fmt.Errorf("measures of %s folder %d: %w", it.Tree, it.ID, err)
+			}
+			for _, m := range ms {
+				roots[it.Tree] = appendUnique(roots[it.Tree], m.ID)
+			}
 		}
 	}
 

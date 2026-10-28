@@ -88,6 +88,7 @@ type Datasource struct {
 	calendars    []flow.Calendar
 	calendarsAge time.Time
 
+	trees      treeCache
 	charts     chartCache
 	chartLists chartMeasureCache
 	deps       depIndex

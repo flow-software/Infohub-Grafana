@@ -318,9 +318,10 @@ function MeasuresQueryEditor({
           datasource={datasource}
           label="Filter"
           labelWidth={LABEL_WIDTH}
-          tooltip="Keep only measures whose model attribute has one of these values, e.g. Line = Line 1. Pick a template measure above and a $line variable here to get one dashboard for every line."
+          tooltip="Keep only measures whose model attribute has one of these values, e.g. Line = Line 1. Only the attributes and values of the selected measures are listed. Pick a template measure or a folder above and a $line variable here to get one dashboard for every line."
           attribute={query.attributeFilter}
           values={query.attributeValues}
+          items={fromVariable ? [] : items}
           onChange={(attributeFilter, attributeValues) => update({ attributeFilter, attributeValues })}
         />
       )}
@@ -1059,7 +1060,7 @@ function GroupHeading({ title, count }: { title: string; count?: number }) {
 
 /** What an item is, for its chip: tag, a period such as hourly, or metric. */
 function itemKind(item: QueryItem): string {
-  if (item.type === 'metric' || item.type === 'event') {
+  if (item.type === 'folder' || item.type === 'metric' || item.type === 'event') {
     return item.type;
   }
   if (item.interval === 'timestamp') {
@@ -1081,13 +1082,15 @@ function ItemChip({ item, onRemove }: { item: QueryItem; onRemove: () => void })
       ) : (
         <Icon
           name={
-            item.type === 'metric'
-              ? 'apps'
-              : item.type === 'event'
-                ? 'bolt'
-                : kind === 'tag'
-                  ? 'chart-line'
-                  : 'clock-nine'
+            item.type === 'folder'
+              ? 'folder'
+              : item.type === 'metric'
+                ? 'apps'
+                : item.type === 'event'
+                  ? 'bolt'
+                  : kind === 'tag'
+                    ? 'chart-line'
+                    : 'clock-nine'
           }
           size="sm"
         />

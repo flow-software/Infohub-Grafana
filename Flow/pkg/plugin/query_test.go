@@ -98,6 +98,15 @@ func (f *fakeFlow) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/api/v1/model/folders":
 		writeJSON(w, 200, map[string]any{"folders": modelFolders})
 	case "/api/v1/model/metrics":
+		// Without ids, every metric, as Flow lists them.
+		if len(r.URL.Query()["id"]) == 0 {
+			var all []any
+			for _, m := range modelMetrics {
+				all = append(all, m)
+			}
+			writeJSON(w, 200, map[string]any{"metrics": all})
+			return
+		}
 		writeJSON(w, 200, map[string]any{"metrics": byIDs(modelMetrics, r)})
 	case "/api/v1/model/measures":
 		writeJSON(w, 200, map[string]any{"measures": byIDs(modelMeasures, r)})

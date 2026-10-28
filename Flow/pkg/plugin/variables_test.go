@@ -97,6 +97,47 @@ func TestVariableAttributeNames(t *testing.T) {
 	}
 }
 
+// A folder stands for every measure below it, at any depth.
+func TestFolderItems(t *testing.T) {
+	_, d := attributeServer(t)
+	for key, want := range map[string]string{"model:folder:1": "2/2", "model:folder:2": "1/1"} {
+		s, err := d.summary(context.Background(), []string{key})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strconv.Itoa(s.PeriodMeasures) + "/" + strconv.Itoa(s.Tags); got != want {
+			t.Errorf("%s: periods/tags = %s, want %s", key, got, want)
+		}
+	}
+	// A folder works in a measures variable too.
+	got := runVar(t, d, queryModel{VariableKind: varMeasures, Items: []queryItem{{Tree: "model", Type: itemFolder, ID: 3}}})
+	if strings.Join(got, ",") != "Site/Line 2/Production/Good=300,Site/Line 2/Production/Speed=301" {
+		t.Errorf("measures of folder 3 = %v", got)
+	}
+}
+
+// The filter's attribute and value lists follow the selected measures.
+func TestAttributeListsFollowSelection(t *testing.T) {
+	_, d := attributeServer(t)
+	ctx := context.Background()
+	names, err := d.attributeNamesResource(ctx, []queryItem{{Tree: "model", Type: itemMeasure, ID: 201}})
+	if err != nil || strings.Join(names, ",") != "Line" {
+		t.Errorf("names of 201 = %v, %v", names, err)
+	}
+	if names, _ := d.attributeNamesResource(ctx, nil); strings.Join(names, ",") != "Area,Line" {
+		t.Errorf("all names = %v", names)
+	}
+	values, err := d.attributeValuesResource(ctx, "Line", []queryItem{{Tree: "model", Type: itemFolder, ID: 2}})
+	if err != nil || strings.Join(values, ",") != "Line 1" {
+		t.Errorf("Line values in folder 2 = %v, %v", values, err)
+	}
+	// Template items stand for their instances.
+	values, _ = d.attributeValuesResource(ctx, "Line", []queryItem{{Tree: "template", Type: itemMeasure, ID: 9000}})
+	if strings.Join(values, ",") != "Line 1,Line 2" {
+		t.Errorf("Line values of template 9000 = %v", values)
+	}
+}
+
 func TestVariableAttributeValues(t *testing.T) {
 	_, d := attributeServer(t)
 	if got := strings.Join(runVar(t, d, queryModel{VariableKind: varAttributeValues, VariableAttribute: "Line"}), ","); got != "Line 1=Line 1,Line 2=Line 2" {

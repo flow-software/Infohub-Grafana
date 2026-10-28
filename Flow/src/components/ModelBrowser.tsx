@@ -158,8 +158,23 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
     }
   };
 
+  // How many measures each ticked folder holds, so a big one is noticed
+  // before it is applied.
+  const [folderCounts, setFolderCounts] = useState<Record<string, string>>({});
+  const countFolder = (item: QueryItem) => {
+    const key = itemKey(item);
+    setFolderCounts((prev) => ({ ...prev, [key]: 'counting…' }));
+    datasource
+      .getSummary([item])
+      .then((s) => {
+        const n = s.periodMeasures + s.tags;
+        setFolderCounts((prev) => ({ ...prev, [key]: n === 1 ? '1 measure' : `${n} measures` }));
+      })
+      .catch(() => setFolderCounts((prev) => ({ ...prev, [key]: '' })));
+  };
+
   const toggleChecked = (node: BrowseNode, label: string) => {
-    if (node.type === 'folder') {
+    if (node.type === 'folder' && events) {
       return;
     }
     const item: QueryItem = {
@@ -171,6 +186,9 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
       retrieval: node.retrieval,
     };
     const key = itemKey(item);
+    if (node.type === 'folder' && !checked.has(key) && !folderCounts[key]) {
+      countFolder(item);
+    }
     setChecked((prev) => {
       const next = new Map(prev);
       next.has(key) ? next.delete(key) : next.set(key, item);
@@ -192,7 +210,9 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
     const key = parentKey(node.tree, node);
     const canExpand = node.type === 'folder' || node.type === 'metric';
     const isOpen = expanded.has(key);
-    const isChecked = node.type !== 'folder' && checked.has(itemKey({ tree: node.tree, type: node.type, id: node.id }));
+    const tickable = node.type !== 'folder' || !events;
+    const nodeKey = itemKey({ tree: node.tree, type: node.type, id: node.id });
+    const isChecked = tickable && checked.has(nodeKey);
     return (
       <React.Fragment key={key}>
         <div
@@ -213,7 +233,7 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
           ) : (
             <span className={styles.chevronSpace} />
           )}
-          {node.type === 'folder' ? (
+          {!tickable ? (
             <span className={styles.checkboxSpace} />
           ) : (
             <Checkbox
@@ -243,6 +263,9 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
             )}
             {node.description && <span className={styles.description}>{node.description}</span>}
           </span>
+          {node.type === 'folder' && isChecked && folderCounts[nodeKey] && (
+            <span className={styles.count}>{folderCounts[nodeKey]}</span>
+          )}
           <NodeBadges node={node} />
         </div>
         {canExpand && isOpen && renderChildren(node.tree, node, depth + 1, label)}

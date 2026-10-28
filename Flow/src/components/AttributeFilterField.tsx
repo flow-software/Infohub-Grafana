@@ -3,6 +3,7 @@ import { getTemplateSrv } from '@grafana/runtime';
 import { Combobox, ComboboxOption, InlineField, MultiCombobox, Stack } from '@grafana/ui';
 
 import type { DataSource } from '../datasource';
+import { itemKey, QueryItem } from '../types';
 
 /**
  * Picks a model attribute and the values to keep, e.g. Line = Line 1. The
@@ -16,6 +17,7 @@ export function AttributeFilterField({
   tooltip,
   attribute,
   values,
+  items = [],
   onChange,
 }: {
   datasource: DataSource;
@@ -24,12 +26,15 @@ export function AttributeFilterField({
   tooltip: string;
   attribute?: string;
   values?: string[];
+  /** The selection: only its measures' attributes and values are listed. None lists all. */
+  items?: QueryItem[];
   onChange: (attribute: string | undefined, values: string[] | undefined) => void;
 }) {
-  const names = useAnswer(() => datasource.getAttributes(), [datasource], 'attributes');
-  const valueKey = attribute ?? '';
+  const scope = items.map(itemKey).join(',');
+  const names = useAnswer(() => datasource.getAttributes(items), [datasource, scope], 'attributes:' + scope);
+  const valueKey = (attribute ?? '') + ':' + scope;
   const known = useAnswer(
-    () => (attribute ? datasource.getAttributeValues(attribute) : Promise.resolve([])),
+    () => (attribute ? datasource.getAttributeValues(attribute, items) : Promise.resolve([])),
     [datasource, valueKey],
     valueKey
   );

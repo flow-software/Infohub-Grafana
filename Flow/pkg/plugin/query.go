@@ -138,7 +138,7 @@ func (qm *queryModel) validate() error {
 		return nil
 	case queryTypeVariable:
 		for _, it := range qm.Items {
-			if !it.Tree.Valid() || (it.Type != itemMetric && it.Type != itemMeasure && it.Type != itemEvent) {
+			if !it.Tree.Valid() || (it.Type != itemMetric && it.Type != itemMeasure && it.Type != itemEvent && it.Type != itemFolder) {
 				return fmt.Errorf("item %d: unknown %s %s", it.ID, it.Tree, it.Type)
 			}
 		}
@@ -169,7 +169,7 @@ func (qm *queryModel) validate() error {
 		if !it.Tree.Valid() {
 			return fmt.Errorf("item %d: unknown tree %q", it.ID, it.Tree)
 		}
-		if it.Type != itemMetric && it.Type != itemMeasure && it.Type != itemChart {
+		if it.Type != itemMetric && it.Type != itemMeasure && it.Type != itemChart && it.Type != itemFolder {
 			return fmt.Errorf("item %d: unknown type %q", it.ID, it.Type)
 		}
 	}
@@ -214,6 +214,17 @@ func (d *Datasource) resolve(ctx context.Context, items []queryItem) (*selection
 	fromChart := map[int]bool{}
 	for _, it := range items {
 		switch it.Type {
+		case itemFolder:
+			measures, err := d.folderMeasures(ctx, it.Tree, it.ID)
+			if err != nil {
+				return nil, fmt.Errorf("measures of %s folder %d: %w", it.Tree, it.ID, err)
+			}
+			if len(measures) == 0 {
+				sel.warnings = append(sel.warnings, fmt.Sprintf("%s has no measures you can read", itemName(it)))
+			}
+			for _, m := range measures {
+				sel.add(it.Tree, m)
+			}
 		case itemChart:
 			measures, err := d.chartMeasures(ctx, it.ID)
 			if err != nil {

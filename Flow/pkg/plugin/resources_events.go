@@ -293,7 +293,7 @@ func parseItems(keys []string) ([]queryItem, error) {
 		}
 		id, err := strconv.Atoi(parts[2])
 		it := queryItem{Tree: flow.Tree(parts[0]), Type: parts[1], ID: id}
-		if err != nil || !it.Tree.Valid() || (it.Type != itemMetric && it.Type != itemMeasure && it.Type != itemChart) {
+		if err != nil || !it.Tree.Valid() || (it.Type != itemMetric && it.Type != itemMeasure && it.Type != itemChart && it.Type != itemFolder) {
 			return nil, &badRequest{"invalid item " + k}
 		}
 		items = append(items, it)

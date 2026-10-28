@@ -170,13 +170,15 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
   }
 
   /** Model attribute names the model's measures carry. */
-  getAttributes(): Promise<string[]> {
-    return this.getResource<string[]>('attributes');
+  /** Model attribute names; with items, only those the items' measures carry. */
+  getAttributes(items: QueryItem[] = []): Promise<string[]> {
+    return this.getResource<string[]>('attributes', { item: items.map(itemKey) });
   }
 
   /** Values of a model attribute on the model's measures. */
-  getAttributeValues(attribute: string): Promise<string[]> {
-    return this.getResource<string[]>('attributeValues', { attribute });
+  /** An attribute's values; with items, only those among the items' measures. */
+  getAttributeValues(attribute: string, items: QueryItem[] = []): Promise<string[]> {
+    return this.getResource<string[]>('attributeValues', { attribute, item: items.map(itemKey) });
   }
 
   getCalendars(): Promise<Calendar[]> {

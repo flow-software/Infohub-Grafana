@@ -144,6 +144,15 @@ func (c *Client) ChildFolders(ctx context.Context, tree Tree, folderID int) ([]F
 	return r.Folders, err
 }
 
+// AllMetrics lists every metric in the tree the token can read, with its folder.
+func (c *Client) AllMetrics(ctx context.Context, tree Tree) ([]Metric, error) {
+	var r struct {
+		Metrics []Metric `json:"metrics"`
+	}
+	err := c.get(ctx, fmt.Sprintf("v1/%s/metrics", tree), nil, &r)
+	return r.Metrics, err
+}
+
 func (c *Client) FolderMetrics(ctx context.Context, tree Tree, folderID int) ([]Metric, error) {
 	var r struct {
 		Metrics []Metric `json:"metrics"`
