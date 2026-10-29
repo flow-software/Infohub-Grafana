@@ -354,8 +354,8 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
                 ? 'Search events by name'
                 : 'Search template events by name'
               : tree === 'model'
-                ? 'Search metrics and measures by name, or a measure by ID'
-                : 'Search template metrics and measures by name, or a measure by ID'
+                ? 'Search folders, metrics and measures by name, or a measure by ID'
+                : 'Search template folders, metrics and measures by name, or a measure by ID'
           }
           value={search}
           onChange={setSearch}
@@ -459,7 +459,7 @@ function iconFor(node: BrowseNode, isOpen: boolean): IconName {
     case 'folder':
       return isOpen ? 'folder-open' : 'folder';
     case 'metric':
-      return 'apps';
+      return 'cube';
     case 'event':
       return 'bolt';
     default:

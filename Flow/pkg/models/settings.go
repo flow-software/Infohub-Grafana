@@ -77,7 +77,7 @@ func NormalizeURL(raw string) string {
 // Validate reports the first missing setting, worded for the config page.
 func (s *PluginSettings) Validate() error {
 	if s.URL == "" {
-		return fmt.Errorf("URL is required, for example http://flow:4501/flow-software/flow/instances/<InstanceID>/server")
+		return fmt.Errorf("the Flow host and instance ID are required: enter them under Connection")
 	}
 	u, err := url.Parse(s.URL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {

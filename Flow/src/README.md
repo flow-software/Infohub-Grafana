@@ -1,11 +1,11 @@
-# Infohub by Flow
+# Infohub
 
 Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in Grafana, and see how each measure is built. Browse the Flow model by folder and metric, or pick template measures to get every instance at once.
 
 ## Get started
 
 1. Install the plugin and restart Grafana.
-2. Add an **Infohub by Flow** data source with the Flow Server URL and a server token (see [Configuration](#configuration)), then select **Save & test**.
+2. Add an **Infohub** data source: enter the Flow Bootstrap host and the Flow instance ID, and a server token (see [Configuration](#configuration)), then select **Save & test**.
 3. Open the data source's **Dashboards** tab and import the example dashboards. They pick measures, events and charts from dropdowns, so they work on any Flow model. Open any of their panels to see how its query is set up.
 
 | Dashboard                          | What it shows                                                                                                                           |
@@ -69,12 +69,13 @@ Queries run in the plugin backend, so they work in Grafana alert rules. Each mea
 
 ## Configuration
 
-| Setting          | Example                                                                    | Notes                                                                                                                                                            |
-| ---------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| URL              | `http://flow-server:4501/flow-software/flow/instances/<InstanceID>/server` | The Flow Server API through Bootstrap. Use the instance ID (a GUID), not the instance name. A trailing `/api` is ignored, so the Swagger page address works too. |
-| API token        |                                                                            | A Flow server token. Stored encrypted and only read by the plugin backend.                                                                                       |
-| Default calendar | Default                                                                    | Calendar for period measures when a query does not choose one. After **Save & test** you can pick it by name.                                                    |
-| TLS              |                                                                            | **Skip certificate verification** for a self-signed Bootstrap certificate, or **Custom CA certificate**.                                                         |
+| Setting          | Example                                | Notes                                                                                                                                                                                                                                            |
+| ---------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Host and port    | `flow-server`, `4501`                  | The machine running Flow Bootstrap, as the Grafana server reaches it, and Bootstrap's port (empty uses 4501). Turn on **HTTPS** if Bootstrap uses it. Pasting a Flow Server or Swagger address into Host fills in every field.                   |
+| Instance ID      | `7828D35F-D2C7-4D09-AF8C-333C046F1A77` | The Flow instance's ID (a GUID), not its name. The plugin builds the address `http://<host>:<port>/flow-software/flow/instances/<instance ID>/server` and shows it; **Enter a full URL instead** takes any address, e.g. behind a reverse proxy. |
+| API token        |                                        | A Flow server token. Stored encrypted and only read by the plugin backend.                                                                                                                                                                       |
+| Default calendar | Default                                | Calendar for period measures when a query does not choose one. After **Save & test** you can pick it by name.                                                                                                                                    |
+| TLS              |                                        | **Skip certificate verification** for a self-signed Bootstrap certificate, or **Custom CA certificate**.                                                                                                                                         |
 
 **Save & test** checks the token, then calls the public API and reports how many calendars it found.
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
-  "name": "Infohub by Flow",
+  "name": "Infohub",
   "id": "flowsoftware-infohub-datasource",
   "metrics": true,
   "alerting": true,
@@ -9,7 +9,7 @@
   "backend": true,
   "executable": "gpx_infohub",
   "info": {
-    "description": "Browse the Flow model by folder and metric and chart measure and tag data, for model measures or every instance of a template measure.",
+    "description": "Chart Flow measures, tags, events and charts in Grafana, and see how each measure is built and how far the engine has got with it.",
     "author": {
       "name": "Flow Software",
       "url": "https://www.flow-software.com"

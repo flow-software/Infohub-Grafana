@@ -1085,7 +1085,7 @@ function ItemChip({ item, onRemove }: { item: QueryItem; onRemove: () => void })
             item.type === 'folder'
               ? 'folder'
               : item.type === 'metric'
-                ? 'apps'
+                ? 'cube'
                 : item.type === 'event'
                   ? 'bolt'
                   : kind === 'tag'
