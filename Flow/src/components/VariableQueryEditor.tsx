@@ -3,7 +3,7 @@ import { QueryEditorProps } from '@grafana/data';
 import { Combobox, ComboboxOption, InlineField, Input, RadioButtonGroup, Stack } from '@grafana/ui';
 
 import type { DataSource } from '../datasource';
-import { FlowOptions, FlowQuery, QueryItem, VariableKind } from '../types';
+import { FlowOptions, FlowQuery, itemKey, QueryItem, VariableKind } from '../types';
 import { AttributeFilterField } from './AttributeFilterField';
 import { ItemsPicker, LABEL_WIDTH } from './QueryEditor';
 
@@ -24,11 +24,12 @@ const groupOf: Record<VariableKind, Group> = {
   charts: 'charts',
 };
 
+// Charts are not offered for new variables; an existing chart variable
+// (such as the Chart viewer dashboard's) still shows its tab.
 const groupOptions: Array<{ label: string; value: Group }> = [
   { label: 'Measures', value: 'measures' },
   { label: 'Model attributes', value: 'attributes' },
   { label: 'Events', value: 'events' },
-  { label: 'Charts', value: 'charts' },
 ];
 
 const choiceOptions: Record<Group, Array<{ label: string; value: VariableKind; description: string }>> = {
@@ -83,7 +84,7 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
     <Stack direction="column" gap={0.5}>
       <InlineField label="List" labelWidth={LABEL_WIDTH}>
         <RadioButtonGroup<Group>
-          options={groupOptions}
+          options={group === 'charts' ? [...groupOptions, { label: 'Charts', value: 'charts' }] : groupOptions}
           value={group}
           onChange={(g) =>
             onChange({
@@ -130,13 +131,20 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
         <ItemsPicker
           datasource={datasource}
           items={items}
-          label={kind === 'events' ? 'Of' : 'Event'}
+          label={kind === 'events' ? 'Only' : 'Event'}
           kind="events"
-          onChange={(next) => update({ items: next, eventId: firstModelEvent(next) })}
+          onChange={(next) =>
+            update(
+              kind === 'events'
+                ? { items: next, eventId: firstModelEvent(next) }
+                : // One event: the latest pick. A new event clears an attribute it does not have.
+                  { items: next.slice(-1), eventId: firstModelEvent(next.slice(-1)) }
+            )
+          }
           tooltip={
             kind === 'events'
-              ? 'Optional: template events, to list only their model instances. Empty lists every event.'
-              : 'The event whose attribute values to list.'
+              ? 'Optional: list only these events. A template event stands for every event created from it. Empty lists every event.'
+              : 'The event whose attribute values to list. A template event lists the values of every event created from it.'
           }
         />
       )}
@@ -166,14 +174,12 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
       )}
 
       {kind === 'eventValues' && (
-        <InlineField label="Attribute" labelWidth={LABEL_WIDTH} tooltip="The event attribute, e.g. Product.">
-          <Input
-            width={30}
-            placeholder="Product"
-            defaultValue={query.eventAttribute ?? ''}
-            onBlur={(e) => update({ eventAttribute: e.currentTarget.value || undefined })}
-          />
-        </InlineField>
+        <EventAttributeField
+          datasource={datasource}
+          event={items.find((it) => it.type === 'event')}
+          value={query.eventAttribute}
+          onChange={(eventAttribute) => update({ eventAttribute })}
+        />
       )}
 
       {(kind === 'attributeValues' || kind === 'measures') && (
@@ -194,6 +200,65 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
 
 function firstModelEvent(items: QueryItem[]): number | undefined {
   return items.find((it) => it.type === 'event' && it.tree === 'model')?.id;
+}
+
+/** Picks one of the event's attributes, once the event is picked. */
+function EventAttributeField({
+  datasource,
+  event,
+  value,
+  onChange,
+}: {
+  datasource: DataSource;
+  event?: QueryItem;
+  value?: string;
+  onChange: (name: string | undefined) => void;
+}) {
+  const eventKey = event ? itemKey(event) : '';
+  const [answer, setAnswer] = useState<{ key: string; names?: string[]; error?: string }>();
+  useEffect(() => {
+    if (!event) {
+      return;
+    }
+    let cancelled = false;
+    datasource
+      .getEventAttributes(event)
+      .then((names) => !cancelled && setAnswer({ key: eventKey, names }))
+      .catch((err) => !cancelled && setAnswer({ key: eventKey, error: err?.data?.message ?? err?.message }));
+    return () => {
+      cancelled = true;
+    };
+    // eventKey stands for event, whose identity changes with every new query object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasource, eventKey]);
+  const current = answer?.key === eventKey ? answer : undefined;
+  const options = useMemo<Array<ComboboxOption<string>>>(() => {
+    const opts = (current?.names ?? []).map((n) => ({ label: n, value: n }));
+    if (value && !opts.some((o) => o.value === value)) {
+      opts.unshift({ label: value, value });
+    }
+    return opts;
+  }, [current, value]);
+  const none = !!event && current?.names?.length === 0;
+  return (
+    <InlineField
+      label="Attribute"
+      labelWidth={LABEL_WIDTH}
+      tooltip="The event attribute whose values to list, e.g. Product. Its values seen in the last 90 days are listed."
+      invalid={!!current?.error || none}
+      error={current?.error ?? (none ? 'This event has no attributes' : undefined)}
+    >
+      <Combobox
+        width={30}
+        disabled={!event}
+        createCustomValue
+        placeholder={!event ? 'Pick the event first' : current ? 'Pick an attribute' : 'Loading attributes...'}
+        options={options}
+        value={value ?? null}
+        onChange={(o) => onChange(o?.value)}
+      />
+    </InlineField>
+  );
 }
 
 /** Picks a model attribute name from those the model's measures carry. */

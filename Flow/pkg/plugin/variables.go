@@ -205,17 +205,23 @@ func (d *Datasource) variableEvents(ctx context.Context, qm queryModel) ([]varia
 	if err != nil {
 		return nil, err
 	}
-	// Picked template events narrow the list to their model instances.
-	templates := map[int]bool{}
+	// Picked events narrow the list: a model event to itself, a template
+	// event to every event created from it.
+	picked, templates := map[int]bool{}, map[int]bool{}
 	for _, it := range qm.Items {
-		if it.Type == itemEvent && it.Tree == flow.TreeTemplate {
+		if it.Type != itemEvent {
+			continue
+		}
+		if it.Tree == flow.TreeTemplate {
 			templates[it.ID] = true
+		} else {
+			picked[it.ID] = true
 		}
 	}
-	if len(templates) > 0 {
+	if len(picked)+len(templates) > 0 {
 		kept := events[:0]
 		for _, e := range events {
-			if e.Template != nil && templates[e.Template.ID] {
+			if picked[e.ID] || (e.Template != nil && templates[e.Template.ID]) {
 				kept = append(kept, e)
 			}
 		}
@@ -278,10 +284,19 @@ func (d *Datasource) variableCharts(ctx context.Context) ([]variableOption, erro
 }
 
 func (d *Datasource) variableEventValues(ctx context.Context, qm queryModel) ([]variableOption, error) {
-	if qm.EventID == 0 || qm.EventAttribute == "" {
+	// The picked event, which may be a template event (then the values of
+	// every event created from it); older variables only carry its id.
+	tree, id := flow.TreeModel, qm.EventID
+	for _, it := range qm.Items {
+		if it.Type == itemEvent {
+			tree, id = it.Tree, it.ID
+			break
+		}
+	}
+	if id == 0 || qm.EventAttribute == "" {
 		return nil, &badRequest{"pick the event and the attribute whose values to list"}
 	}
-	values, err := d.eventValues(ctx, qm.EventID, qm.EventAttribute)
+	values, err := d.eventValues(ctx, tree, id, qm.EventAttribute)
 	if err != nil {
 		return nil, err
 	}

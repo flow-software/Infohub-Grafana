@@ -46,7 +46,8 @@ type browseNode struct {
 //	GET search?tree=..&q=text              metrics and measures by name, or a measure by id
 //	GET search?tree=..&q=text&kind=events  events by name
 //	GET contextEvents?item=<tree>:<type>:<id>..  events the selected model measures have as context
-//	GET eventValues?event=N&attribute=Name  values of an event attribute seen in the last 90 days
+//	GET eventValues?event=N&attribute=Name  values of an event attribute seen in the last 90 days (tree=template: of its instances)
+//	GET eventAttributes?tree=..&event=N    an event's attribute names
 //	GET limits?item=..&calendarId=N&context=event&eventId=N  limit names of the items in that calendar or event
 //	GET attributes                         model attribute names on measures
 //	GET attributeValues?attribute=Name     values of a model attribute on measures
@@ -139,7 +140,16 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 		}
 	case "eventValues":
 		id, _ := strconv.Atoi(params.Get("event"))
-		body, err = d.eventValues(ctx, id, params.Get("attribute"))
+		if !tree.Valid() {
+			return fail(http.StatusBadRequest, "tree must be model or template")
+		}
+		body, err = d.eventValues(ctx, tree, id, params.Get("attribute"))
+	case "eventAttributes":
+		if !tree.Valid() {
+			return fail(http.StatusBadRequest, "tree must be model or template")
+		}
+		id, _ := strconv.Atoi(params.Get("event"))
+		body, err = d.eventAttributeNames(ctx, tree, id)
 	default:
 		return fail(http.StatusNotFound, "not found")
 	}

@@ -141,9 +141,10 @@ Add a _Query_ variable with this data source. **List** picks what it is about, a
 | | _Limit names_ | The limit names (e.g. _Site_) of some measures, or of a measure variable such as `$measure`, in the default calendar | A panel's limit picker (`$limit`), so people choose which limits are drawn |
 | **Model attributes** | _Attribute names_ | The model attributes the measures carry, e.g. _Line_ and _Site_ | `$attribute` in a _Values of an attribute_ variable and a panel's **Filter**, so people pick the attribute too |
 | | _Values of an attribute_ | The values of one model attribute, e.g. every _Line_; optionally only on some measures (template items stand for their instances) | A panel's **Filter** (_Line_ = `$line`) |
-| **Events** | _Events_ | Events by folder path, valued by event id; optionally only the instances of template events | An events query's **Variable** or a measures query's **Event variable** (`$event`) |
-| | _Values of an event attribute_ | The values of one event attribute seen in the last 90 days, e.g. every _Product_ | An event query's **Attribute** values |
-| **Charts** | | The time-based charts in Flow's chart folders, by folder path, valued by chart id | A chart query's **Variable** (`$chart`) |
+| **Events** | _Events_ | Events by folder path, valued by event id; optionally **Only** some events (a template event stands for every event created from it) | An events query's **Variable** or a measures query's **Event variable** (`$event`) |
+| | _Values of an event attribute_ | Pick the **Event**, then its **Attribute** from the list: the values seen in the last 90 days, e.g. every _Product_ (of every event created from it, for a template event) | An event query's **Attribute** values |
+
+Chart variables made before 1.9.0, such as the Chart viewer dashboard's `$chart`, keep working and keep their **Charts** tab; new ones are not offered, since a chart query's **Choose chart** covers it.
 
 _Measures_ and _Values of an attribute_ can be narrowed with **Where** (a model attribute and values), which can use other variables, so lists can follow each other: a _Line_ variable, then the measures where _Line_ = `$line`. Model attributes are read for the whole model in one call and kept for five minutes.
 

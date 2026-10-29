@@ -220,6 +220,11 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
     return this.getResource<AttributeValueOption[]>('eventValues', { event: eventId, attribute });
   }
 
+  /** An event's attribute names, in Flow's order. */
+  getEventAttributes(item: QueryItem): Promise<string[]> {
+    return this.getResource<string[]>('eventAttributes', { tree: item.tree, event: item.id });
+  }
+
   /** Root chart folders, or a folder's folders and charts. */
   browseCharts(folderId?: number): Promise<ChartNode[]> {
     return this.getResource<ChartNode[]>('charts', folderId ? { id: folderId } : {});

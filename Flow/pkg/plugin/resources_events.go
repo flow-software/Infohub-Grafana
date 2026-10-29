@@ -257,12 +257,19 @@ type attributeValue struct {
 // ones that occurred recently; others can still be typed.
 const eventValuesWindow = 90 * 24 * time.Hour
 
-func (d *Datasource) eventValues(ctx context.Context, eventID int, attribute string) ([]attributeValue, error) {
+func (d *Datasource) eventValues(ctx context.Context, tree flow.Tree, eventID int, attribute string) ([]attributeValue, error) {
 	if eventID == 0 || attribute == "" {
 		return nil, &badRequest{"event and attribute are required"}
 	}
 	now := time.Now()
-	res, err := d.client.EventData(ctx, flow.EventDataRequest{IDs: []int{eventID}, From: now.Add(-eventValuesWindow), To: now, Limit: eventPeriodLimit})
+	req := flow.EventDataRequest{From: now.Add(-eventValuesWindow), To: now, Limit: eventPeriodLimit}
+	// A template event's values are those of every event created from it.
+	if tree == flow.TreeTemplate {
+		req.TemplateIDs = []int{eventID}
+	} else {
+		req.IDs = []int{eventID}
+	}
+	res, err := d.client.EventData(ctx, req)
 	out := []attributeValue{}
 	if flow.IsNoData(err) || (err == nil && res == nil) {
 		return out, nil
@@ -281,6 +288,27 @@ func (d *Datasource) eventValues(ctx context.Context, eventID int, attribute str
 	}
 	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Value) < strings.ToLower(out[j].Value) })
 	return out, nil
+}
+
+// eventAttributeNames lists an event's attribute names in Flow's order,
+// for the event variable's attribute picker.
+func (d *Datasource) eventAttributeNames(ctx context.Context, tree flow.Tree, eventID int) ([]string, error) {
+	if eventID == 0 {
+		return nil, &badRequest{"event is required"}
+	}
+	events, err := d.client.Events(ctx, tree, []int{eventID})
+	if err != nil {
+		return nil, err
+	}
+	names := []string{}
+	for _, e := range events {
+		for _, a := range e.Attributes {
+			if !containsString(names, a.Name) {
+				names = append(names, a.Name)
+			}
+		}
+	}
+	return names, nil
 }
 
 // parseItems reads "<tree>:<type>:<id>" item keys of metrics and measures.
