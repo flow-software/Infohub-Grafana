@@ -5,6 +5,7 @@
 - The plugin is titled **Infohub** in Grafana (by Flow Software), with an up-to-date description.
 - Connection settings ask for the Flow Bootstrap **host**, **port** (default 4501), **HTTPS** and the **instance ID**, and build the Flow Server address from them, showing it. Existing data sources are split into these fields; pasting a Flow Server or Swagger address into Host fills them all; **Enter a full URL instead** keeps any other address (e.g. a reverse proxy).
 - Metrics show a cube icon in the browser and in the selection chips.
+- The variable editor groups its lists: **List** _Measures_, _Model attributes_, _Events_ or _Charts_, then **Show** what to list of it (e.g. _Attribute names_ or _Values of an attribute_). Existing variables are unchanged; a new variable starts on _Measures_.
 
 ## 1.8.0
 

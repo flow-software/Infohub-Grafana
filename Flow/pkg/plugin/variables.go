@@ -59,7 +59,8 @@ func (d *Datasource) runVariable(ctx context.Context, qm queryModel) (backend.Da
 		}
 	case varAttributeValues:
 		opts, err = d.variableAttributeValues(ctx, qm)
-	case varMeasures:
+	case varMeasures, "":
+		// No kind is the editor's first list, measures.
 		opts, err = d.variableMeasures(ctx, qm)
 	case varEvents:
 		opts, err = d.variableEvents(ctx, qm)

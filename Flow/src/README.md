@@ -133,17 +133,19 @@ Up to 10,000 event periods are read per query; past that the panel warns.
 
 ### Variables
 
-Add a _Query_ variable with this data source and choose what it lists:
+Add a _Query_ variable with this data source. **List** picks what it is about, and **Show** what to list of it:
 
-- _Attributes_: the model attributes the measures carry, e.g. _Line_ and _Site_. Use it as `$attribute` in an _Attribute values_ variable and a panel's **Filter**, so people pick the attribute too.
-- _Attribute values_: the values of a model attribute, e.g. every _Line_. Optionally only on some measures (template items stand for their instances).
-- _Measures_: measures by folder path, valued by measure id: the instances of template measures or metrics, the measures of a model metric or folder, or with nothing picked every measure in the model. Use it with a panel's **Variable** field.
-- _Events_: events by folder path, valued by event id; optionally only the instances of template events. Use it with an events query's **Variable** or a measures query's **Event variable**.
-- _Event values_: the values of an event attribute seen in the last 90 days.
-- _Limits_: the limit names (e.g. _Site_) of some measures, or of a measure variable such as `$measure`, in the default calendar. Use it as `$limit` in a panel's limit picker, so people choose which limits are drawn.
-- _Charts_: the time-based charts in Flow's chart folders, by folder path, valued by chart id. Use it with a chart query's **Variable**.
+| List | Show | What you get | Use it for |
+|---|---|---|---|
+| **Measures** | _Measures_ | Measures by folder path, valued by measure id: the instances of template measures or metrics, the measures of a model metric or folder, or with nothing picked every measure in the model | A panel's **Variable** field (`$measure`) |
+| | _Limit names_ | The limit names (e.g. _Site_) of some measures, or of a measure variable such as `$measure`, in the default calendar | A panel's limit picker (`$limit`), so people choose which limits are drawn |
+| **Model attributes** | _Attribute names_ | The model attributes the measures carry, e.g. _Line_ and _Site_ | `$attribute` in a _Values of an attribute_ variable and a panel's **Filter**, so people pick the attribute too |
+| | _Values of an attribute_ | The values of one model attribute, e.g. every _Line_; optionally only on some measures (template items stand for their instances) | A panel's **Filter** (_Line_ = `$line`) |
+| **Events** | _Events_ | Events by folder path, valued by event id; optionally only the instances of template events | An events query's **Variable** or a measures query's **Event variable** (`$event`) |
+| | _Values of an event attribute_ | The values of one event attribute seen in the last 90 days, e.g. every _Product_ | An event query's **Attribute** values |
+| **Charts** | | The time-based charts in Flow's chart folders, by folder path, valued by chart id | A chart query's **Variable** (`$chart`) |
 
-_Attribute values_ and _Measures_ can be narrowed with **Where** (a model attribute and values), which can use other variables, so lists can follow each other: a _Line_ variable, then the measures where _Line_ = `$line`. Model attributes are read for the whole model in one call and kept for five minutes.
+_Measures_ and _Values of an attribute_ can be narrowed with **Where** (a model attribute and values), which can use other variables, so lists can follow each other: a _Line_ variable, then the measures where _Line_ = `$line`. Model attributes are read for the whole model in one call and kept for five minutes.
 
 ### Chart
 

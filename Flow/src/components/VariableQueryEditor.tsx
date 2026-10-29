@@ -9,35 +9,63 @@ import { ItemsPicker, LABEL_WIDTH } from './QueryEditor';
 
 type Props = QueryEditorProps<DataSource, FlowQuery, FlowOptions, FlowQuery>;
 
-const kindOptions: Array<{ label: string; value: VariableKind; description: string }> = [
-  {
-    label: 'Attributes',
-    value: 'attributeNames',
-    description: 'The model attributes the measures carry, e.g. Line and Site',
-  },
-  {
-    label: 'Attribute values',
-    value: 'attributeValues',
-    description: 'The values of a model attribute, e.g. every Line',
-  },
-  {
-    label: 'Measures',
-    value: 'measures',
-    description: 'Measures by path, valued by id: instances of a template, or a metric’s measures',
-  },
-  { label: 'Events', value: 'events', description: 'Events by path, valued by id' },
-  {
-    label: 'Event values',
-    value: 'eventValues',
-    description: 'The values of an event attribute seen in the last 90 days',
-  },
-  { label: 'Charts', value: 'charts', description: 'Time-based Flow charts by folder path, valued by id' },
-  {
-    label: 'Limits',
-    value: 'limits',
-    description: 'The limit names (e.g. Site) the measures have in the default calendar, for Show limits',
-  },
+// The lists are grouped by what they are about, each group with its own
+// choices, so related lists (events and their attribute values, say) sit
+// together instead of looking like duplicates.
+type Group = 'measures' | 'attributes' | 'events' | 'charts';
+
+const groupOf: Record<VariableKind, Group> = {
+  measures: 'measures',
+  limits: 'measures',
+  attributeNames: 'attributes',
+  attributeValues: 'attributes',
+  events: 'events',
+  eventValues: 'events',
+  charts: 'charts',
+};
+
+const groupOptions: Array<{ label: string; value: Group }> = [
+  { label: 'Measures', value: 'measures' },
+  { label: 'Model attributes', value: 'attributes' },
+  { label: 'Events', value: 'events' },
+  { label: 'Charts', value: 'charts' },
 ];
+
+const choiceOptions: Record<Group, Array<{ label: string; value: VariableKind; description: string }>> = {
+  measures: [
+    {
+      label: 'Measures',
+      value: 'measures',
+      description: 'Measures by path, valued by id, for a panel’s measure Variable ($measure)',
+    },
+    {
+      label: 'Limit names',
+      value: 'limits',
+      description: 'The names of the measures’ limits (e.g. Site), for a panel’s limit picker ($limit)',
+    },
+  ],
+  attributes: [
+    {
+      label: 'Attribute names',
+      value: 'attributeNames',
+      description: 'The model attributes, e.g. Line and Site, to let people pick the attribute ($attribute)',
+    },
+    {
+      label: 'Values of an attribute',
+      value: 'attributeValues',
+      description: 'The values of one model attribute, e.g. every Line, for a panel’s Filter ($line)',
+    },
+  ],
+  events: [
+    { label: 'Events', value: 'events', description: 'Events by path, valued by id, for an event Variable ($event)' },
+    {
+      label: 'Values of an event attribute',
+      value: 'eventValues',
+      description: 'The values of one event attribute seen in the last 90 days, e.g. every Product',
+    },
+  ],
+  charts: [],
+};
 
 /**
  * Edits a dashboard variable query. Each kind can be narrowed by a model
@@ -45,7 +73,8 @@ const kindOptions: Array<{ label: string; value: VariableKind; description: stri
  * Line first, then the measures on $line.
  */
 export function VariableQueryEditor({ datasource, query, onChange }: Props) {
-  const kind = query.variableKind ?? 'attributeValues';
+  const kind = query.variableKind ?? 'measures';
+  const group = groupOf[kind];
   const items = useMemo(() => query.items ?? [], [query.items]);
   const update = (patch: Partial<FlowQuery>) =>
     onChange({ ...query, queryType: 'variable', variableKind: kind, ...patch });
@@ -53,12 +82,27 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
   return (
     <Stack direction="column" gap={0.5}>
       <InlineField label="List" labelWidth={LABEL_WIDTH}>
-        <RadioButtonGroup<VariableKind>
-          options={kindOptions}
-          value={kind}
-          onChange={(v) => onChange({ refId: query.refId, queryType: 'variable', variableKind: v })}
+        <RadioButtonGroup<Group>
+          options={groupOptions}
+          value={group}
+          onChange={(g) =>
+            onChange({
+              refId: query.refId,
+              queryType: 'variable',
+              variableKind: g === 'charts' ? 'charts' : choiceOptions[g][0].value,
+            })
+          }
         />
       </InlineField>
+      {choiceOptions[group].length > 0 && (
+        <InlineField label="Show" labelWidth={LABEL_WIDTH}>
+          <RadioButtonGroup<VariableKind>
+            options={choiceOptions[group]}
+            value={kind}
+            onChange={(v) => onChange({ refId: query.refId, queryType: 'variable', variableKind: v })}
+          />
+        </InlineField>
+      )}
 
       {kind === 'attributeValues' && (
         <AttributeNameField
