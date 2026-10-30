@@ -32,15 +32,21 @@ export function AttributeFilterField({
 }) {
   const scope = items.map(itemKey).join(',');
   const names = useAnswer(() => datasource.getAttributes(items), [datasource, scope], 'attributes:' + scope);
-  const valueKey = (attribute ?? '') + ':' + scope;
+  // The attribute may be a variable ($attribute): suggest its current attribute's values.
+  const resolved = attribute ? getTemplateSrv().replace(attribute) : '';
+  const valueKey = resolved + ':' + scope;
   const known = useAnswer(
-    () => (attribute ? datasource.getAttributeValues(attribute, items) : Promise.resolve([])),
+    () =>
+      resolved && !resolved.startsWith('$') ? datasource.getAttributeValues(resolved, items) : Promise.resolve([]),
     [datasource, valueKey],
     valueKey
   );
 
   const nameOptions = useMemo<Array<ComboboxOption<string>>>(() => {
-    const opts = (names ?? []).map((n) => ({ label: n, value: n }));
+    const opts: Array<ComboboxOption<string>> = [
+      ...dashboardVariables(),
+      ...(names ?? []).map((n) => ({ label: n, value: n })),
+    ];
     if (attribute && !opts.some((o) => o.value === attribute)) {
       opts.unshift({ label: attribute, value: attribute });
     }
@@ -48,10 +54,10 @@ export function AttributeFilterField({
   }, [names, attribute]);
 
   const valueOptions = useMemo<Array<ComboboxOption<string>>>(() => {
-    const variables = getTemplateSrv()
-      .getVariables()
-      .map((v) => ({ label: '$' + v.name, value: '$' + v.name, description: 'Dashboard variable' }));
-    const opts: Array<ComboboxOption<string>> = [...variables, ...(known ?? []).map((v) => ({ label: v, value: v }))];
+    const opts: Array<ComboboxOption<string>> = [
+      ...dashboardVariables(),
+      ...(known ?? []).map((v) => ({ label: v, value: v })),
+    ];
     for (const v of values ?? []) {
       if (!opts.some((o) => o.value === v)) {
         opts.push({ label: v, value: v });
@@ -66,6 +72,7 @@ export function AttributeFilterField({
         <Combobox
           width={20}
           isClearable
+          createCustomValue
           placeholder="Attribute"
           options={nameOptions}
           value={attribute ?? null}
@@ -84,6 +91,13 @@ export function AttributeFilterField({
       </Stack>
     </InlineField>
   );
+}
+
+/** The dashboard's variables, as picker options such as $line. */
+export function dashboardVariables(): Array<ComboboxOption<string>> {
+  return getTemplateSrv()
+    .getVariables()
+    .map((v) => ({ label: '$' + v.name, value: '$' + v.name, description: 'Dashboard variable' }));
 }
 
 /**

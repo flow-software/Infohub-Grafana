@@ -8,6 +8,7 @@
 - The variable editor groups its lists: **List** _Measures_, _Model attributes_, _Events_ or _Charts_, then **Show** what to list of it (e.g. _Attribute names_ or _Values of an attribute_). Existing variables are unchanged; a new variable starts on _Measures_.
 - Variables no longer offer **Charts** for new variables; existing chart variables (the Chart viewer's `$chart`) keep working.
 - Event variables: **Only** (was _Of_) now narrows the list to the picked events too, not just to template events' instances. _Values of an event attribute_ takes one event (a template event gives the values of every event created from it), and its **Attribute** is a list of the event's attributes instead of a text box.
+- The attribute pickers (**Where** and _Values of an attribute_'s **Attribute**) list dashboard variables too, so a measures variable can follow an attribute-names variable and a values variable: _Where_ `$attribute` = `$value`.
 
 ## 1.8.0
 

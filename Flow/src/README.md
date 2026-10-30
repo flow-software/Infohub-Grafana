@@ -146,7 +146,7 @@ Add a _Query_ variable with this data source. **List** picks what it is about, a
 
 Chart variables made before 1.9.0, such as the Chart viewer dashboard's `$chart`, keep working and keep their **Charts** tab; new ones are not offered, since a chart query's **Choose chart** covers it.
 
-_Measures_ and _Values of an attribute_ can be narrowed with **Where** (a model attribute and values), which can use other variables, so lists can follow each other: a _Line_ variable, then the measures where _Line_ = `$line`. Model attributes are read for the whole model in one call and kept for five minutes.
+_Measures_ and _Values of an attribute_ can be narrowed with **Where** (a model attribute and values), which can use other variables, so lists can follow each other: a _Line_ variable, then the measures where _Line_ = `$line`. The attribute can be a variable too: with an _Attribute names_ variable `$attribute` and a _Values of an attribute_ variable `$value` of `$attribute`, the measures where `$attribute` = `$value` let people pick both. Model attributes are read for the whole model in one call and kept for five minutes.
 
 ### Chart
 

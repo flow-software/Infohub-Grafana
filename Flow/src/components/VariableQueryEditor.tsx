@@ -4,7 +4,7 @@ import { Combobox, ComboboxOption, InlineField, Input, RadioButtonGroup, Stack }
 
 import type { DataSource } from '../datasource';
 import { FlowOptions, FlowQuery, itemKey, QueryItem, VariableKind } from '../types';
-import { AttributeFilterField } from './AttributeFilterField';
+import { AttributeFilterField, dashboardVariables } from './AttributeFilterField';
 import { ItemsPicker, LABEL_WIDTH } from './QueryEditor';
 
 type Props = QueryEditorProps<DataSource, FlowQuery, FlowOptions, FlowQuery>;
@@ -187,7 +187,7 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
           datasource={datasource}
           label="Where"
           labelWidth={LABEL_WIDTH}
-          tooltip="Optional: only measures whose model attribute has one of these values. Use another variable, such as $line, to make this list follow it."
+          tooltip="Optional: only measures whose model attribute has one of these values. The attribute and the values can be other variables, such as $attribute and $line, to make this list follow them."
           attribute={query.attributeFilter}
           values={query.attributeValues}
           items={items}
@@ -283,7 +283,10 @@ function AttributeNameField({
     };
   }, [datasource]);
   const options = useMemo<Array<ComboboxOption<string>>>(() => {
-    const opts = names.map((n) => ({ label: n, value: n }));
+    const opts: Array<ComboboxOption<string>> = [
+      ...dashboardVariables(),
+      ...names.map((n) => ({ label: n, value: n })),
+    ];
     if (value && !opts.some((o) => o.value === value)) {
       opts.unshift({ label: value, value });
     }
@@ -293,7 +296,7 @@ function AttributeNameField({
     <InlineField
       label="Attribute"
       labelWidth={LABEL_WIDTH}
-      tooltip="The model attribute whose values to list, e.g. Line."
+      tooltip="The model attribute whose values to list, e.g. Line, or a variable listing attribute names, such as $attribute."
     >
       <Combobox
         width={30}
