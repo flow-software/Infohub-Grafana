@@ -38,7 +38,7 @@ import { ModelBrowser } from './ModelBrowser';
 
 type Props = QueryEditorProps<DataSource, FlowQuery, FlowOptions>;
 
-export const LABEL_WIDTH = 14;
+export const LABEL_WIDTH = 16;
 
 const queryTypeOptions: Array<{ label: string; value: QueryType; description: string }> = [
   { label: 'Measures', value: 'measures', description: 'Pick metrics, measures and tags from the model or templates' },

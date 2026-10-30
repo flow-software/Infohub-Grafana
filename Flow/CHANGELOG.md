@@ -5,6 +5,7 @@
 - The plugin is titled **Infohub** in Grafana (by Flow Software), with an up-to-date description.
 - Connection settings ask for the Flow Bootstrap **host**, **port** (default 4501), **HTTPS** and the **instance ID**, and build the Flow Server address from them, showing it. Existing data sources are split into these fields; pasting a Flow Server or Swagger address into Host fills them all; **Enter a full URL instead** keeps any other address (e.g. a reverse proxy).
 - Metrics show a cube icon in the browser and in the selection chips.
+- The query editor's labels are a little wider, so **Event variable** no longer wraps onto two lines and pushes its row out of line.
 - The variable editor groups its lists: **List** _Measures_, _Model attributes_, _Events_ or _Charts_, then **Show** what to list of it (e.g. _Attribute names_ or _Values of an attribute_). Existing variables are unchanged; a new variable starts on _Measures_.
 - Variables no longer offer **Charts** for new variables; existing chart variables (the Chart viewer's `$chart`) keep working.
 - Event variables: **Only** (was _Of_) now narrows the list to the picked events too, not just to template events' instances. _Values of an event attribute_ takes one event (a template event gives the values of every event created from it), and its **Attribute** is a list of the event's attributes instead of a text box.
