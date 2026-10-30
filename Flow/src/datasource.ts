@@ -128,6 +128,10 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
         const seen = new Set((out.items ?? []).map(itemKey));
         const added: QueryItem[] = ids.map((id) => ({ tree: 'model', type: 'event', id, label: 'event ' + id }));
         out.items = [...(out.items ?? []), ...added.filter((it) => !seen.has(itemKey(it)))];
+      } else if (query.queryType === 'variable' && ids.length > 0) {
+        // An event variable's values: the variable's event replaces the picked one.
+        out.eventId = ids[0];
+        out.items = (out.items ?? []).filter((it) => it.type !== 'event');
       } else if (query.context === 'event' && ids.length > 0) {
         out.eventId = ids[0];
       }
@@ -244,6 +248,11 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
 /** The positive integer ids among a variable's values. */
 function idsOf(values: string[] | undefined): number[] {
   return (values ?? []).map((v) => Number(v)).filter((id) => Number.isInteger(id) && id > 0);
+}
+
+/** The first model event id a variable such as $event holds now, if any. */
+export function eventOfVariable(variable: string | undefined): number | undefined {
+  return variable ? idsOf(expandValues([variable], {}))[0] : undefined;
 }
 
 export function expandValues(values: string[] | undefined, scopedVars: ScopedVars): string[] | undefined {

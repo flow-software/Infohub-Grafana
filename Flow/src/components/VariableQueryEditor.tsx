@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { QueryEditorProps } from '@grafana/data';
 import { Combobox, ComboboxOption, InlineField, Input, RadioButtonGroup, Stack } from '@grafana/ui';
 
-import type { DataSource } from '../datasource';
+import { eventOfVariable, type DataSource } from '../datasource';
 import { FlowOptions, FlowQuery, itemKey, QueryItem, VariableKind } from '../types';
 import { AttributeFilterField, dashboardVariables } from './AttributeFilterField';
 import { ItemsPicker, LABEL_WIDTH } from './QueryEditor';
@@ -77,6 +77,11 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
   const kind = query.variableKind ?? 'measures';
   const group = groupOf[kind];
   const items = useMemo(() => query.items ?? [], [query.items]);
+  // The event an event variable holds now, to list its attributes.
+  const variableEventId = kind === 'eventValues' ? eventOfVariable(query.eventVariable) : undefined;
+  const variableEvent: QueryItem | undefined = variableEventId
+    ? { tree: 'model', type: 'event', id: variableEventId, label: query.eventVariable ?? '' }
+    : undefined;
   const update = (patch: Partial<FlowQuery>) =>
     onChange({ ...query, queryType: 'variable', variableKind: kind, ...patch });
 
@@ -174,9 +179,24 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
       )}
 
       {kind === 'eventValues' && (
+        <InlineField
+          label="Event variable"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Or a dashboard variable holding an event id, such as an Events variable of this data source: $event. Its event replaces the one picked above, so this list follows it; with several selected, the first."
+        >
+          <Input
+            width={30}
+            placeholder="$event"
+            defaultValue={query.eventVariable ?? ''}
+            onBlur={(e) => update({ eventVariable: e.currentTarget.value.trim() || undefined })}
+          />
+        </InlineField>
+      )}
+
+      {kind === 'eventValues' && (
         <EventAttributeField
           datasource={datasource}
-          event={items.find((it) => it.type === 'event')}
+          event={variableEvent ?? items.find((it) => it.type === 'event')}
           value={query.eventAttribute}
           onChange={(eventAttribute) => update({ eventAttribute })}
         />
