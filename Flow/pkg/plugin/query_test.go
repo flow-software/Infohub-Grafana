@@ -299,7 +299,7 @@ func TestTagPagingDropsRepeatedValues(t *testing.T) {
 	}
 }
 
-func TestAutoAveragesOnlyTagsThatOverflowThePanel(t *testing.T) {
+func TestAverageAveragesOnlyTagsThatOverflowThePanel(t *testing.T) {
 	f, srv := newFakeFlow(t)
 	var queries []string
 	f.handlers["/api/v1/data/tags"] = func(w http.ResponseWriter, r *http.Request) {
@@ -325,7 +325,7 @@ func TestAutoAveragesOnlyTagsThatOverflowThePanel(t *testing.T) {
 	}
 	d := testDatasource(srv)
 
-	b, _ := json.Marshal(queryModel{Items: []queryItem{{Tree: flow.TreeTemplate, Type: itemMeasure, ID: 9001}}})
+	b, _ := json.Marshal(queryModel{Items: []queryItem{{Tree: flow.TreeTemplate, Type: itemMeasure, ID: 9001}}, Aggregation: aggregationAverage})
 	resp := d.query(context.Background(), backend.DataQuery{
 		RefID: "A", JSON: b, Interval: time.Minute, MaxDataPoints: 2,
 		TimeRange: backend.TimeRange{From: time.Date(2026, 10, 6, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 10, 6, 2, 0, 0, 0, time.UTC)},
@@ -531,6 +531,59 @@ func TestValueVersions(t *testing.T) {
 	resp = runQuery(t, d, queryModel{Items: item})
 	if strings.Contains(query, "preferred=false") || len(resp.Frames) != 1 || len(resp.Frames[0].Fields) != 2 {
 		t.Errorf("plain query %s gave %d frames", query, len(resp.Frames))
+	}
+}
+
+// Auto reads a tag that overflows the panel as each interval's minimum and
+// maximum, ordered so the line runs on from its previous point.
+func TestAutoKeepsEachIntervalsMinimumAndMaximum(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	var aggs []string
+	f.handlers["/api/v1/data/tags"] = func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		agg := q.Get("aggregation")
+		aggs = append(aggs, agg)
+		switch agg {
+		case "":
+			writeJSON(w, 200, map[string]any{"continuation": "2026-10-06T00:02:00Z", "values": []map[string]any{
+				{"id": 201, "data": []map[string]any{{"start": "2026-10-06T00:01:00Z", "value": 1}, {"start": "2026-10-06T00:02:00Z", "value": 2}}},
+			}})
+		case "minimum":
+			writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 201, "data": []map[string]any{
+				{"start": "2026-10-06T00:00:00Z", "value": 1}, {"start": "2026-10-06T00:01:00Z", "value": 2}, {"start": "2026-10-06T00:02:00Z", "value": 4},
+			}}}})
+		case "maximum":
+			writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 201, "data": []map[string]any{
+				{"start": "2026-10-06T00:00:00Z", "value": 9}, {"start": "2026-10-06T00:01:00Z", "value": 3}, {"start": "2026-10-06T00:02:00Z", "value": 4},
+			}}}})
+		default:
+			t.Errorf("aggregation = %q", agg)
+		}
+	}
+	d := testDatasource(srv)
+	b, _ := json.Marshal(queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 201}}})
+	resp := d.query(context.Background(), backend.DataQuery{
+		RefID: "A", JSON: b, Interval: time.Minute, MaxDataPoints: 2,
+		TimeRange: backend.TimeRange{From: time.Date(2026, 10, 6, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 10, 6, 2, 0, 0, 0, time.UTC)},
+	})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if strings.Join(aggs, ",") != ",minimum,maximum" {
+		t.Fatalf("reads = %v, want raw, minimum, maximum", aggs)
+	}
+	fr := resp.Frames[0]
+	var got []string
+	for i := 0; i < fr.Rows(); i++ {
+		ts := fr.Fields[0].At(i).(time.Time)
+		v := fr.Fields[1].At(i).(*float64)
+		got = append(got, fmt.Sprintf("%s=%g", ts.Format("04:05"), *v))
+	}
+	// 00:00 starts low (no previous point); 00:01 starts with 3, nearer the
+	// previous 9; 00:02 has one value, so one point.
+	want := "00:00=1,00:30=9,01:00=3,01:30=2,02:00=4"
+	if strings.Join(got, ",") != want {
+		t.Errorf("points = %s, want %s", strings.Join(got, ","), want)
 	}
 }
 

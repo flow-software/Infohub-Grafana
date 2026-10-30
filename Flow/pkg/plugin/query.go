@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
 	"strings"
@@ -105,10 +106,11 @@ type queryModel struct {
 	Items []queryItem `json:"items"`
 	// CalendarID for period measures; zero uses the datasource default.
 	CalendarID int `json:"calendarId"`
-	// Aggregation "raw" reads every raw tag value. Anything else is Auto:
-	// raw values while they fit the panel, else averages per panel interval.
-	// (Explicit tag aggregations were removed in 1.3.1; queries saved with
-	// one read as Auto.)
+	// Aggregation "raw" reads every raw tag value, and "average" raw values
+	// while they fit the panel, else averages per panel interval. Anything
+	// else is Auto: raw values while they fit, else each panel interval's
+	// minimum and maximum, so spikes stay visible. (The other aggregations
+	// of 1.3.0 and before read as Auto.)
 	Aggregation string `json:"aggregation"`
 	// TimeAt places each period value at the period's "start" (default) or
 	// "end"; in event context "period" draws it from start to end.
@@ -128,8 +130,12 @@ type queryModel struct {
 	Legend string `json:"legend"`
 }
 
-// aggregationRaw forces raw tag values however many there are.
-const aggregationRaw = "raw"
+// aggregationRaw forces raw tag values however many there are;
+// aggregationAverage smooths tags that overflow the panel into averages.
+const (
+	aggregationRaw     = "raw"
+	aggregationAverage = "average"
+)
 
 func (qm *queryModel) validate() error {
 	switch qm.QueryType {
@@ -614,15 +620,36 @@ func (d *Datasource) readTagSelection(ctx context.Context, sel *selection, qm qu
 		return raw, warnings, nil
 	}
 
-	avg, avgWarnings, err := d.readTags(ctx, flow.TagDataRequest{
-		IDs: full, From: q.TimeRange.From, To: q.TimeRange.To,
-		Aggregation: "average", ResolutionMs: interval, Limit: tagPageLimit,
-	}, tagMaxPages)
-	if err != nil {
-		return nil, nil, err
+	bucketed := func(agg string) ([]series, []string, error) {
+		return d.readTags(ctx, flow.TagDataRequest{
+			IDs: full, From: q.TimeRange.From, To: q.TimeRange.To,
+			Aggregation: agg, ResolutionMs: interval, Limit: tagPageLimit,
+		}, tagMaxPages)
 	}
-	byID := make(map[int]series, len(avg))
-	for _, s := range avg {
+	var reduced []series
+	var how string
+	if qm.Aggregation == aggregationAverage {
+		avg, w, err := bucketed("average")
+		if err != nil {
+			return nil, nil, err
+		}
+		reduced, how = avg, "averaged"
+		warnings = append(warnings, w...)
+	} else {
+		mins, w, err := bucketed("minimum")
+		if err != nil {
+			return nil, nil, err
+		}
+		warnings = append(warnings, w...)
+		maxs, w, err := bucketed("maximum")
+		if err != nil {
+			return nil, nil, err
+		}
+		warnings = append(warnings, w...)
+		reduced, how = minMaxSeries(mins, maxs, time.Duration(interval)*time.Millisecond), "shown as their minimum and maximum"
+	}
+	byID := make(map[int]series, len(reduced))
+	for _, s := range reduced {
 		byID[s.id] = s
 	}
 	for i, s := range raw {
@@ -630,10 +657,51 @@ func (d *Datasource) readTagSelection(ctx context.Context, sel *selection, qm qu
 			raw[i] = a
 		}
 	}
-	warnings = append(warnings, avgWarnings...)
-	warnings = append(warnings, fmt.Sprintf("%d tag(s) have more raw values in this range than the panel can show, so they are averaged per %s. Turn on All raw values under Tags to get every value.",
-		len(full), shortDuration(time.Duration(interval)*time.Millisecond)))
+	warnings = append(warnings, fmt.Sprintf("%d tag(s) have more raw values in this range than the panel can show, so they are %s per %s. Pick Raw under Tags to get every value.",
+		len(full), how, shortDuration(time.Duration(interval)*time.Millisecond)))
 	return raw, warnings, nil
+}
+
+// minMaxSeries draws each interval's minimum and maximum as two points, so
+// a line through them still reaches every spike and dip. Flow gives both at
+// the interval's start without saying which came first, so the one nearer
+// the line's previous point goes first (at the start), the other halfway
+// through the interval: the line does not double back on itself.
+func minMaxSeries(mins, maxs []series, interval time.Duration) []series {
+	type key struct {
+		id int
+		t  int64
+	}
+	maxAt := map[key]point{}
+	for _, s := range maxs {
+		for _, p := range s.points {
+			maxAt[key{s.id, p.t.UnixNano()}] = p
+		}
+	}
+	out := make([]series, 0, len(mins))
+	for _, s := range mins {
+		merged := series{id: s.id, tag: s.tag}
+		var prev *float64
+		for _, lo := range s.points {
+			hi, ok := maxAt[key{s.id, lo.t.UnixNano()}]
+			if !ok || lo.value == nil || hi.value == nil || *lo.value == *hi.value {
+				merged.points = append(merged.points, lo)
+				if lo.value != nil {
+					prev = lo.value
+				}
+				continue
+			}
+			first, second := lo, hi
+			if prev != nil && math.Abs(*hi.value-*prev) < math.Abs(*lo.value-*prev) {
+				first, second = hi, lo
+			}
+			second.t = first.t.Add(interval / 2)
+			merged.points = append(merged.points, first, second)
+			prev = second.value
+		}
+		out = append(out, merged)
+	}
+	return out
 }
 
 // readTags follows Flow's continuation to page through raw values. Flow sets

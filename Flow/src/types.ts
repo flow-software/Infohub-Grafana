@@ -112,8 +112,9 @@ export interface FlowQuery extends DataQuery {
   calendarId?: number;
   /**
    * Tags (timestamp measures): unset is Auto (raw values while they fit the
-   * panel, else averages per panel interval); "raw" reads every raw value.
-   * Queries saved with another value (a former tag aggregation) read as Auto.
+   * panel, else each panel interval's minimum and maximum); "average" uses
+   * averages instead; "raw" reads every raw value. Queries saved with another
+   * value (a former tag aggregation) read as Auto.
    */
   aggregation?: string;
   /**

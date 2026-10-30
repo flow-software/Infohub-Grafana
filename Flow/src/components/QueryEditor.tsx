@@ -40,6 +40,14 @@ type Props = QueryEditorProps<DataSource, FlowQuery, FlowOptions>;
 
 export const LABEL_WIDTH = 16;
 
+type TagValues = 'auto' | 'average' | 'raw';
+
+const tagValueOptions: Array<{ label: string; value: TagValues; description: string }> = [
+  { label: 'Auto', value: 'auto', description: 'Raw while they fit, else each interval’s minimum and maximum' },
+  { label: 'Average', value: 'average', description: 'Raw while they fit, else each interval’s average' },
+  { label: 'Raw', value: 'raw', description: 'Every stored value' },
+];
+
 const queryTypeOptions: Array<{ label: string; value: QueryType; description: string }> = [
   { label: 'Measures', value: 'measures', description: 'Pick metrics, measures and tags from the model or templates' },
   { label: 'Events', value: 'events', description: 'Event periods and their attributes, as a table or a timeline' },
@@ -412,14 +420,12 @@ function MeasuresQueryEditor({
         <InlineField
           label="Values"
           labelWidth={LABEL_WIDTH}
-          tooltip="Off (Auto): raw values when the panel can show them all, and averages per panel interval when there are more, so long ranges stay fast. On: every stored value, which can be slow over long ranges."
+          tooltip="How a tag with more values than the panel can show is drawn. Auto: each panel interval's minimum and maximum, so spikes and dips stay visible. Average: each interval's average, a smoother line. Raw: every stored value, which can be slow over long ranges. While the values fit the panel, Auto and Average draw them raw."
         >
-          <InlineSwitch
-            id="query-editor-raw"
-            label="All raw values"
-            showLabel
-            value={query.aggregation === 'raw'}
-            onChange={(e) => update({ aggregation: e.currentTarget.checked ? 'raw' : undefined })}
+          <RadioButtonGroup<TagValues>
+            options={tagValueOptions}
+            value={query.aggregation === 'raw' ? 'raw' : query.aggregation === 'average' ? 'average' : 'auto'}
+            onChange={(v) => update({ aggregation: v === 'auto' ? undefined : v })}
           />
         </InlineField>
       )}

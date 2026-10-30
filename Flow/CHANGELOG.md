@@ -5,6 +5,7 @@
 - The plugin is titled **Infohub** in Grafana (by Flow Software), with an up-to-date description.
 - Connection settings ask for the Flow Bootstrap **host**, **port** (default 4501), **HTTPS** and the **instance ID**, and build the Flow Server address from them, showing it. Existing data sources are split into these fields; pasting a Flow Server or Swagger address into Host fills them all; **Enter a full URL instead** keeps any other address (e.g. a reverse proxy).
 - Metrics show a cube icon in the browser and in the selection chips.
+- Tags: a tag with more values than the panel can show is now drawn as each panel interval's **minimum and maximum** instead of its average, so spikes and dips stay visible at any zoom. **Values** is now _Auto_ | _Average_ | _Raw_: _Average_ is the former smoothing, _Raw_ the former **All raw values** switch. Panels saved without a choice move from averages to min/max.
 - The query editor's labels are a little wider, so **Event variable** no longer wraps onto two lines and pushes its row out of line.
 - The variable editor groups its lists: **List** _Measures_, _Model attributes_, _Events_ or _Charts_, then **Show** what to list of it (e.g. _Attribute names_ or _Values of an attribute_). Existing variables are unchanged; a new variable starts on _Measures_.
 - Variables no longer offer **Charts** for new variables; existing chart variables (the Chart viewer's `$chart`) keep working.
