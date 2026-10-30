@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -196,6 +197,8 @@ func (d *Datasource) query(ctx context.Context, q backend.DataQuery) backend.Dat
 		resp, err = d.runDependencies(ctx, qm, q)
 	case qm.QueryType == queryTypeEvents:
 		resp, err = d.runEvents(ctx, qm, q)
+	case strings.TrimSpace(qm.Batch) != "" && qm.Annotate == "":
+		resp, err = d.runBatch(ctx, qm, q)
 	default:
 		resp, err = d.run(ctx, qm, q)
 	}

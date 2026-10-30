@@ -66,6 +66,17 @@ export interface FlowQuery extends DataQuery {
 
   /** Events queries: table (default), state timeline, or annotations. */
   eventFormat?: EventFormat;
+  /**
+   * Measures over one batch instead of the time range: a Periods (batches)
+   * variable value such as $batch. Time becomes seconds since the batch's
+   * start (Elapsed), for the Trend panel.
+   */
+  batch?: string;
+  /** A reference batch ($golden) drawn dashed beside the batch, aligned on its start. */
+  golden?: string;
+  /** A band around the golden values: ± band (absolute) or ± band % (percent). */
+  bandMode?: 'absolute' | 'percent';
+  band?: number;
   /** Event attributes the table returns as numbers (may be variables); others stay text. */
   eventNumbers?: string[];
 

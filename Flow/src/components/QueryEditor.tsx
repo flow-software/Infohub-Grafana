@@ -415,6 +415,10 @@ function MeasuresQueryEditor({
         </InlineField>
       )}
 
+      {(items.length > 0 || fromVariable) && query.refId !== ANNOTATION_REF_ID && (
+        <BatchFields query={query} update={update} />
+      )}
+
       {showTags && <GroupHeading title="Tags" count={summary?.tags} />}
       {showTags && (
         <InlineField
@@ -1070,6 +1074,85 @@ function LimitsField({
         />
       </Stack>
     </InlineField>
+  );
+}
+
+/**
+ * Reads the measures over one batch and, optionally, a golden batch, both
+ * on time since their start, with a band around the golden values.
+ */
+function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Partial<FlowQuery>) => void }) {
+  const on = !!query.batch;
+  return (
+    <>
+      <GroupHeading title="Batch" />
+      <InlineField
+        label="Batch"
+        labelWidth={LABEL_WIDTH}
+        tooltip="A Periods (batches) variable of this data source, such as $batch. The measures are read over that batch instead of the dashboard's time range, with time as seconds since the batch's start: use the Trend panel. Empty: the dashboard's time range, as usual."
+      >
+        <Input
+          id="query-editor-batch"
+          width={30}
+          placeholder="$batch"
+          defaultValue={query.batch ?? ''}
+          onBlur={(e) => update({ batch: e.currentTarget.value.trim() || undefined })}
+        />
+      </InlineField>
+      {on && (
+        <InlineField
+          label="Compare with"
+          labelWidth={LABEL_WIDTH}
+          tooltip="A reference (golden) batch, such as $golden: the same measures over that batch, aligned on its start, drawn dashed beside the batch's."
+        >
+          <Input
+            id="query-editor-golden"
+            width={30}
+            placeholder="$golden"
+            defaultValue={query.golden ?? ''}
+            onBlur={(e) => update({ golden: e.currentTarget.value.trim() || undefined })}
+          />
+        </InlineField>
+      )}
+      {on && query.golden && (
+        <InlineField
+          label="Band"
+          labelWidth={LABEL_WIDTH}
+          tooltip="A shaded band around the golden batch's values, to see where the batch strays from it: ± an amount in the measure's unit, or ± a percentage of the golden value."
+        >
+          <Stack gap={1} alignItems="center">
+            <RadioButtonGroup<'none' | 'absolute' | 'percent'>
+              options={[
+                { label: 'None', value: 'none' },
+                { label: '± value', value: 'absolute' },
+                { label: '± %', value: 'percent' },
+              ]}
+              value={query.band ? (query.bandMode ?? 'absolute') : 'none'}
+              onChange={(v) =>
+                update(
+                  v === 'none'
+                    ? { band: undefined, bandMode: undefined }
+                    : { bandMode: v, band: query.band || (v === 'percent' ? 5 : 1) }
+                )
+              }
+            />
+            {!!query.band && (
+              <Input
+                id="query-editor-band"
+                type="number"
+                width={10}
+                min={0}
+                defaultValue={query.band}
+                onBlur={(e) => {
+                  const v = Number(e.currentTarget.value);
+                  update({ band: v > 0 ? v : undefined, bandMode: v > 0 ? query.bandMode : undefined });
+                }}
+              />
+            )}
+          </Stack>
+        </InlineField>
+      )}
+    </>
   );
 }
 

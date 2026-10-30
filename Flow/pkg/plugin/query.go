@@ -78,6 +78,15 @@ type queryModel struct {
 	// (Flow keeps every attribute value as text); a value that is not a
 	// number is left empty, so the column type never changes with the data.
 	EventNumbers []string `json:"eventNumbers"`
+	// Batch reads the measures over one batch (an event periods variable
+	// value, "<event id>:<start ms>:<end ms>") instead of the time range,
+	// with time as seconds since its start. Golden adds the same measures
+	// over a reference batch, aligned on its start, with a band of Band
+	// (BandMode "absolute", or "percent" of the golden value) around them.
+	Batch    string  `json:"batch"`
+	Golden   string  `json:"golden"`
+	BandMode string  `json:"bandMode"`
+	Band     float64 `json:"band"`
 	// PeriodLabel names the event attribute that labels each period in an
 	// event periods variable, e.g. Batch ID.
 	PeriodLabel string `json:"periodLabel"`
