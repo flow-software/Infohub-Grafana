@@ -70,7 +70,8 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 	if qm.IncludeQuality {
 		frame.Fields = append(frame.Fields, data.NewField("Quality", labels, qualities))
 	}
-	if qm.LimitStatus && !s.tag && !text {
+	withStatus := qm.LimitStatus && !s.tag && !text
+	if withStatus {
 		frame.Fields = append(frame.Fields, limitStatusField(s.points, labels))
 	}
 	if withVersions {
@@ -94,7 +95,7 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 			detail(data.NewField("Entered by", labels, users)),
 		)
 	}
-	if !qm.IncludeQuality && !withVersions && !text && !(qm.LimitStatus && !s.tag) {
+	if !qm.IncludeQuality && !withVersions && !text && !withStatus {
 		// A time field plus one numeric field is the multi-frame time series
 		// shape that alerting and server-side expressions expect.
 		frame.Meta = &data.FrameMeta{Type: data.FrameTypeTimeSeriesMulti, TypeVersion: data.FrameTypeVersion{0, 1}}
