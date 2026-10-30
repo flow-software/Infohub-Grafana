@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
+	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
@@ -192,36 +193,52 @@ func (l measureLimit) at(t time.Time) *limitProps {
 	return found
 }
 
+// sourceValues are the period values of measures that limits take their
+// value from, by measure id and period start (Unix ms).
+type sourceValues map[int]map[int64]float64
+
 // limitLineFields draws a limit as dashed lines beside a series: one for
-// each of high, target and low that has a constant value in any of the
-// limit's settings. Each value is the setting in effect at the point's
-// period start, so a limit changed on 27 October steps there. Bounds are
-// red, the target green. Values that come from another measure are not
-// drawn (Flow does not send them).
-func limitLineFields(l measureLimit, points []point, value *data.Field, interpolation string) []*data.Field {
+// each of high, target and low that has a value in any of the limit's
+// settings. Each value is the setting in effect at the point's period
+// start, so a limit changed on 27 October steps there. A value that comes
+// from another measure is that measure's value for the same period: Flow
+// does not return the limit's worked-out values, so this matches Flow only
+// when the limit uses the same period (the field's description says so).
+// Bounds are red, the target green.
+func limitLineFields(l measureLimit, points []point, value *data.Field, interpolation string, sources sourceValues) []*data.Field {
 	parts := []struct {
 		name  string
 		color string
-		get   func(limitProps) *float64
+		get   func(limitProps) (*float64, *int)
 	}{
-		{"high", limitBoundColor, func(p limitProps) *float64 { return p.High }},
-		{"target", limitTargetColor, func(p limitProps) *float64 { return p.Target }},
-		{"low", limitBoundColor, func(p limitProps) *float64 { return p.Low }},
+		{"high", limitBoundColor, func(p limitProps) (*float64, *int) { return p.High, p.HighID }},
+		{"target", limitTargetColor, func(p limitProps) (*float64, *int) { return p.Target, p.TargetID }},
+		{"low", limitBoundColor, func(p limitProps) (*float64, *int) { return p.Low, p.LowID }},
 	}
 	var out []*data.Field
 	for _, part := range parts {
 		vals := make([]*float64, len(points))
 		drawn := false
+		var from []int
 		for i, pt := range points {
 			at := pt.start
 			if at.IsZero() {
 				at = pt.t
 			}
-			if props := l.at(at); props != nil {
-				if v := part.get(*props); v != nil && !math.IsNaN(*v) {
-					vals[i] = v
-					drawn = true
+			props := l.at(at)
+			if props == nil {
+				continue
+			}
+			v, id := part.get(*props)
+			if v == nil && id != nil {
+				from = appendUnique(from, *id)
+				if sv, ok := sources[*id][at.UnixMilli()]; ok {
+					v = &sv
 				}
+			}
+			if v != nil && !math.IsNaN(*v) {
+				vals[i] = v
+				drawn = true
 			}
 		}
 		if !drawn {
@@ -229,7 +246,16 @@ func limitLineFields(l measureLimit, points []point, value *data.Field, interpol
 		}
 		label := l.Name + " " + part.name
 		f := data.NewField(label, value.Labels, vals)
+		var description string
+		if len(from) > 0 {
+			ids := make([]string, len(from))
+			for i, id := range from {
+				ids[i] = strconv.Itoa(id)
+			}
+			description = fmt.Sprintf("Taken from measure %s, using its value for the same period. Flow does not return this limit's own values, so this differs from what Flow evaluates if the limit is set to use other periods.", strings.Join(ids, ", "))
+		}
 		f.Config = &data.FieldConfig{
+			Description:       description,
 			DisplayNameFromDS: strings.TrimSpace(value.Config.DisplayNameFromDS + " · " + label),
 			Unit:              value.Config.Unit,
 			Color:             map[string]any{"mode": "fixed", "fixedColor": part.color},
@@ -250,7 +276,7 @@ func limitLineFields(l measureLimit, points []point, value *data.Field, interpol
 // each limit value, following its dated settings, and the limits as they
 // apply now in the value's description. frames and series
 // are in the same order. It returns notices for what could not be drawn.
-func (d *Datasource) applyLimits(ctx context.Context, frames data.Frames, series []series, qm queryModel) []string {
+func (d *Datasource) applyLimits(ctx context.Context, frames data.Frames, series []series, qm queryModel, tr backend.TimeRange) []string {
 	if len(frames) != len(series) {
 		return nil
 	}
@@ -274,6 +300,25 @@ func (d *Datasource) applyLimits(ctx context.Context, frames data.Frames, series
 	if len(failed) > 0 {
 		notices = append(notices, fmt.Sprintf("Flow could not return the limits of %d measure(s), so they are not drawn.", len(failed)))
 	}
+	// The measures that limit values come from, read once for all series.
+	var sourceIDs []int
+	for _, s := range series {
+		m := byID[s.id]
+		for _, l := range pickLimits(measureLimits(m, context, m.IsTag()), qm.LimitNames) {
+			for _, st := range l.Steps {
+				for _, id := range []*int{st.Props.HighID, st.Props.TargetID, st.Props.LowID} {
+					if id != nil {
+						sourceIDs = appendUnique(sourceIDs, *id)
+					}
+				}
+			}
+		}
+	}
+	sources, err := d.limitSources(ctx, sourceIDs, qm, tr)
+	if err != nil {
+		notices = append(notices, "Could not read the measures some limits take their values from: "+err.Error())
+	}
+
 	for i, s := range series {
 		if s.superseded {
 			// Limits are drawn once, on the measure's preferred values.
@@ -301,7 +346,7 @@ func (d *Datasource) applyLimits(ctx context.Context, frames data.Frames, series
 		}
 		added := false
 		for _, l := range limits {
-			fields := limitLineFields(l, s.points, value, interpolation)
+			fields := limitLineFields(l, s.points, value, interpolation, sources)
 			frame.Fields = append(frame.Fields, fields...)
 			added = added || len(fields) > 0
 		}
@@ -316,6 +361,44 @@ func (d *Datasource) applyLimits(ctx context.Context, frames data.Frames, series
 		value.Config.Description = strings.TrimSpace(value.Config.Description + "\nLimits: " + strings.Join(texts, "; "))
 	}
 	return notices
+}
+
+// limitSources reads the period values of the measures that limits take
+// their values from, in the query's calendar or event.
+func (d *Datasource) limitSources(ctx context.Context, ids []int, qm queryModel, tr backend.TimeRange) (sourceValues, error) {
+	out := sourceValues{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	req := flow.MeasureDataRequest{IDs: ids, From: tr.From, To: tr.To, Limit: periodLimit}
+	if qm.Context == contextEvent && qm.EventID > 0 {
+		req.EventID = qm.EventID
+	} else {
+		calendarID, err := d.calendarFor(ctx, qm.CalendarID)
+		if err != nil {
+			return out, err
+		}
+		req.CalendarID = calendarID
+	}
+	res, err := d.client.MeasureData(ctx, req)
+	if flow.IsNoData(err) || (err == nil && res == nil) {
+		return out, nil
+	}
+	if err != nil {
+		return out, err
+	}
+	for _, s := range res.Values {
+		for _, p := range s.Data {
+			if p.Start == nil || p.Value == nil {
+				continue
+			}
+			if out[s.ID] == nil {
+				out[s.ID] = map[int64]float64{}
+			}
+			out[s.ID][p.Start.UnixMilli()] = *p.Value
+		}
+	}
+	return out, nil
 }
 
 // limitContext is the calendar or event whose limits apply to the query,

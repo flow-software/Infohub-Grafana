@@ -369,3 +369,45 @@ func TestLimitsBelongToTheirCalendar(t *testing.T) {
 		t.Errorf("tag limits = %+v, want the only set", got)
 	}
 }
+
+// A limit value that comes from another measure is drawn from that
+// measure's value for the same period, and its description says so.
+func TestLimitFromAnotherMeasure(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/model/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("metadata") == "true" {
+			writeJSON(w, 200, map[string]any{"measures": []map[string]any{{"id": 300, "metadata": []any{
+				map[string]any{"type": "Limit", "data": map[string]any{"Default": map[string]any{"Site": map[string]any{
+					"9/8/2025 4:00:00 AM": map[string]any{"comparator": "<", "highid": 302, "target": 1},
+				}}}},
+			}}}})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"measures": byIDs(modelMeasures, r)})
+	}
+	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("id") == "302" {
+			writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 302, "data": []map[string]any{
+				{"start": "2026-10-06T00:00:00Z", "value": 7}, {"start": "2026-10-06T01:00:00Z", "value": 9},
+			}}}})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 300, "data": []map[string]any{
+			{"start": "2026-10-06T00:00:00Z", "end": "2026-10-06T01:00:00Z", "value": 2},
+			{"start": "2026-10-06T01:00:00Z", "end": "2026-10-06T02:00:00Z", "value": 4},
+			{"start": "2026-10-06T02:00:00Z", "end": "2026-10-06T03:00:00Z", "value": 5},
+		}}}})
+	}
+	d := testDatasource(srv)
+	resp := runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}, Limits: limitsLines})
+	fr := resp.Frames[0]
+	// 02:00 has no value of measure 302, so no limit there.
+	want := map[string]string{"Site high": "7,9,-", "Site target": "1,1,1"}
+	if got := limitLines(fr); fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("lines = %v, want %v", got, want)
+	}
+	field, _ := fr.FieldByName("Site high")
+	if !strings.HasPrefix(field.Config.Description, "Taken from measure 302, using its value for the same period.") {
+		t.Errorf("description = %q", field.Config.Description)
+	}
+}

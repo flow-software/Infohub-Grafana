@@ -964,7 +964,7 @@ function LimitsField({
     <InlineField
       label="Limits"
       labelWidth={LABEL_WIDTH}
-      tooltip="Show limit values: draws the limits' values as dashed lines beside each series (e.g. Site high, Site target), bounds red and targets green. A limit changed over time steps where its new setting starts, as Flow applies it to each period. Only the limits of the query's calendar (or event) are offered; pick which to draw, or none for all. Values taken from another measure are not drawn. Show limit evaluation: adds a Limit evaluation field with Flow's verdict on each period value against all the measure's limits: Within limits (green), Above high limit or Below low limit (red). Flow does the comparison, not Grafana. Colour a bar chart by it with Color by field, or see it as coloured cells in a table. Flow does not evaluate tags."
+      tooltip="Show limit values: draws the limits' values as dashed lines beside each series (e.g. Site high, Site target), bounds red and targets green. A limit changed over time steps where its new setting starts, as Flow applies it to each period. Only the limits of the query's calendar (or event) are offered; pick which to draw, or none for all. A value taken from another measure is drawn from that measure's value for the same period. Show limit evaluation: adds a Limit evaluation field with Flow's verdict on each period value against all the measure's limits: Within limits (green), Above high limit or Below low limit (red). Flow does the comparison, not Grafana. Colour a bar chart by it with Color by field, or see it as coloured cells in a table. Flow does not evaluate tags."
     >
       <Stack gap={1} wrap="wrap" alignItems="center">
         <InlineSwitch

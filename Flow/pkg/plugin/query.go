@@ -563,7 +563,7 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 		}
 	}
 	if qm.Limits == limitsLines && len(all) > 0 {
-		notices = append(notices, d.applyLimits(ctx, resp.Frames, all, qm)...)
+		notices = append(notices, d.applyLimits(ctx, resp.Frames, all, qm, q.TimeRange)...)
 	}
 	if len(notices) > 0 {
 		if len(resp.Frames) == 0 {
