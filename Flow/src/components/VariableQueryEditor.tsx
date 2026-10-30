@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { QueryEditorProps } from '@grafana/data';
-import { Combobox, ComboboxOption, InlineField, Input, RadioButtonGroup, Stack } from '@grafana/ui';
+import { Combobox, ComboboxOption, InlineField, Input, MultiCombobox, RadioButtonGroup, Stack } from '@grafana/ui';
 
 import { eventOfVariable, type DataSource } from '../datasource';
 import { FlowOptions, FlowQuery, itemKey, QueryItem, VariableKind } from '../types';
@@ -21,6 +21,7 @@ const groupOf: Record<VariableKind, Group> = {
   attributeValues: 'attributes',
   events: 'events',
   eventValues: 'events',
+  eventPeriods: 'events',
   charts: 'charts',
 };
 
@@ -64,6 +65,11 @@ const choiceOptions: Record<Group, Array<{ label: string; value: VariableKind; d
       value: 'eventValues',
       description: 'The values of one event attribute seen in the last 90 days, e.g. every Product',
     },
+    {
+      label: 'Periods (batches)',
+      value: 'eventPeriods',
+      description: 'Each run of the event in the time range, newest first, e.g. to pick a batch or a golden batch',
+    },
   ],
   charts: [],
 };
@@ -78,7 +84,8 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
   const group = groupOf[kind];
   const items = useMemo(() => query.items ?? [], [query.items]);
   // The event an event variable holds now, to list its attributes.
-  const variableEventId = kind === 'eventValues' ? eventOfVariable(query.eventVariable) : undefined;
+  const variableEventId =
+    kind === 'eventValues' || kind === 'eventPeriods' ? eventOfVariable(query.eventVariable) : undefined;
   const variableEvent: QueryItem | undefined = variableEventId
     ? { tree: 'model', type: 'event', id: variableEventId, label: query.eventVariable ?? '' }
     : undefined;
@@ -132,7 +139,7 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
         />
       )}
 
-      {(kind === 'events' || kind === 'eventValues') && (
+      {(kind === 'events' || kind === 'eventValues' || kind === 'eventPeriods') && (
         <ItemsPicker
           datasource={datasource}
           items={items}
@@ -140,7 +147,7 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
           kind="events"
           onChange={(next) =>
             update(
-              kind === 'events'
+              kind !== 'eventValues'
                 ? { items: next, eventId: firstModelEvent(next) }
                 : // One event: the latest pick. A new event clears an attribute it does not have.
                   { items: next.slice(-1), eventId: firstModelEvent(next.slice(-1)) }
@@ -149,7 +156,9 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
           tooltip={
             kind === 'events'
               ? 'Optional: list only these events. A template event stands for every event created from it. Empty lists every event.'
-              : 'The event whose attribute values to list. A template event lists the values of every event created from it.'
+              : kind === 'eventPeriods'
+                ? 'The event whose periods (batches) to list. A template event lists the periods of every event created from it.'
+                : 'The event whose attribute values to list. A template event lists the values of every event created from it.'
           }
         />
       )}
@@ -178,7 +187,7 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
         </>
       )}
 
-      {kind === 'eventValues' && (
+      {(kind === 'eventValues' || kind === 'eventPeriods') && (
         <InlineField
           label="Event variable"
           labelWidth={LABEL_WIDTH}
@@ -200,6 +209,43 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
           value={query.eventAttribute}
           onChange={(eventAttribute) => update({ eventAttribute })}
         />
+      )}
+
+      {kind === 'eventPeriods' && (
+        <>
+          <EventAttributeField
+            datasource={datasource}
+            event={variableEvent ?? items.find((it) => it.type === 'event')}
+            label="Label"
+            tooltip="Optional: an attribute that names each period in the list, e.g. Batch ID or Product, before its start time."
+            optional
+            value={query.periodLabel}
+            onChange={(periodLabel) => update({ periodLabel })}
+          />
+          <EventAttributeField
+            datasource={datasource}
+            event={variableEvent ?? items.find((it) => it.type === 'event')}
+            label="Where"
+            tooltip="Optional: only periods whose attribute has one of these values, e.g. Product = $product, or a Golden batch attribute = Yes."
+            optional
+            value={query.eventAttribute}
+            onChange={(eventAttribute) => update({ eventAttribute, eventValues: undefined })}
+          >
+            {query.eventAttribute && (
+              <MultiCombobox
+                width={40}
+                placeholder="Values or $variable"
+                createCustomValue
+                options={[
+                  ...dashboardVariables(),
+                  ...(query.eventValues ?? []).filter((v) => !v.startsWith('$')).map((v) => ({ label: v, value: v })),
+                ]}
+                value={query.eventValues ?? []}
+                onChange={(opts) => update({ eventValues: opts.length ? opts.map((o) => o.value) : undefined })}
+              />
+            )}
+          </EventAttributeField>
+        </>
       )}
 
       {(kind === 'attributeValues' || kind === 'measures') && (
@@ -228,11 +274,20 @@ function EventAttributeField({
   event,
   value,
   onChange,
+  label = 'Attribute',
+  tooltip = 'The event attribute whose values to list, e.g. Product. Its values seen in the last 90 days are listed.',
+  optional = false,
+  children,
 }: {
   datasource: DataSource;
   event?: QueryItem;
   value?: string;
   onChange: (name: string | undefined) => void;
+  label?: string;
+  tooltip?: string;
+  /** Can be left empty (clearable, no "no attributes" error). */
+  optional?: boolean;
+  children?: React.ReactNode;
 }) {
   const eventKey = event ? itemKey(event) : '';
   const [answer, setAnswer] = useState<{ key: string; names?: string[]; error?: string }>();
@@ -259,24 +314,36 @@ function EventAttributeField({
     }
     return opts;
   }, [current, value]);
-  const none = !!event && current?.names?.length === 0;
+  const none = !optional && !!event && current?.names?.length === 0;
   return (
     <InlineField
-      label="Attribute"
+      label={label}
       labelWidth={LABEL_WIDTH}
-      tooltip="The event attribute whose values to list, e.g. Product. Its values seen in the last 90 days are listed."
+      tooltip={tooltip}
       invalid={!!current?.error || none}
       error={current?.error ?? (none ? 'This event has no attributes' : undefined)}
     >
-      <Combobox
-        width={30}
-        disabled={!event}
-        createCustomValue
-        placeholder={!event ? 'Pick the event first' : current ? 'Pick an attribute' : 'Loading attributes...'}
-        options={options}
-        value={value ?? null}
-        onChange={(o) => onChange(o?.value)}
-      />
+      <Stack gap={1} wrap="wrap" alignItems="center">
+        <Combobox
+          width={30}
+          disabled={!event}
+          isClearable={optional}
+          createCustomValue
+          placeholder={
+            !event
+              ? 'Pick the event first'
+              : current
+                ? optional
+                  ? 'None'
+                  : 'Pick an attribute'
+                : 'Loading attributes...'
+          }
+          options={options}
+          value={value ?? null}
+          onChange={(o: ComboboxOption<string> | null) => onChange(o?.value)}
+        />
+        {children}
+      </Stack>
     </InlineField>
   );
 }

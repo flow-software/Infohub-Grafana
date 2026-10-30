@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
@@ -31,6 +32,10 @@ const (
 	varEvents = "events"
 	// varEventValues: the values of an event attribute seen recently.
 	varEventValues = "eventValues"
+	// varEventPeriods: the periods of an event in the time range (batches),
+	// newest first, as value = "<event id>:<start ms>:<end ms>" (no end
+	// while running), text = the label attribute and the start.
+	varEventPeriods = "eventPeriods"
 	// varLimits: the names of the limits the picked measures have in the
 	// query's calendar (or event), for a dashboard that lets people pick
 	// which limits to draw.
@@ -47,7 +52,7 @@ type variableOption struct{ text, value string }
 // fields, the shape Grafana reads variable options from. Every kind can be
 // narrowed by AttributeFilter/AttributeValues, so variables can depend on
 // each other: the measures where Line = $line.
-func (d *Datasource) runVariable(ctx context.Context, qm queryModel) (backend.DataResponse, error) {
+func (d *Datasource) runVariable(ctx context.Context, qm queryModel, tr backend.TimeRange) (backend.DataResponse, error) {
 	var opts []variableOption
 	var err error
 	switch qm.VariableKind {
@@ -66,6 +71,8 @@ func (d *Datasource) runVariable(ctx context.Context, qm queryModel) (backend.Da
 		opts, err = d.variableEvents(ctx, qm)
 	case varEventValues:
 		opts, err = d.variableEventValues(ctx, qm)
+	case varEventPeriods:
+		opts, err = d.variableEventPeriods(ctx, qm, tr)
 	case varCharts:
 		opts, err = d.variableCharts(ctx)
 	case varLimits:
@@ -303,6 +310,98 @@ func (d *Datasource) variableEventValues(ctx context.Context, qm queryModel) ([]
 	out := make([]variableOption, len(values))
 	for i, v := range values {
 		out[i] = variableOption{v.Value, v.Value}
+	}
+	return out, nil
+}
+
+// variableEventPeriods lists the periods of the picked events (or the
+// event variable's event) in the time range, newest first: the batches a
+// dashboard can pick from. EventAttribute with EventValues keeps only
+// periods with one of those values, e.g. Product = $product.
+func (d *Datasource) variableEventPeriods(ctx context.Context, qm queryModel, tr backend.TimeRange) ([]variableOption, error) {
+	req := flow.EventDataRequest{From: tr.From, To: tr.To, Limit: eventPeriodLimit}
+	for _, it := range qm.Items {
+		if it.Type != itemEvent {
+			continue
+		}
+		if it.Tree == flow.TreeTemplate {
+			req.TemplateIDs = appendUnique(req.TemplateIDs, it.ID)
+		} else {
+			req.IDs = appendUnique(req.IDs, it.ID)
+		}
+	}
+	if len(req.IDs)+len(req.TemplateIDs) == 0 && qm.EventID > 0 {
+		req.IDs = []int{qm.EventID}
+	}
+	if len(req.IDs)+len(req.TemplateIDs) == 0 {
+		return nil, &badRequest{"pick the event whose periods to list"}
+	}
+	res, err := d.client.EventData(ctx, req)
+	if flow.IsNoData(err) || (err == nil && res == nil) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var names map[int]string
+	if len(res.Values) > 1 {
+		// Several events: name each period's event.
+		var ids []int
+		for _, s := range res.Values {
+			ids = append(ids, s.ID)
+		}
+		events, err := d.client.Events(ctx, flow.TreeModel, ids)
+		if err == nil {
+			paths, _ := d.index.eventPaths(ctx, events)
+			names = map[int]string{}
+			for _, e := range events {
+				names[e.ID] = paths[e.ID]
+				if names[e.ID] == "" {
+					names[e.ID] = e.Name
+				}
+			}
+		}
+	}
+	type period struct {
+		start time.Time
+		opt   variableOption
+	}
+	var periods []period
+	for _, s := range res.Values {
+		for _, p := range s.Data {
+			if p.Start == nil {
+				continue
+			}
+			if qm.EventAttribute != "" && len(qm.EventValues) > 0 {
+				a, ok := attributeOf(p, qm.EventAttribute)
+				if !ok || !containsFold(qm.EventValues, a.Value) {
+					continue
+				}
+			}
+			value := fmt.Sprintf("%d:%d:", s.ID, p.Start.UnixMilli())
+			when := timeText(p.Start.Time)
+			if p.End != nil {
+				value += strconv.FormatInt(p.End.UnixMilli(), 10)
+			} else {
+				when += " (running)"
+			}
+			var parts []string
+			if names != nil {
+				parts = append(parts, names[s.ID])
+			}
+			if qm.PeriodLabel != "" {
+				if a, ok := attributeOf(p, qm.PeriodLabel); ok && a.Value != "" {
+					parts = append(parts, a.Value)
+				}
+			}
+			parts = append(parts, when)
+			periods = append(periods, period{p.Start.Time, variableOption{strings.Join(parts, " · "), value}})
+		}
+	}
+	sort.SliceStable(periods, func(i, j int) bool { return periods[i].start.After(periods[j].start) })
+	out := make([]variableOption, len(periods))
+	for i, p := range periods {
+		out[i] = p.opt
 	}
 	return out, nil
 }

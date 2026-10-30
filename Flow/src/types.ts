@@ -27,7 +27,7 @@ export type QueryType = 'measures' | 'chart' | 'dependencies' | 'events' | 'vari
 
 /** What a dashboard variable query lists. */
 export type VariableKind =
-  'attributeNames' | 'attributeValues' | 'measures' | 'events' | 'eventValues' | 'charts' | 'limits';
+  'attributeNames' | 'attributeValues' | 'measures' | 'events' | 'eventValues' | 'eventPeriods' | 'charts' | 'limits';
 
 /** How an events query lays out event periods. */
 export type EventFormat = 'table' | 'timeline' | 'annotations';
@@ -107,6 +107,8 @@ export interface FlowQuery extends DataQuery {
 
   /** Variable queries. */
   variableKind?: VariableKind;
+  /** eventPeriods: the event attribute that labels each period, e.g. Batch ID. */
+  periodLabel?: string;
   /** attributeValues: the model attribute to list the values of. */
   variableAttribute?: string;
 

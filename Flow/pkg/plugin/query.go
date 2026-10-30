@@ -78,6 +78,9 @@ type queryModel struct {
 	// (Flow keeps every attribute value as text); a value that is not a
 	// number is left empty, so the column type never changes with the data.
 	EventNumbers []string `json:"eventNumbers"`
+	// PeriodLabel names the event attribute that labels each period in an
+	// event periods variable, e.g. Batch ID.
+	PeriodLabel string `json:"periodLabel"`
 
 	// Context "event" reads period measures per period of EventID instead
 	// of per calendar period. EventAttribute with EventValues keeps only

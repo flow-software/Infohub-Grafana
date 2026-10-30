@@ -189,7 +189,7 @@ func (d *Datasource) query(ctx context.Context, q backend.DataQuery) backend.Dat
 	case qm.QueryType == queryTypeChart:
 		resp, err = d.runChart(ctx, qm, q)
 	case qm.QueryType == queryTypeVariable:
-		resp, err = d.runVariable(ctx, qm)
+		resp, err = d.runVariable(ctx, qm, q.TimeRange)
 	case len(qm.Items) == 0:
 		return backend.DataResponse{}
 	case qm.QueryType == queryTypeDeps:

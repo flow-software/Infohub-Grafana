@@ -336,3 +336,39 @@ func TestEventNumbers(t *testing.T) {
 		t.Errorf("Product type = %v, want text", product.Type())
 	}
 }
+
+// An event periods variable lists the batches newest first, labelled by an
+// attribute and valued by event, start and end; a filter keeps only the
+// periods with one of the values.
+func TestEventPeriodsVariable(t *testing.T) {
+	_, d := eventServer(t)
+	run := func(qm queryModel) []string {
+		qm.QueryType, qm.VariableKind = queryTypeVariable, varEventPeriods
+		b, _ := json.Marshal(qm)
+		resp := d.query(context.Background(), backend.DataQuery{RefID: "A", JSON: b, TimeRange: backend.TimeRange{
+			From: time.Date(2026, 10, 6, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 10, 6, 4, 0, 0, 0, time.UTC),
+		}})
+		if resp.Error != nil {
+			t.Fatal(resp.Error)
+		}
+		var out []string
+		f := resp.Frames[0]
+		for i := 0; i < f.Rows(); i++ {
+			out = append(out, f.Fields[0].At(i).(string)+"="+f.Fields[1].At(i).(string))
+		}
+		return out
+	}
+	at := func(h int) string { return timeText(time.Date(2026, 10, 6, h, 0, 0, 0, time.UTC)) }
+	got := run(queryModel{Items: runEvent, PeriodLabel: "Product"})
+	want := []string{
+		"Juice · " + at(3) + " (running)=2:1791255600000:",
+		"Juice · " + at(1) + "=2:1791248400000:1791252000000",
+		"Coke · " + at(0) + "=2:1791244800000:1791248400000",
+	}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("periods =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if got := run(queryModel{EventID: 2, EventAttribute: "Product", EventValues: []string{"coke"}}); len(got) != 1 || !strings.HasPrefix(got[0], at(0)+"=2:") {
+		t.Errorf("Coke only = %v", got)
+	}
+}
