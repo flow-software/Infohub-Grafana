@@ -362,6 +362,21 @@ var versionTypes = map[string]string{
 }
 
 // withVersion fills a point's version, its type and who entered it.
+// measureData reads period values. When Flow rejects a read that asks for
+// limit exceptions (it can fail evaluating a measure's limits), the values
+// are read again without them: the panel still shows its data, and the
+// notice says why the limit evaluation is missing.
+func (d *Datasource) measureData(ctx context.Context, req flow.MeasureDataRequest) (*flow.MeasureData, string, error) {
+	res, err := d.client.MeasureData(ctx, req)
+	var apiErr *flow.APIError
+	if !req.Exceptions || !errors.As(err, &apiErr) || apiErr.Status != http.StatusBadRequest {
+		return res, "", err
+	}
+	req.Exceptions = false
+	res, err = d.client.MeasureData(ctx, req)
+	return res, "Flow could not evaluate the limits (" + strings.Join(apiErr.Messages, "; ") + "), so the values are shown without their limit evaluation.", err
+}
+
 // Limit statuses, as the Limit evaluation field shows them.
 const (
 	limitWithin = "Within limits"
@@ -575,7 +590,7 @@ func pathOf(infos map[int]seriesInfo, id int) string {
 func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID int, tr backend.TimeRange, qm queryModel) ([]series, []string, error) {
 	atEnd := qm.TimeAt == "end"
 	all := qm.allVersions()
-	res, err := d.client.MeasureData(ctx, flow.MeasureDataRequest{
+	res, evalNotice, err := d.measureData(ctx, flow.MeasureDataRequest{
 		IDs: sel.periodIDs, TemplateIDs: sel.periodTemplateIDs,
 		CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit,
 		Users: qm.IncludeVersion || all, AllVersions: all,
@@ -592,6 +607,9 @@ func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID
 		return nil, []string{"Flow found none of the selected period measures"}, nil
 	}
 	warnings := append([]string(nil), res.Errors...)
+	if evalNotice != "" {
+		warnings = append(warnings, evalNotice)
+	}
 	if res.Continuation != nil {
 		warnings = append(warnings, fmt.Sprintf("Flow returned only the first %d periods; some values are missing. Narrow the time range or select fewer measures.", periodLimit))
 	}
@@ -615,7 +633,8 @@ func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID
 				pt.quality = p.Detail.Quality.Value
 			}
 			withVersion(&pt, p)
-			if qm.LimitStatus {
+			if qm.LimitStatus && evalNotice == "" {
+				// Only from Flow's evaluation: without it no value is "within".
 				pt.limit = limitStatus(p)
 			}
 			if all && p.Detail != nil && !p.Detail.Preferred {

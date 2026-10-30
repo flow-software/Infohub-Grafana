@@ -180,11 +180,14 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 			periodIDs = inCalendar
 		}
 		if err == nil && len(periodIDs) > 0 {
-			res, err := d.client.MeasureData(ctx, flow.MeasureDataRequest{
+			res, evalNotice, err := d.measureData(ctx, flow.MeasureDataRequest{
 				IDs: periodIDs, CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit, Users: true,
 				// Limit exceptions only when the query shows limits.
 				Exceptions: qm.Limits == limitsLines,
 			})
+			if evalNotice != "" {
+				notices = append(notices, evalNotice)
+			}
 			switch {
 			case flow.IsNoData(err):
 			case err != nil:

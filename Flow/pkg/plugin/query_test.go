@@ -709,3 +709,41 @@ func TestLimitStatusFollowsFlowsExceptions(t *testing.T) {
 		t.Errorf("statuses = %s, want %s", strings.Join(got, ","), want)
 	}
 }
+
+// When Flow fails to evaluate the limits, the values still show, without
+// their evaluation, and the panel says why.
+func TestLimitEvaluationFailureKeepsTheValues(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("exceptions") == "true" {
+			writeJSON(w, 400, map[string]any{"errors": []string{"An item with the same key has already been added. Key: 814"}})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 300, "data": []map[string]any{
+			{"start": "2026-10-06T00:00:00Z", "end": "2026-10-06T01:00:00Z", "value": 7},
+		}}}})
+	}
+	d := testDatasource(srv)
+	b, _ := json.Marshal(queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 300}}, LimitStatus: true})
+	resp := d.query(context.Background(), backend.DataQuery{RefID: "A", JSON: b, TimeRange: backend.TimeRange{
+		From: time.Date(2026, 10, 6, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 10, 6, 2, 0, 0, 0, time.UTC),
+	}})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	fr := resp.Frames[0]
+	if fr.Rows() != 1 {
+		t.Fatalf("rows = %d, want the value", fr.Rows())
+	}
+	// No evaluation rather than "within" for values Flow did not evaluate.
+	if field, _ := fr.FieldByName("Limit evaluation"); field != nil {
+		t.Error("a Limit evaluation field without Flow's evaluation")
+	}
+	var notices []string
+	for _, n := range fr.Meta.Notices {
+		notices = append(notices, n.Text)
+	}
+	if !strings.Contains(strings.Join(notices, ";"), "Flow could not evaluate the limits (An item with the same key has already been added. Key: 814)") {
+		t.Errorf("notices = %v", notices)
+	}
+}

@@ -70,7 +70,7 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 	if qm.IncludeQuality {
 		frame.Fields = append(frame.Fields, data.NewField("Quality", labels, qualities))
 	}
-	withStatus := qm.LimitStatus && !s.tag && !text
+	withStatus := qm.LimitStatus && !s.tag && !text && hasLimitStatus(s.points)
 	if withStatus {
 		frame.Fields = append(frame.Fields, limitStatusField(s.points, labels))
 	}
@@ -101,6 +101,16 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 		frame.Meta = &data.FrameMeta{Type: data.FrameTypeTimeSeriesMulti, TypeVersion: data.FrameTypeVersion{0, 1}}
 	}
 	return frame
+}
+
+// hasLimitStatus reports whether Flow evaluated any of the values.
+func hasLimitStatus(points []point) bool {
+	for _, p := range points {
+		if p.limit != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // limitStatusField holds each value's limit status as Flow flags it, as
