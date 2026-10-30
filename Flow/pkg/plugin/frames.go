@@ -115,12 +115,12 @@ func limitStatusField(points []point, labels data.Labels) *data.Field {
 			vals[i] = &v
 		}
 	}
-	f := data.NewField("Limits", labels, vals)
+	f := data.NewField("Limit evaluation", labels, vals)
 	color := func(status, c string, index int) data.ValueMapping {
 		return data.ValueMapper{status: {Color: c, Index: index}}
 	}
 	f.Config = &data.FieldConfig{
-		DisplayNameFromDS: "Limits",
+		DisplayNameFromDS: "Limit evaluation",
 		Mappings: data.ValueMappings{
 			color(limitWithin, limitTargetColor, 0),
 			color(limitAbove, limitBoundColor, 1),

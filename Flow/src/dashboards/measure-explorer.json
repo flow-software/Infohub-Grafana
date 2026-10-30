@@ -121,7 +121,7 @@
     {
       "type": "timeseries",
       "title": "${measure:text}",
-      "description": "Measures tab with the Measure variable, Show limits on for the limits picked in Limits.",
+      "description": "Measures tab with the Measure variable, Show limit values on for the limits picked in Limits.",
       "datasource": {
         "type": "flowsoftware-infohub-datasource",
         "uid": "${ds}"

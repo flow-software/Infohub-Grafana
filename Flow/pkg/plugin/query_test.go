@@ -692,9 +692,9 @@ func TestLimitStatusFollowsFlowsExceptions(t *testing.T) {
 		t.Errorf("exceptions = %q, want true", exceptions)
 	}
 	fr := resp.Frames[0]
-	field, _ := fr.FieldByName("Limits")
+	field, _ := fr.FieldByName("Limit evaluation")
 	if field == nil {
-		t.Fatalf("no Limits field in %v", fr.Fields)
+		t.Fatalf("no Limit evaluation field in %v", fr.Fields)
 	}
 	var got []string
 	for i := 0; i < field.Len(); i++ {

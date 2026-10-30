@@ -96,7 +96,7 @@ type queryModel struct {
 	LimitNames []string `json:"limitNames"`
 	// LimitStatus adds each period value's limit status as Flow evaluates
 	// it (its limit plugins, dated and measure-based limits included), as a
-	// Limits field coloured green within and red outside.
+	// Limit evaluation field coloured green within and red outside.
 	LimitStatus bool `json:"limitStatus"`
 	// Annotate "comments" returns the measures' value comments as
 	// annotations instead of their values (annotation queries).
@@ -362,7 +362,7 @@ var versionTypes = map[string]string{
 }
 
 // withVersion fills a point's version, its type and who entered it.
-// Limit statuses, as the Limits field shows them.
+// Limit statuses, as the Limit evaluation field shows them.
 const (
 	limitWithin = "Within limits"
 	limitAbove  = "Above high limit"

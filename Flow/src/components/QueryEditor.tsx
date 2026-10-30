@@ -862,11 +862,11 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
         <InlineField
           label="Limits"
           labelWidth={LABEL_WIDTH}
-          tooltip="Turn a node red when its latest value is outside its limits in this calendar, as Flow flags it; click the node for the limit it breaks. Off, nodes keep their retrieval type colour."
+          tooltip="Show limit evaluation: turn a node red when Flow evaluates its latest value as outside its limits in this calendar; click the node for the limit it breaks. Off, nodes keep their retrieval type colour."
         >
           <InlineSwitch
             id="query-editor-dep-limits"
-            label="Show limits"
+            label="Show limit evaluation"
             showLabel
             value={query.limits === 'lines'}
             onChange={(e) => update({ limits: e.currentTarget.checked ? 'lines' : undefined })}
@@ -964,12 +964,12 @@ function LimitsField({
     <InlineField
       label="Limits"
       labelWidth={LABEL_WIDTH}
-      tooltip="Show limits draws the measures' limits from Flow as dashed lines beside each series (e.g. Site high, Site target): bounds red, targets green. A limit changed over time steps where its new setting starts, as Flow applies it to each period. Only the limits of the query's calendar (or event) are offered. Pick which limits to draw; with none picked, all are drawn. Limits that take their value from another measure are listed in the series description but not drawn. Status per value adds a Limits field with each period value's status as Flow evaluates it against all the measure's limits: Within limits (green), Above high limit or Below low limit (red). Colour a bar chart's bars by it with Color by field, or see it as coloured cells in a table. Flow does not check tags."
+      tooltip="Show limit values: draws the limits' values as dashed lines beside each series (e.g. Site high, Site target), bounds red and targets green. A limit changed over time steps where its new setting starts, as Flow applies it to each period. Only the limits of the query's calendar (or event) are offered; pick which to draw, or none for all. Values taken from another measure are not drawn. Show limit evaluation: adds a Limit evaluation field with Flow's verdict on each period value against all the measure's limits: Within limits (green), Above high limit or Below low limit (red). Flow does the comparison, not Grafana. Colour a bar chart by it with Color by field, or see it as coloured cells in a table. Flow does not evaluate tags."
     >
       <Stack gap={1} wrap="wrap" alignItems="center">
         <InlineSwitch
           id="query-editor-limits"
-          label="Show limits"
+          label="Show limit values"
           showLabel
           value={on}
           onChange={(e) =>
@@ -991,7 +991,7 @@ function LimitsField({
         )}
         <InlineSwitch
           id="query-editor-limit-status"
-          label="Status per value"
+          label="Show limit evaluation"
           showLabel
           value={!!query.limitStatus}
           onChange={(e) => update({ limitStatus: e.currentTarget.checked || undefined })}
