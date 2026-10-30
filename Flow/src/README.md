@@ -128,6 +128,8 @@ Pick events with **Browse** (only folders that hold events, directly or further 
 - _Table_: one row per event period, newest first: event, start, end (empty while it runs), duration (to now while it runs) and a column per attribute, with cells coloured by the attribute value's colour in Flow. Use the Table panel.
 - _Timeline_: a band per attribute, showing each period's value from its start to its end; use the State timeline panel. An event without attributes shows when it ran.
 
+**Numbers** (Table): Flow keeps every event attribute value as text. Pick the attributes that hold numbers, e.g. a measured _Flow_, and they come back as number columns, so a Time series panel plots them against each period's start without a Convert field type transformation. The list offers the picked events' attributes (or type a name, or use a variable). A value that is not a number is left empty, so the column stays a number column whatever the data; a decimal comma (_1,25_) is read as a decimal point. Number columns are not coloured by Flow's value colours.
+
 To shade event periods on other panels, add an annotation query in the dashboard settings (Annotations) with this data source. It starts as an events query: pick the events, and each period becomes a region on the dashboard's time series panels, titled with the event and labelled with its attributes. The regions take the annotation query's colour.
 
 Up to 10,000 event periods are read per query; past that the panel warns.

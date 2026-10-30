@@ -31,7 +31,7 @@ import {
   SelectionContext,
   SelectionSummary,
 } from '../types';
-import { AttributeFilterField } from './AttributeFilterField';
+import { AttributeFilterField, dashboardVariables } from './AttributeFilterField';
 import { ChartBrowser } from './ChartBrowser';
 import { MeasureIcon } from './MeasureIcon';
 import { ModelBrowser } from './ModelBrowser';
@@ -619,7 +619,79 @@ function EventsQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
           />
         </InlineField>
       )}
+      {query.refId !== ANNOTATION_REF_ID && query.eventFormat !== 'timeline' && (
+        <EventNumbersField
+          datasource={datasource}
+          items={items}
+          value={query.eventNumbers}
+          onChange={(eventNumbers) => update({ eventNumbers })}
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * Picks the event attributes the table returns as numbers. Flow keeps
+ * attribute values as text; numbers can be plotted, e.g. on a time series
+ * against each period's start.
+ */
+function EventNumbersField({
+  datasource,
+  items,
+  value,
+  onChange,
+}: {
+  datasource: DataSource;
+  items: QueryItem[];
+  value?: string[];
+  onChange: (names: string[] | undefined) => void;
+}) {
+  const events = useMemo(() => items.filter((it) => it.type === 'event'), [items]);
+  const key = events.map(itemKey).join(',');
+  const [answer, setAnswer] = useState<{ key: string; names: string[] }>();
+  useEffect(() => {
+    if (!key) {
+      return;
+    }
+    let cancelled = false;
+    Promise.all(events.map((e) => datasource.getEventAttributes(e).catch(() => [] as string[])))
+      .then((lists) => !cancelled && setAnswer({ key, names: Array.from(new Set(lists.flat())) }))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // key stands for events, whose identity changes with every new query object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasource, key]);
+  const options = useMemo<Array<ComboboxOption<string>>>(() => {
+    const names = answer?.key === key ? answer.names : [];
+    const opts: Array<ComboboxOption<string>> = [
+      ...names.map((n) => ({ label: n, value: n })),
+      ...dashboardVariables(),
+    ];
+    for (const v of value ?? []) {
+      if (!opts.some((o) => o.value === v)) {
+        opts.push({ label: v, value: v });
+      }
+    }
+    return opts;
+  }, [answer, key, value]);
+  return (
+    <InlineField
+      label="Numbers"
+      labelWidth={LABEL_WIDTH}
+      tooltip="Event attributes to return as numbers instead of text, e.g. a measured value. Flow keeps attribute values as text; as numbers they can be plotted on a time series (against each period's start) or summed. A value that is not a number is left empty. Number columns are not coloured by Flow's value colours."
+    >
+      <MultiCombobox
+        width={50}
+        placeholder="None: all attributes are text"
+        createCustomValue
+        options={options}
+        value={value ?? []}
+        onChange={(opts) => onChange(opts.length ? opts.map((o) => o.value) : undefined)}
+      />
+    </InlineField>
   );
 }
 

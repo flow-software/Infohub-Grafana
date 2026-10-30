@@ -74,6 +74,10 @@ type queryModel struct {
 
 	// Events queries (items are events): table, timeline or annotations.
 	EventFormat string `json:"eventFormat"`
+	// EventNumbers names event attributes the table returns as numbers
+	// (Flow keeps every attribute value as text); a value that is not a
+	// number is left empty, so the column type never changes with the data.
+	EventNumbers []string `json:"eventNumbers"`
 
 	// Context "event" reads period measures per period of EventID instead
 	// of per calendar period. EventAttribute with EventValues keeps only

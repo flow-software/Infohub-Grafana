@@ -66,6 +66,8 @@ export interface FlowQuery extends DataQuery {
 
   /** Events queries: table (default), state timeline, or annotations. */
   eventFormat?: EventFormat;
+  /** Event attributes the table returns as numbers (may be variables); others stay text. */
+  eventNumbers?: string[];
 
   /**
    * Measure queries: "event" reads period measures per period of eventId

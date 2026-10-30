@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
@@ -302,4 +303,36 @@ func TestBrowseMarksEventContext(t *testing.T) {
 		t.Errorf("events = %v", events)
 	}
 
+}
+
+// Attributes picked as numbers come back as numbers; values that are not
+// numbers are empty, and the other attributes stay text.
+func TestEventNumbers(t *testing.T) {
+	v := func(s string) *string { return &s }
+	got := numericValues([]*string{v("1.5"), v(" -3 "), v("1,25"), v("N/A"), nil, v("2e3"), v("1,234.5")})
+	var parts []string
+	for _, f := range got {
+		if f == nil {
+			parts = append(parts, "-")
+		} else {
+			parts = append(parts, strconv.FormatFloat(*f, 'f', -1, 64))
+		}
+	}
+	if strings.Join(parts, ",") != "1.5,-3,1.25,-,-,2000,-" {
+		t.Errorf("numbers = %s", strings.Join(parts, ","))
+	}
+
+	series := []flow.EventSeries{{ID: 2, Data: []flow.EventPeriod{{
+		Start:      &flow.Time{Time: time.Date(2026, 10, 6, 0, 0, 0, 0, time.UTC)},
+		Attributes: []flow.AttributeValue{{Name: "FLow", Value: "1.69"}, {Name: "Product", Value: "Juice"}},
+	}}}}
+	fr := eventTableFrame(series, map[int]eventInfo{2: {Path: "Trigger2", Attributes: []string{"FLow", "Product"}}}, time.Now(), []string{"flow"})
+	flowField, _ := fr.FieldByName("FLow")
+	product, _ := fr.FieldByName("Product")
+	if flowField.Type() != data.FieldTypeNullableFloat64 || *flowField.At(0).(*float64) != 1.69 {
+		t.Errorf("FLow = %v %v", flowField.Type(), flowField.At(0))
+	}
+	if product.Type() != data.FieldTypeNullableString {
+		t.Errorf("Product type = %v, want text", product.Type())
+	}
 }

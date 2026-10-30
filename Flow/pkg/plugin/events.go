@@ -3,7 +3,9 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -115,7 +117,7 @@ func (d *Datasource) runEvents(ctx context.Context, qm queryModel, q backend.Dat
 	case eventFormatAnnotations:
 		frames = data.Frames{eventAnnotationFrame(all, infos, now)}
 	default:
-		frames = data.Frames{eventTableFrame(all, infos, now)}
+		frames = data.Frames{eventTableFrame(all, infos, now, qm.EventNumbers)}
 	}
 	if len(frames) == 0 {
 		frames = data.Frames{data.NewFrame("events")}
@@ -185,7 +187,7 @@ func eventAttributes(series []flow.EventSeries, infos map[int]eventInfo) []strin
 // start, end, duration and a column per attribute, each attribute cell
 // coloured with the value's colour in Flow. A period still running has no
 // end; its duration runs to now.
-func eventTableFrame(series []flow.EventSeries, infos map[int]eventInfo, now time.Time) *data.Frame {
+func eventTableFrame(series []flow.EventSeries, infos map[int]eventInfo, now time.Time, numbers []string) *data.Frame {
 	type row struct {
 		event string
 		p     flow.EventPeriod
@@ -234,6 +236,10 @@ func eventTableFrame(series []flow.EventSeries, infos map[int]eventInfo, now tim
 		duration,
 	)
 	for j, name := range attrs {
+		if containsFold(numbers, name) {
+			frame.Fields = append(frame.Fields, data.NewField(name, nil, numericValues(values[j])))
+			continue
+		}
 		f := data.NewField(name, nil, values[j])
 		f.Config = &data.FieldConfig{Mappings: attributeColors(series, name)}
 		if f.Config.Mappings != nil {
@@ -243,6 +249,36 @@ func eventTableFrame(series []flow.EventSeries, infos map[int]eventInfo, now tim
 	}
 	frame.Meta = &data.FrameMeta{PreferredVisualization: data.VisTypeTable}
 	return frame
+}
+
+// numericValues reads attribute values as numbers: "1.69", "-3", "2e3",
+// and a decimal comma ("1,69") as Flow may store it. Anything else is
+// empty.
+func numericValues(vals []*string) []*float64 {
+	out := make([]*float64, len(vals))
+	for i, v := range vals {
+		if v == nil {
+			continue
+		}
+		s := strings.TrimSpace(*v)
+		if !strings.Contains(s, ".") && strings.Count(s, ",") == 1 {
+			s = strings.Replace(s, ",", ".", 1)
+		}
+		if f, err := strconv.ParseFloat(s, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
+			out[i] = &f
+		}
+	}
+	return out
+}
+
+// containsFold reports whether names holds name, ignoring case.
+func containsFold(names []string, name string) bool {
+	for _, n := range names {
+		if strings.EqualFold(strings.TrimSpace(n), name) {
+			return true
+		}
+	}
+	return false
 }
 
 // eventTimelineFrame lays one event out for Grafana's State timeline: a
