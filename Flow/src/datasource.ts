@@ -221,8 +221,12 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
   }
 
   /** Values of an event attribute seen recently, with their colours. */
-  getEventValues(eventId: number, attribute: string): Promise<AttributeValueOption[]> {
-    return this.getResource<AttributeValueOption[]>('eventValues', { event: eventId, attribute });
+  getEventValues(
+    eventId: number,
+    attribute: string,
+    tree: QueryItem['tree'] = 'model'
+  ): Promise<AttributeValueOption[]> {
+    return this.getResource<AttributeValueOption[]>('eventValues', { event: eventId, attribute, tree });
   }
 
   /** An event's attribute names, in Flow's order. */

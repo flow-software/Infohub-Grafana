@@ -232,16 +232,12 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
             onChange={(eventAttribute) => update({ eventAttribute, eventValues: undefined })}
           >
             {query.eventAttribute && (
-              <MultiCombobox
-                width={40}
-                placeholder="Values or $variable"
-                createCustomValue
-                options={[
-                  ...dashboardVariables(),
-                  ...(query.eventValues ?? []).filter((v) => !v.startsWith('$')).map((v) => ({ label: v, value: v })),
-                ]}
-                value={query.eventValues ?? []}
-                onChange={(opts) => update({ eventValues: opts.length ? opts.map((o) => o.value) : undefined })}
+              <EventValuesPicker
+                datasource={datasource}
+                event={variableEvent ?? items.find((it) => it.type === 'event')}
+                attribute={query.eventAttribute}
+                value={query.eventValues}
+                onChange={(eventValues) => update({ eventValues })}
               />
             )}
           </EventAttributeField>
@@ -266,6 +262,66 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
 
 function firstModelEvent(items: QueryItem[]): number | undefined {
   return items.find((it) => it.type === 'event' && it.tree === 'model')?.id;
+}
+
+/**
+ * Picks values of an event attribute: those Flow has seen in the last 90
+ * days (of every event made from it, for a template event), the dashboard's
+ * variables, or typed ones.
+ */
+function EventValuesPicker({
+  datasource,
+  event,
+  attribute,
+  value,
+  onChange,
+}: {
+  datasource: DataSource;
+  event?: QueryItem;
+  attribute: string;
+  value?: string[];
+  onChange: (values: string[] | undefined) => void;
+}) {
+  const key = event && !attribute.startsWith('$') ? `${itemKey(event)}:${attribute}` : '';
+  const [answer, setAnswer] = useState<{ key: string; values: string[] }>();
+  useEffect(() => {
+    if (!event || !key) {
+      return;
+    }
+    let cancelled = false;
+    datasource
+      .getEventValues(event.id, attribute, event.tree)
+      .then((list) => !cancelled && setAnswer({ key, values: list.map((v) => v.value) }))
+      .catch(() => !cancelled && setAnswer({ key, values: [] }));
+    return () => {
+      cancelled = true;
+    };
+    // key stands for event and attribute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasource, key]);
+  const options = useMemo<Array<ComboboxOption<string>>>(() => {
+    const known = answer?.key === key ? answer.values : [];
+    const opts: Array<ComboboxOption<string>> = [
+      ...known.map((v) => ({ label: v, value: v })),
+      ...dashboardVariables(),
+    ];
+    for (const v of value ?? []) {
+      if (!opts.some((o) => o.value === v)) {
+        opts.push({ label: v, value: v });
+      }
+    }
+    return opts;
+  }, [answer, key, value]);
+  return (
+    <MultiCombobox
+      width={40}
+      placeholder={key && answer?.key !== key ? 'Loading values...' : 'Values or $variable'}
+      createCustomValue
+      options={options}
+      value={value ?? []}
+      onChange={(opts) => onChange(opts.length ? opts.map((o) => o.value) : undefined)}
+    />
+  );
 }
 
 /** Picks one of the event's attributes, once the event is picked. */
