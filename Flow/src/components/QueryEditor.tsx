@@ -964,7 +964,7 @@ function LimitsField({
     <InlineField
       label="Limits"
       labelWidth={LABEL_WIDTH}
-      tooltip="Draw the measures' limits from Flow as dashed lines: bounds red, targets green. Only the limits of the query's calendar (or event) are offered, as they apply now. Pick which limits to draw; with none picked, all are drawn. Limits that take their value from another measure are listed in the series description but not drawn."
+      tooltip="Show limits draws the measures' limits from Flow as dashed lines: bounds red, targets green. Only the limits of the query's calendar (or event) are offered, as they apply now. Pick which limits to draw; with none picked, all are drawn. Limits that take their value from another measure are listed in the series description but not drawn. Status per value adds a Limits field with each period value's status as Flow evaluates it against all the measure's limits: Within limits (green), Above high limit or Below low limit (red). Colour a bar chart's bars by it with Color by field, or see it as coloured cells in a table. Flow does not check tags."
     >
       <Stack gap={1} wrap="wrap" alignItems="center">
         <InlineSwitch
@@ -989,6 +989,13 @@ function LimitsField({
             onChange={(opts) => update({ limitNames: opts.length ? opts.map((o) => o.value) : undefined })}
           />
         )}
+        <InlineSwitch
+          id="query-editor-limit-status"
+          label="Status per value"
+          showLabel
+          value={!!query.limitStatus}
+          onChange={(e) => update({ limitStatus: e.currentTarget.checked || undefined })}
+        />
       </Stack>
     </InlineField>
   );

@@ -94,6 +94,10 @@ type queryModel struct {
 	// LimitNames keeps only those limits (no names draws them all).
 	Limits     string   `json:"limits"`
 	LimitNames []string `json:"limitNames"`
+	// LimitStatus adds each period value's limit status as Flow evaluates
+	// it (its limit plugins, dated and measure-based limits included), as a
+	// Limits field coloured green within and red outside.
+	LimitStatus bool `json:"limitStatus"`
 	// Annotate "comments" returns the measures' value comments as
 	// annotations instead of their values (annotation queries).
 	Annotate string `json:"annotate"`
@@ -321,6 +325,9 @@ type point struct {
 	value   *float64
 	text    *string
 	quality int
+	// limit is the value's limit status as Flow flags it, when asked for:
+	// limitWithin, limitAbove or limitBelow.
+	limit string
 	// version, versionType and user describe the value's version, when read;
 	// captured is when Flow stored it.
 	version     *int
@@ -352,6 +359,33 @@ var versionTypes = map[string]string{
 }
 
 // withVersion fills a point's version, its type and who entered it.
+// Limit statuses, as the Limits field shows them.
+const (
+	limitWithin = "Within limits"
+	limitAbove  = "Above high limit"
+	limitBelow  = "Below low limit"
+)
+
+// limitStatus is a value's limit status as Flow flags it: Flow evaluates
+// every limit of the measure in the value's calendar or event with the
+// limit's own plugin and lists those the value breaks. A value without a
+// number has no status.
+func limitStatus(v flow.PeriodValue) string {
+	if v.Value == nil {
+		return ""
+	}
+	status := limitWithin
+	for _, l := range v.Limits {
+		switch {
+		case l.Exception.High:
+			return limitAbove
+		case l.Exception.Low:
+			status = limitBelow
+		}
+	}
+	return status
+}
+
 func withVersion(pt *point, v flow.PeriodValue) {
 	if v.Detail != nil {
 		pt.version = v.Detail.Version.Value
@@ -447,6 +481,15 @@ func (d *Datasource) run(ctx context.Context, qm queryModel, q backend.DataQuery
 		}
 	}
 
+	if qm.LimitStatus {
+		for _, s := range all {
+			if s.tag {
+				notices = append(notices, "Flow does not check tag values against limits, so tags have no Limits status; period measures do.")
+				break
+			}
+		}
+	}
+
 	ids := make([]int, len(all))
 	for i, s := range all {
 		ids[i] = s.id
@@ -533,6 +576,7 @@ func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID
 		IDs: sel.periodIDs, TemplateIDs: sel.periodTemplateIDs,
 		CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit,
 		Users: qm.IncludeVersion || all, AllVersions: all,
+		Exceptions: qm.LimitStatus,
 	})
 	if flow.IsNoData(err) {
 		return nil, nil, nil
@@ -565,6 +609,9 @@ func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID
 				pt.quality = p.Detail.Quality.Value
 			}
 			withVersion(&pt, p)
+			if qm.LimitStatus {
+				pt.limit = limitStatus(p)
+			}
 			if all && p.Detail != nil && !p.Detail.Preferred {
 				old.points = append(old.points, pt)
 				continue

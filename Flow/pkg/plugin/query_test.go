@@ -661,3 +661,51 @@ func TestDescribeNestedMeasureWholeName(t *testing.T) {
 		t.Errorf("info = %+v", got)
 	}
 }
+
+// Limit status comes from Flow's exceptions on each value, not from
+// comparing values with the limits here.
+func TestLimitStatusFollowsFlowsExceptions(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	var exceptions string
+	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		exceptions = r.URL.Query().Get("exceptions")
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 300, "data": []map[string]any{
+			// 50 is within although above "high" 40: Flow did not flag it.
+			{"start": "2026-10-06T00:00:00Z", "end": "2026-10-06T01:00:00Z", "value": 50},
+			{"start": "2026-10-06T01:00:00Z", "end": "2026-10-06T02:00:00Z", "value": 5, "limits": []map[string]any{{"values": map[string]any{"low": 10}, "exception": map[string]any{"low": true}}}},
+			{"start": "2026-10-06T02:00:00Z", "end": "2026-10-06T03:00:00Z", "value": 99, "limits": []map[string]any{
+				{"values": map[string]any{"low": 10}, "exception": map[string]any{"low": true}},
+				{"values": map[string]any{"high": 90}, "exception": map[string]any{"high": true}},
+			}},
+			{"start": "2026-10-06T03:00:00Z", "end": "2026-10-06T04:00:00Z"},
+		}}}})
+	}
+	d := testDatasource(srv)
+	b, _ := json.Marshal(queryModel{Items: []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 300}}, LimitStatus: true})
+	resp := d.query(context.Background(), backend.DataQuery{RefID: "A", JSON: b, TimeRange: backend.TimeRange{
+		From: time.Date(2026, 10, 6, 0, 0, 0, 0, time.UTC), To: time.Date(2026, 10, 6, 4, 0, 0, 0, time.UTC),
+	}})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if exceptions != "true" {
+		t.Errorf("exceptions = %q, want true", exceptions)
+	}
+	fr := resp.Frames[0]
+	field, _ := fr.FieldByName("Limits")
+	if field == nil {
+		t.Fatalf("no Limits field in %v", fr.Fields)
+	}
+	var got []string
+	for i := 0; i < field.Len(); i++ {
+		if v := field.At(i).(*string); v != nil {
+			got = append(got, *v)
+		} else {
+			got = append(got, "-")
+		}
+	}
+	want := "Within limits,Below low limit,Above high limit,-"
+	if strings.Join(got, ",") != want {
+		t.Errorf("statuses = %s, want %s", strings.Join(got, ","), want)
+	}
+}
