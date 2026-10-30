@@ -101,7 +101,7 @@ func (d *Datasource) readEventPeriods(ctx context.Context, sel *selection, qm qu
 			if split && g.s.color == "" {
 				g.s.color = color
 			}
-			pv := periodValue{start: p.Start.Time, end: openEnd, running: p.End == nil, pt: point{value: p.Value, quality: 192}}
+			pv := periodValue{start: p.Start.Time, end: openEnd, running: p.End == nil, pt: point{value: p.Value, quality: 192, start: p.Start.Time}}
 			if p.End != nil {
 				pv.end = p.End.Time
 			}

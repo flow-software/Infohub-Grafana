@@ -3,7 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
-	"math"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -213,13 +213,38 @@ func limitMeta(name, comparator string, high, target, low any) map[string]any {
 	}}}}
 }
 
-func TestMeasureLimitsAsThresholds(t *testing.T) {
+// limitLines lists a frame's limit line fields as "name=v1,v2,..." with
+// "-" for no value.
+func limitLines(fr *data.Frame) map[string]string {
+	out := map[string]string{}
+	for _, f := range fr.Fields[2:] {
+		if f.Type() != data.FieldTypeNullableFloat64 {
+			continue
+		}
+		var vals []string
+		for i := 0; i < f.Len(); i++ {
+			if v := f.At(i).(*float64); v != nil {
+				vals = append(vals, strconv.FormatFloat(*v, 'f', -1, 64))
+			} else {
+				vals = append(vals, "-")
+			}
+		}
+		out[f.Name] = strings.Join(vals, ",")
+	}
+	return out
+}
+
+func TestMeasureLimitsAsLines(t *testing.T) {
 	f, srv := newFakeFlow(t)
 	f.handlers["/api/v1/model/measures"] = func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("metadata") == "true" {
 			writeJSON(w, 200, map[string]any{"measures": []map[string]any{{"id": 300, "metadata": []any{
 				limitMeta("Moonshot", "<", 3, 3, nil),
-				limitMeta("Site", "<", 5, 4, nil),
+				// Site changed on 6 October at 01:00: high 5 then 2.
+				map[string]any{"type": "Limit", "data": map[string]any{"Default": map[string]any{"Site": map[string]any{
+					"10/6/2026 1:00:00 AM": map[string]any{"comparator": "<", "high": 2, "target": 1},
+					"9/8/2025 4:00:00 AM":  map[string]any{"comparator": "<", "high": 5, "target": 4},
+				}}}},
 				map[string]any{"type": "Limit", "data": map[string]any{"Other calendar": map[string]any{"Shift": map[string]any{
 					"1/1/2026 12:00:00 AM": map[string]any{"comparator": "<", "high": 99},
 				}}}},
@@ -230,45 +255,36 @@ func TestMeasureLimitsAsThresholds(t *testing.T) {
 		writeJSON(w, 200, map[string]any{"measures": byIDs(modelMeasures, r)})
 	}
 	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 300, "data": []map[string]any{{"start": "2026-10-06T00:00:00Z", "value": 2}}}}})
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 300, "data": []map[string]any{
+			{"start": "2026-10-06T00:00:00Z", "end": "2026-10-06T01:00:00Z", "value": 2},
+			{"start": "2026-10-06T01:00:00Z", "end": "2026-10-06T02:00:00Z", "value": 4},
+		}}}})
 	}
 	d := testDatasource(srv)
 	resp := runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}, Limits: limitsLines})
-	value := resp.Frames[0].Fields[1]
-	th := value.Config.Thresholds
-	if th == nil {
-		t.Fatal("no thresholds")
+	fr := resp.Frames[0]
+	got := limitLines(fr)
+	// Site steps from 5 to 2 (target 4 to 1) at 01:00; the other calendar's
+	// limit is left out.
+	want := map[string]string{"Moonshot high": "3,3", "Moonshot target": "3,3", "Site high": "5,2", "Site target": "4,1", "Spec low": "1,1"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("lines = %v, want %v", got, want)
 	}
-	var steps []string
-	for _, s := range th.Steps {
-		v := float64(s.Value)
-		if math.IsInf(v, -1) {
-			steps = append(steps, "base="+s.Color)
-			continue
-		}
-		steps = append(steps, strconv.FormatFloat(v, 'f', -1, 64)+"="+s.Color)
+	field, _ := fr.FieldByName("Site high")
+	if field.Config.Custom["lineInterpolation"] != "stepAfter" || field.Config.Color["fixedColor"] != "red" {
+		t.Errorf("Site high config = %+v", field.Config)
 	}
-	// Bounds red, the Site target green, the other calendar's limit left
-	// out, and no base step of our own (see limitThresholds).
-	if got := strings.Join(steps, ","); got != "1=red,3=red,4=green,5=red" {
-		t.Errorf("steps = %s", got)
+	if fr.Fields[1].Config.Thresholds != nil {
+		t.Error("thresholds are no longer drawn")
 	}
-	if mode := value.Config.Custom["thresholdsStyle"].(map[string]any)["mode"]; mode != "dashed" {
-		t.Errorf("style = %v", mode)
-	}
-	if !strings.Contains(value.Config.Description, "Limits: Moonshot < 3; Site < 5, target 4; Spec low 1") {
-		t.Errorf("description = %q", value.Config.Description)
+	if !strings.Contains(fr.Fields[1].Config.Description, "Limits: Moonshot < 3; Site < 2, target 1; Spec low 1") {
+		t.Errorf("description = %q", fr.Fields[1].Config.Description)
 	}
 
-	// Picking limits draws only those.
-	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}, Limits: limitsLines, LimitNames: []string{"site"}})
-	value = resp.Frames[0].Fields[1]
-	var picked []string
-	for _, s := range value.Config.Thresholds.Steps {
-		picked = append(picked, strconv.FormatFloat(float64(s.Value), 'f', -1, 64)+"="+s.Color)
-	}
-	if got := strings.Join(picked, ","); got != "4=green,5=red" || !strings.HasSuffix(value.Config.Description, "Limits: Site < 5, target 4") {
-		t.Errorf("Site only: steps %s, description %q", got, value.Config.Description)
+	// Values placed at the period end still take the limit by period start.
+	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}, Limits: limitsLines, LimitNames: []string{"site"}, TimeAt: "end"})
+	if got := limitLines(resp.Frames[0]); fmt.Sprint(got) != fmt.Sprint(map[string]string{"Site high": "5,2", "Site target": "4,1"}) {
+		t.Errorf("Site at period end = %v", got)
 	}
 
 	// The editor's list: the limit names in the query's calendar.
@@ -277,15 +293,15 @@ func TestMeasureLimitsAsThresholds(t *testing.T) {
 		t.Errorf("limit names = %v, %v", names, err)
 	}
 	// The same names as a Limits variable.
-	got := runVar(t, d, queryModel{VariableKind: varLimits, Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}})
-	if strings.Join(got, ",") != "Moonshot=Moonshot,Site=Site,Spec=Spec" {
-		t.Errorf("limits variable = %v", got)
+	vars := runVar(t, d, queryModel{VariableKind: varLimits, Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}})
+	if strings.Join(vars, ",") != "Moonshot=Moonshot,Site=Site,Spec=Spec" {
+		t.Errorf("limits variable = %v", vars)
 	}
 
 	// Without the option, nothing is drawn.
 	resp = runQuery(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 300}}})
-	if resp.Frames[0].Fields[1].Config.Thresholds != nil {
-		t.Error("thresholds without the limits option")
+	if len(resp.Frames[0].Fields) != 2 {
+		t.Errorf("fields without the limits option = %d", len(resp.Frames[0].Fields))
 	}
 }
 

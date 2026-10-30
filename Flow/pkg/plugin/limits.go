@@ -14,7 +14,8 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
-// limitsLines draws each measure's limits as dashed threshold lines.
+// limitsLines draws each measure's limits as dashed lines that follow the
+// limit's dated settings.
 const limitsLines = "lines"
 
 // Threshold colours: a bound to stay within, and a target to aim for.
@@ -34,6 +35,15 @@ type measureLimit struct {
 	// FromMeasure lists the values that come from another measure; those
 	// change over time and are not drawn.
 	FromMeasure []string
+	// Steps are the limit's dated settings (Flow's limit instances), oldest
+	// first: each applies from its date until the next one.
+	Steps []limitStep
+}
+
+// limitStep is one dated setting of a limit, applying from From.
+type limitStep struct {
+	From  time.Time
+	Props limitProps
 }
 
 type limitProps struct {
@@ -91,6 +101,10 @@ func measureLimits(m flow.Measure, context string, anyContext bool) []measureLim
 			continue
 		}
 		l := measureLimit{Name: name, Comparator: p.Comparator, High: p.High, Target: p.Target, Low: p.Low}
+		for key, props := range dated {
+			l.Steps = append(l.Steps, limitStep{From: parseFlowDate(key), Props: props})
+		}
+		sort.Slice(l.Steps, func(i, j int) bool { return l.Steps[i].From.Before(l.Steps[j].From) })
 		if p.HighID != nil {
 			l.FromMeasure = append(l.FromMeasure, fmt.Sprintf("high from measure %d", *p.HighID))
 		}
@@ -165,44 +179,76 @@ func limitText(l measureLimit) string {
 
 func sameValue(a, b *float64) bool { return a != nil && b != nil && *a == *b }
 
-// limitThresholds turns limits into Grafana thresholds: a dashed line at
-// every constant bound (red) and target (green). A value that is both a
-// bound and a target is drawn as a bound.
-func limitThresholds(limits []measureLimit) *data.ThresholdsConfig {
-	colors := map[float64]string{}
-	set := func(v *float64, color string) {
-		if v == nil || math.IsNaN(*v) {
-			return
+// at is the setting that applies at t, as Flow picks it for a period: the
+// latest one dated on or before the period's start. Nil before the first.
+func (l measureLimit) at(t time.Time) *limitProps {
+	var found *limitProps
+	for i := range l.Steps {
+		if l.Steps[i].From.After(t) {
+			break
 		}
-		if colors[*v] != limitBoundColor {
-			colors[*v] = color
-		}
+		found = &l.Steps[i].Props
 	}
-	for _, l := range limits {
-		set(l.Target, limitTargetColor)
-		set(l.High, limitBoundColor)
-		set(l.Low, limitBoundColor)
-	}
-	if len(colors) == 0 {
-		return nil
-	}
-	values := make([]float64, 0, len(colors))
-	for v := range colors {
-		values = append(values, v)
-	}
-	sort.Float64s(values)
-	// No base step: JSON cannot carry its -Infinity, so it would arrive as
-	// null, and Grafana puts its own base in front and draws a null step as
-	// a line at 0. Grafana's base is not drawn.
-	steps := make([]data.Threshold, 0, len(values))
-	for _, v := range values {
-		steps = append(steps, data.Threshold{Value: data.ConfFloat64(v), Color: colors[v]})
-	}
-	return &data.ThresholdsConfig{Mode: data.ThresholdsModeAbsolute, Steps: steps}
+	return found
 }
 
-// applyLimits adds each measure's limits to its frame: threshold lines on
-// the value field, and the limits in its description. frames and series
+// limitLineFields draws a limit as dashed lines beside a series: one for
+// each of high, target and low that has a constant value in any of the
+// limit's settings. Each value is the setting in effect at the point's
+// period start, so a limit changed on 27 October steps there. Bounds are
+// red, the target green. Values that come from another measure are not
+// drawn (Flow does not send them).
+func limitLineFields(l measureLimit, points []point, value *data.Field, interpolation string) []*data.Field {
+	parts := []struct {
+		name  string
+		color string
+		get   func(limitProps) *float64
+	}{
+		{"high", limitBoundColor, func(p limitProps) *float64 { return p.High }},
+		{"target", limitTargetColor, func(p limitProps) *float64 { return p.Target }},
+		{"low", limitBoundColor, func(p limitProps) *float64 { return p.Low }},
+	}
+	var out []*data.Field
+	for _, part := range parts {
+		vals := make([]*float64, len(points))
+		drawn := false
+		for i, pt := range points {
+			at := pt.start
+			if at.IsZero() {
+				at = pt.t
+			}
+			if props := l.at(at); props != nil {
+				if v := part.get(*props); v != nil && !math.IsNaN(*v) {
+					vals[i] = v
+					drawn = true
+				}
+			}
+		}
+		if !drawn {
+			continue
+		}
+		label := l.Name + " " + part.name
+		f := data.NewField(label, value.Labels, vals)
+		f.Config = &data.FieldConfig{
+			DisplayNameFromDS: strings.TrimSpace(value.Config.DisplayNameFromDS + " · " + label),
+			Unit:              value.Config.Unit,
+			Color:             map[string]any{"mode": "fixed", "fixedColor": part.color},
+			Custom: map[string]any{
+				"lineInterpolation": interpolation,
+				"lineStyle":         map[string]any{"fill": "dash", "dash": []int{10, 10}},
+				"lineWidth":         2,
+				"showPoints":        "never",
+				"fillOpacity":       0,
+			},
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// applyLimits adds each measure's limits to its frame: a dashed line for
+// each limit value, following its dated settings, and the limits as they
+// apply now in the value's description. frames and series
 // are in the same order. It returns notices for what could not be drawn.
 func (d *Datasource) applyLimits(ctx context.Context, frames data.Frames, series []series, qm queryModel) []string {
 	if len(frames) != len(series) {
@@ -238,16 +284,30 @@ func (d *Datasource) applyLimits(ctx context.Context, frames data.Frames, series
 		if len(limits) == 0 {
 			continue
 		}
-		value := frames[i].Fields[1]
+		frame := frames[i]
+		value := frame.Fields[1]
 		if value.Config == nil {
 			value.Config = &data.FieldConfig{}
 		}
-		if t := limitThresholds(limits); t != nil {
-			value.Config.Thresholds = t
-			if value.Config.Custom == nil {
-				value.Config.Custom = map[string]any{}
-			}
-			value.Config.Custom["thresholdsStyle"] = map[string]any{"mode": "dashed"}
+		// A value at its period start holds until the next one; at the end
+		// it held since the one before; whole event periods are drawn as
+		// lines of their own.
+		interpolation := "stepAfter"
+		switch qm.TimeAt {
+		case "end":
+			interpolation = "stepBefore"
+		case "period":
+			interpolation = "linear"
+		}
+		added := false
+		for _, l := range limits {
+			fields := limitLineFields(l, s.points, value, interpolation)
+			frame.Fields = append(frame.Fields, fields...)
+			added = added || len(fields) > 0
+		}
+		if added && frame.Meta != nil {
+			// No longer a single value per time.
+			frame.Meta.Type, frame.Meta.TypeVersion = "", data.FrameTypeVersion{}
 		}
 		texts := make([]string, len(limits))
 		for j, l := range limits {

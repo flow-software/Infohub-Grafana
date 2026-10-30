@@ -325,6 +325,9 @@ type point struct {
 	value   *float64
 	text    *string
 	quality int
+	// start is the value's period start, when it is placed elsewhere (at
+	// the period end, or along an event period); limits apply by it.
+	start time.Time
 	// limit is the value's limit status as Flow flags it, when asked for:
 	// limitWithin, limitAbove or limitBelow.
 	limit string
@@ -605,6 +608,9 @@ func (d *Datasource) readPeriods(ctx context.Context, sel *selection, calendarID
 				continue
 			}
 			pt := point{t: t.Time, value: p.Value, quality: 192}
+			if p.Start != nil {
+				pt.start = p.Start.Time
+			}
 			if p.Detail != nil {
 				pt.quality = p.Detail.Quality.Value
 			}
