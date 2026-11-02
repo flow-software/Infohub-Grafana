@@ -397,7 +397,7 @@ func (d *Datasource) runDependencies(ctx context.Context, qm queryModel, q backe
 		notices = append(notices, "Could not read full measure names: "+err.Error())
 	}
 
-	opt := depGraphOptions{ownNames: qm.DepNames == depNamesMeasure, limits: qm.Limits == limitsLines}
+	opt := depGraphOptions{ownNames: qm.DepNames == depNamesMeasure}
 	frames := depNodeGraph(rows, names, values, treeOf, graphs, direction, opt)
 	if len(notices) > 0 {
 		frames[0].Meta.Notices = append(frames[0].Meta.Notices, noticesOf(notices)...)
@@ -640,7 +640,6 @@ var retrievalColors = map[string]string{
 
 // nodeKinds are the ring colours of the Node Graph, in legend order: the
 // retrieval type, or grey for events and measures Flow could not describe.
-// A value outside its limits fills the node red instead (highlighted).
 var nodeKinds = []struct{ key, label, color string }{
 	{"calculated", "Calculated", retrievalColors["calculated"]},
 	{"aggregated", "Aggregated", retrievalColors["aggregated"]},
@@ -652,15 +651,8 @@ var nodeKinds = []struct{ key, label, color string }{
 
 // depGraphOptions are the query's display choices for depNodeGraph.
 type depGraphOptions struct {
-	ownNames, limits bool
+	ownNames bool
 }
-
-// The legend entry explaining the red fill Grafana draws inside a
-// highlighted node (an out-of-limit value).
-const (
-	redFillLegend = "Red fill = outside limits"
-	redFillColor  = "#AA0000"
-)
 
 // depSource describes where a measure's values come from: its connection,
 // or the Flow tag it reads, named like its node.
@@ -685,13 +677,11 @@ func depSource(info depInfo, tree flow.Tree, names map[string]depName) string {
 // how the measure is built as its subtitle; the rest (path, formula, source,
 // who entered it) is in the menu a click on the node opens.
 func depNodeGraph(rows []depRow, names map[string]depName, values map[string]depValue, treeOf map[string]flow.Tree, graphs map[flow.Tree]*depGraph, direction string, opt depGraphOptions) data.Frames {
-	ownNames, limits := opt.ownNames, opt.limits
+	ownNames := opt.ownNames
 	type node struct {
 		id, title, subtitle, mainstat, kind, measureID             string
 		path, calculation, aggregation, source, enteredBy, valueAt string
-		limits, note, version                                      string
-		retrieval                                                  string
-		outside                                                    bool
+		note, version, retrieval                                   string
 	}
 	var nodes []node
 	seen := map[string]int{} // node key -> index in nodes
@@ -733,9 +723,6 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 					n.valueAt = v.when()
 					if strings.EqualFold(m.Retrieval, "manual") {
 						n.enteredBy = v.enteredBy()
-					}
-					if v.Outside != "" {
-						n.outside, n.limits = true, "Outside: "+v.Outside
 					}
 					n.version = v.Version
 				} else if ok {
@@ -798,17 +785,8 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		detail("enteredBy", "Entered by", func(n node) string { return n.enteredBy }),
 		detail("valueTime", "Period", func(n node) string { return n.valueAt }),
 		detail("version", "Version", func(n node) string { return n.version }),
-		detail("limits", "Limits", func(n node) string { return n.limits }),
 		detail("note", "Note", func(n node) string { return n.note }),
 	)
-	// A value outside its limits fills the node: Grafana draws a highlighted
-	// node dark red inside, so the ring can still show the retrieval type.
-	highlighted := make([]bool, len(nodes))
-	for i, n := range nodes {
-		highlighted[i] = n.outside
-	}
-	nodeFrame.Fields = append(nodeFrame.Fields, data.NewField("highlighted", nil, highlighted))
-
 	// The ring colour comes from arc fields rather than one colour field:
 	// the panel then lists them as its legend. Only the kinds in this graph
 	// get a field, so the legend stays short.
@@ -829,13 +807,6 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		}
 		f := data.NewField("arc__"+k.key, nil, vals)
 		f.Config = &data.FieldConfig{DisplayName: k.label, Color: map[string]any{"mode": "fixed", "fixedColor": k.color}}
-		nodeFrame.Fields = append(nodeFrame.Fields, f)
-	}
-	if limits {
-		// An arc of zero on every node: no ring section, only a legend
-		// entry that explains the red fill.
-		f := data.NewField("arc__redfill", nil, make([]float64, len(nodes)))
-		f.Config = &data.FieldConfig{DisplayName: redFillLegend, Color: map[string]any{"mode": "fixed", "fixedColor": redFillColor}}
 		nodeFrame.Fields = append(nodeFrame.Fields, f)
 	}
 	nodeFrame.Meta = &data.FrameMeta{PreferredVisualization: data.VisTypeNodeGraph}

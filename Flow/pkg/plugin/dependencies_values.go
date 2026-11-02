@@ -32,9 +32,6 @@ type depValue struct {
 	LastEntry *depEntry
 	// Note says why a measure has no value, e.g. it is not in the calendar.
 	Note string
-	// Outside describes the limits the value breaks, as Flow flags them,
-	// e.g. "above high limit 5"; empty when it is within its limits.
-	Outside string
 	// Version describes the value's version, e.g. "v15 · Manual · Charl,
 	// 2026-10-19 10:26 UTC".
 	Version string
@@ -61,26 +58,6 @@ func versionText(p point) string {
 		text += " · " + strings.Join(when, ", ")
 	}
 	return text
-}
-
-// outsideText describes the limits a value breaks.
-func outsideText(limits []flow.ValueLimit) string {
-	num := func(v *float64) string {
-		if v == nil {
-			return ""
-		}
-		return " " + strconv.FormatFloat(*v, 'f', -1, 64)
-	}
-	var parts []string
-	for _, l := range limits {
-		switch {
-		case l.Exception.High:
-			parts = append(parts, "above high limit"+num(l.Values.High))
-		case l.Exception.Low:
-			parts = append(parts, "below low limit"+num(l.Values.Low))
-		}
-	}
-	return strings.Join(parts, "; ")
 }
 
 type depEntry struct {
@@ -179,14 +156,9 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 			periodIDs = inCalendar
 		}
 		if err == nil && len(periodIDs) > 0 {
-			res, evalNotice, err := d.measureData(ctx, flow.MeasureDataRequest{
+			res, err := d.client.MeasureData(ctx, flow.MeasureDataRequest{
 				IDs: periodIDs, CalendarID: calendarID, From: tr.From, To: tr.To, Limit: periodLimit, Users: true,
-				// Limit exceptions only when the query shows limits.
-				Exceptions: qm.Limits == limitsLines,
 			})
-			if evalNotice != "" {
-				notices = append(notices, evalNotice)
-			}
 			switch {
 			case flow.IsNoData(err):
 			case err != nil:
@@ -222,12 +194,6 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 							key := depKey(flow.TreeModel, "measure", s.ID)
 							v := values[key]
 							v.Version = text
-							values[key] = v
-						}
-						if out := outsideText(best.Limits); out != "" && qm.Limits == limitsLines {
-							key := depKey(flow.TreeModel, "measure", s.ID)
-							v := values[key]
-							v.Outside = out
 							values[key] = v
 						}
 						if entered != nil && entered != best {

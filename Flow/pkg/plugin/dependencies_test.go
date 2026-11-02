@@ -468,25 +468,22 @@ func TestDependenciesCalendar(t *testing.T) {
 }
 
 // Circles are coloured through arc fields, one per kind in the graph, so
-// the panel shows them as its legend; a latest value outside its limits
-// turns its node red, and its click menu says which limit.
-func TestNodeGraphArcsAndLimits(t *testing.T) {
+// the panel shows them as its legend. Limits are not evaluated: no
+// exceptions are asked for, and no node is filled red.
+func TestNodeGraphArcs(t *testing.T) {
 	fake, d := depServer(t)
-	// Limits are off by default: no exceptions asked for, no red node.
-	frames := runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}})
-	if got, _ := frames[0].FieldByName("arc__outside"); got != nil {
-		t.Error("outside-limits node without Show limits")
-	}
+	frames := runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, Limits: limitsLines})
 	for _, r := range fake.requests {
 		if strings.Contains(r, "exceptions=true") {
-			t.Errorf("exceptions asked for without Show limits: %s", r)
+			t.Errorf("exceptions asked for: %s", r)
 		}
 	}
-
-	frames = runDeps(t, d, queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, Limits: limitsLines})
 	nodes := frames[0]
 	if f, _ := nodes.FieldByName("color"); f != nil {
 		t.Error("color field still sent; arcs replace it")
+	}
+	if f, _ := nodes.FieldByName("highlighted"); f != nil {
+		t.Error("highlighted (red fill) sent")
 	}
 	arc := func(kind string) map[string]float64 {
 		f, _ := nodes.FieldByName("arc__" + kind)
@@ -500,31 +497,18 @@ func TestNodeGraphArcsAndLimits(t *testing.T) {
 		}
 		return out
 	}
-	// The ring keeps the retrieval type; outside its limit, the node is
-	// filled red (highlighted) instead.
 	if arc("calculated")[m10] != 1 || arc("aggregated")[m11] != 1 || arc("manual")[m12] != 1 || arc("retrieved")[m13] != 1 {
 		t.Errorf("rings: calculated %v aggregated %v manual %v retrieved %v", arc("calculated"), arc("aggregated"), arc("manual"), arc("retrieved"))
-	}
-	if f, _ := nodes.FieldByName("arc__outside"); f != nil {
-		t.Error("outside is a fill now, not a ring colour")
-	}
-	if got := column(t, nodes, "highlighted"); strings.Join(got, ",") != "true,false,false,false" {
-		t.Errorf("highlighted = %v", got)
 	}
 	// Only kinds in the graph get a field (a legend entry).
 	if f, _ := nodes.FieldByName("arc__replicated"); f != nil {
 		t.Error("replicated arc without a replicated node")
 	}
-	// The legend explains the red fill with an empty arc.
-	if f, _ := nodes.FieldByName("arc__redfill"); f == nil || f.Config.DisplayName != redFillLegend || f.At(0).(float64) != 0 {
-		t.Errorf("red fill legend = %+v", f)
+	if f, _ := nodes.FieldByName("arc__redfill"); f != nil {
+		t.Error("red fill legend sent")
 	}
 	f, _ := nodes.FieldByName("arc__calculated")
 	if f.Config.DisplayName != "Calculated" || f.Config.Color["fixedColor"] != "#5794F2" {
 		t.Errorf("calculated arc config = %+v", f.Config)
 	}
-	if got := nodeCol(t, frames, "detail__limits")[m10]; got != "Outside: above high limit 80" {
-		t.Errorf("limits detail = %q", got)
-	}
-
 }

@@ -292,6 +292,20 @@ function MeasuresQueryEditor({
     onRunQuery();
   };
 
+  // A new query places period values at the period end. Grafana does not
+  // always start a new panel's first query from getDefaultQuery, so a query
+  // that is still empty (nothing picked, no variable) gets it here. Saved
+  // queries without timeAt always have measures or a variable, and keep
+  // meaning the period start.
+  const fresh = !ofChart && query.timeAt === undefined && !query.items?.length && !query.measureVariable;
+  useEffect(() => {
+    if (fresh) {
+      onChange({ ...query, timeAt: 'end' });
+    }
+    // Only when the query is (still) fresh; query and onChange change with every edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fresh]);
+
   return (
     <>
       {!ofChart && (
@@ -954,21 +968,6 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
           tooltip="Period measures show their latest value in this calendar. Only the calendars the picked measures have as context in Flow are listed; an input measure without it shows a dash (click it for why). Tags do not use a calendar."
         />
       )}
-      {query.depValues !== 'none' && (
-        <InlineField
-          label="Limits"
-          labelWidth={LABEL_WIDTH}
-          tooltip="Show limit evaluation: turn a node red when Flow evaluates its latest value as outside its limits in this calendar; click the node for the limit it breaks. Off, nodes keep their retrieval type colour."
-        >
-          <InlineSwitch
-            id="query-editor-dep-limits"
-            label="Show limit evaluation"
-            showLabel
-            value={query.limits === 'lines'}
-            onChange={(e) => update({ limits: e.currentTarget.checked ? 'lines' : undefined })}
-          />
-        </InlineField>
-      )}
       <InlineField
         label="Names"
         labelWidth={LABEL_WIDTH}
@@ -1040,7 +1039,7 @@ function LimitsField({
     <InlineField
       label="Limits"
       labelWidth={LABEL_WIDTH}
-      tooltip="Show limit values: draws the limits' values as dashed lines beside each series (e.g. Site high, Site target), bounds red and targets green. A limit changed over time steps where its new setting starts, as Flow applies it to each period. Only the limits of the query's calendar (or event) are offered; pick which to draw, or none for all. A value taken from another measure is drawn from that measure's value for the same period. Show limit evaluation: adds a Limit evaluation field with Flow's verdict on each period value against all the measure's limits: Within limits (green), Above high limit or Below low limit (red). Flow does the comparison, not Grafana. Colour a bar chart by it with Color by field, or see it as coloured cells in a table. Flow does not evaluate tags."
+      tooltip="Show limit values: draws the limits' values as dashed lines beside each series (e.g. Site high, Site target), bounds red and targets green. A limit changed over time steps where its new setting starts, as Flow applies it to each period. Only the limits of the query's calendar (or event) are offered; pick which to draw, or none for all. A value taken from another measure is drawn from that measure's value for the same period."
     >
       <Stack gap={1} wrap="wrap" alignItems="center">
         <InlineSwitch
@@ -1065,13 +1064,6 @@ function LimitsField({
             onChange={(opts) => update({ limitNames: opts.length ? opts.map((o) => o.value) : undefined })}
           />
         )}
-        <InlineSwitch
-          id="query-editor-limit-status"
-          label="Show limit evaluation"
-          showLabel
-          value={!!query.limitStatus}
-          onChange={(e) => update({ limitStatus: e.currentTarget.checked || undefined })}
-        />
       </Stack>
     </InlineField>
   );

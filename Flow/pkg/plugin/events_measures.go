@@ -30,13 +30,9 @@ func (d *Datasource) readEventPeriods(ctx context.Context, sel *selection, qm qu
 	if qm.EventID == 0 {
 		return nil, append(notices, "Pick an event to read the measures in."), nil
 	}
-	res, evalNotice, err := d.measureData(ctx, flow.MeasureDataRequest{
+	res, err := d.client.MeasureData(ctx, flow.MeasureDataRequest{
 		IDs: sel.periodIDs, EventID: qm.EventID, From: tr.From, To: tr.To, Limit: periodLimit, Users: qm.IncludeVersion,
-		Exceptions: qm.LimitStatus,
 	})
-	if evalNotice != "" {
-		notices = append(notices, evalNotice)
-	}
 	if flow.IsNoData(err) || (err == nil && res == nil) {
 		return nil, notices, nil
 	}
@@ -111,9 +107,6 @@ func (d *Datasource) readEventPeriods(ctx context.Context, sel *selection, qm qu
 			withVersion(&pv.pt, p)
 			if p.Detail != nil {
 				pv.pt.quality = p.Detail.Quality.Value
-			}
-			if qm.LimitStatus && evalNotice == "" {
-				pv.pt.limit = limitStatus(p)
 			}
 			g.periods = append(g.periods, pv)
 		}

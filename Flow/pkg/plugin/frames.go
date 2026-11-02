@@ -70,10 +70,6 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 	if qm.IncludeQuality {
 		frame.Fields = append(frame.Fields, data.NewField("Quality", labels, qualities))
 	}
-	withStatus := qm.LimitStatus && !s.tag && !text && hasLimitStatus(s.points)
-	if withStatus {
-		frame.Fields = append(frame.Fields, limitStatusField(s.points, labels))
-	}
 	if withVersions {
 		// Text, so a time series panel does not draw the version numbers as
 		// a series of their own; tables show them as they are.
@@ -95,50 +91,12 @@ func buildFrame(s series, info seriesInfo, qm queryModel) *data.Frame {
 			detail(data.NewField("Entered by", labels, users)),
 		)
 	}
-	if !qm.IncludeQuality && !withVersions && !text && !withStatus {
+	if !qm.IncludeQuality && !withVersions && !text {
 		// A time field plus one numeric field is the multi-frame time series
 		// shape that alerting and server-side expressions expect.
 		frame.Meta = &data.FrameMeta{Type: data.FrameTypeTimeSeriesMulti, TypeVersion: data.FrameTypeVersion{0, 1}}
 	}
 	return frame
-}
-
-// hasLimitStatus reports whether Flow evaluated any of the values.
-func hasLimitStatus(points []point) bool {
-	for _, p := range points {
-		if p.limit != "" {
-			return true
-		}
-	}
-	return false
-}
-
-// limitStatusField holds each value's limit status as Flow flags it, as
-// text (so a time series panel does not draw it), coloured green within
-// and red outside the limits. A bar chart colours its bars by it with
-// Color by field, a table colours the cells, and a state timeline draws it.
-func limitStatusField(points []point, labels data.Labels) *data.Field {
-	vals := make([]*string, len(points))
-	for i, p := range points {
-		if p.limit != "" {
-			v := p.limit
-			vals[i] = &v
-		}
-	}
-	f := data.NewField("Limit evaluation", labels, vals)
-	color := func(status, c string, index int) data.ValueMapping {
-		return data.ValueMapper{status: {Color: c, Index: index}}
-	}
-	f.Config = &data.FieldConfig{
-		DisplayNameFromDS: "Limit evaluation",
-		Mappings: data.ValueMappings{
-			color(limitWithin, limitTargetColor, 0),
-			color(limitAbove, limitBoundColor, 1),
-			color(limitBelow, limitBoundColor, 2),
-		},
-		Custom: map[string]any{"cellOptions": map[string]any{"type": "color-background"}},
-	}
-	return f
 }
 
 // seriesLabels identify a series to alerting and to legend {{label}} syntax.

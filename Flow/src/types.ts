@@ -107,8 +107,6 @@ export interface FlowQuery extends DataQuery {
   limits?: 'lines';
   /** Which limits to draw, by name (e.g. Site); none draws them all. */
   limitNames?: string[];
-  /** Adds each period value's limit status as Flow flags it (a Limits field). */
-  limitStatus?: boolean;
   /** Annotation queries on measures: "comments" shows their value comments. */
   annotate?: 'comments';
 

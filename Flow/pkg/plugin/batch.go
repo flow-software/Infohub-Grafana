@@ -98,7 +98,7 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 			return backend.DataResponse{}, err
 		}
 		gm := base
-		gm.Limits, gm.LimitStatus = "", false
+		gm.Limits = ""
 		qg := q
 		qg.TimeRange = backend.TimeRange{From: golden.start, To: golden.end}
 		gresp, err := d.run(ctx, gm, qg)
