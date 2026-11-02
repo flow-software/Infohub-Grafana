@@ -85,8 +85,10 @@ type queryModel struct {
 	// first value subtracted), for counters such as energy totals.
 	BatchValues string `json:"batchValues"`
 	// BatchAxis "clock" keeps the batch at its real times, with the golden
-	// run moved onto the batch's start, for a Time series panel; unset puts
-	// every run on seconds since its start (Elapsed), for the Trend panel.
+	// run moved onto the batch's start, for a Time series panel; "percent"
+	// puts every run on its own 0-100 % (batches of different lengths line
+	// up by phase); unset puts every run on seconds since its start
+	// (Elapsed). Percent and unset are for the Trend panel.
 	BatchAxis string `json:"batchAxis"`
 	// PeriodLabel names the event attribute that labels each period in an
 	// event periods variable, e.g. Batch ID.

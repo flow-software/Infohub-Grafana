@@ -276,3 +276,51 @@ func TestBatchClockAxis(t *testing.T) {
 		t.Errorf("zoom link = %+v", links)
 	}
 }
+
+// On the % axis each run is scaled to its own length: a 2-hour batch and a
+// 1-hour golden batch meet at 50 % halfway through both.
+func TestBatchPercentAxis(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		start := r.URL.Query().Get("start")
+		if strings.HasPrefix(start, "2026-10-06") { // the batch: 2 hours
+			writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 300, "data": []map[string]any{
+				{"start": "2026-10-06T00:00:00Z", "value": 1}, {"start": "2026-10-06T01:00:00Z", "value": 2},
+			}}}})
+			return
+		}
+		// The golden batch: 1 hour, a value every half hour.
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 300, "data": []map[string]any{
+			{"start": "2026-10-01T10:00:00Z", "value": 5}, {"start": "2026-10-01T10:30:00Z", "value": 6},
+		}}}})
+	}
+	d := testDatasource(srv)
+	ms := func(day, h, m int) int64 { return time.Date(2026, 10, day, h, m, 0, 0, time.UTC).UnixMilli() }
+	qm := queryModel{
+		Items:     []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 300}},
+		Batch:     fmt.Sprintf("2:%d:%d", ms(6, 0, 0), ms(6, 2, 0)),
+		Golden:    fmt.Sprintf("2:%d:%d", ms(1, 10, 0), ms(1, 11, 0)),
+		BatchAxis: batchAxisPercent,
+	}
+	b, _ := json.Marshal(qm)
+	resp := d.query(context.Background(), backend.DataQuery{RefID: "A", JSON: b})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	fr := resp.Frames[0]
+	var xs []string
+	for i := 0; i < fr.Rows(); i++ {
+		xs = append(xs, fmt.Sprint(fr.Fields[0].At(i)))
+	}
+	// Batch at 0 and 50 % (0 h, 1 h of 2 h); golden at 0 and 50 % (0, 30 min of 1 h).
+	if got := strings.Join(xs, ","); got != "0,50" {
+		t.Errorf("x = %s, want both runs at 0 and 50 %%", got)
+	}
+	if fr.Fields[0].Config.Unit != "percent" {
+		t.Errorf("x unit = %q", fr.Fields[0].Config.Unit)
+	}
+	// At 50 %: batch 2, golden 6.
+	if b, g := *fr.Fields[1].At(1).(*float64), *fr.Fields[2].At(1).(*float64); b != 2 || g != 6 {
+		t.Errorf("at 50 %%: batch %v, golden %v", b, g)
+	}
+}

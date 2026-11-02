@@ -76,7 +76,7 @@ export interface FlowQuery extends DataQuery {
   /** "change": each run's change since its start, for counters (energy, flow totals). */
   batchValues?: 'change';
   /** "clock": real times for a Time series panel; unset: time since batch start, for the Trend panel. */
-  batchAxis?: 'clock';
+  batchAxis?: 'clock' | 'percent';
   /** Event attributes the table returns as numbers (may be variables); others stay text. */
   eventNumbers?: string[];
 

@@ -19,8 +19,31 @@ const (
 	bandPercent  = "percent"
 )
 
-// batchAxisClock keeps real times (a Time series panel).
-const batchAxisClock = "clock"
+// batchAxisClock keeps real times (a Time series panel); batchAxisPercent
+// puts each run on its own 0-100 %.
+const (
+	batchAxisClock   = "clock"
+	batchAxisPercent = "percent"
+)
+
+// toPercent turns each frame's Elapsed seconds into a percentage of the
+// run's length, so runs of different lengths line up by phase: halfway
+// through a 6-hour and a 9-hour batch are both 50 %.
+func toPercent(frames data.Frames, length time.Duration) {
+	if length <= 0 {
+		return
+	}
+	for _, f := range frames {
+		if len(f.Fields) == 0 || f.Fields[0].Name != elapsedField {
+			continue
+		}
+		x := f.Fields[0]
+		for i := 0; i < x.Len(); i++ {
+			x.Set(i, x.At(i).(float64)/length.Seconds()*100)
+		}
+		x.Config = &data.FieldConfig{DisplayNameFromDS: "% of batch", Unit: "percent"}
+	}
+}
 
 // clockFrames turns Elapsed back into times from the batch's start: the
 // batch at its real times, and a golden run as if it had started with the
@@ -201,7 +224,8 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 			setColor(f.Fields[1], c)
 		}
 	}
-	if batch.running {
+	batchFrames := len(frames)
+	if batch.running && qm.BatchAxis != batchAxisPercent {
 		notices = append(notices, "The batch is still running: it is shown up to now.")
 	}
 
@@ -209,6 +233,7 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 	// batch's start: how far the clock axis's golden line reaches.
 	goldenEnd := batch.end
 	var goldenStarts []time.Time
+	var goldenLengths []time.Duration
 	if goldenValues := splitBatches(qm.Golden); len(goldenValues) > 0 {
 		gm := base
 		gm.Limits = ""
@@ -221,6 +246,7 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 			}
 			goldenEnd = maxTime(goldenEnd, batch.start.Add(golden.end.Sub(golden.start)))
 			goldenStarts = append(goldenStarts, golden.start)
+			goldenLengths = append(goldenLengths, golden.end.Sub(golden.start))
 			qg := q
 			qg.TimeRange = backend.TimeRange{From: golden.start, To: golden.end}
 			gresp, err := d.run(ctx, gm, qg)
@@ -236,6 +262,10 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 			read := elapsedFrames(gresp.Frames, golden.start)
 			if qm.BatchValues == batchValuesChange {
 				sinceStart(read)
+			}
+			if qm.BatchAxis == batchAxisPercent {
+				// Each golden run on its own 0-100 %, before any envelope.
+				toPercent(read, golden.end.Sub(golden.start))
 			}
 			reads = append(reads, read)
 		}
@@ -253,6 +283,34 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 				points = 1000
 			}
 			frames = append(frames, envelopeFrames(reads, qm, colors, points)...)
+		}
+	}
+
+	if qm.BatchAxis == batchAxisPercent {
+		// The batch on its own 0-100 %. A running batch has no length yet:
+		// its 100 % is the golden batch's length (their average for several).
+		length := batch.end.Sub(batch.start)
+		if batch.running {
+			if len(goldenLengths) > 0 {
+				var sum time.Duration
+				for _, l := range goldenLengths {
+					sum += l
+				}
+				length = sum / time.Duration(len(goldenLengths))
+				notices = append(notices, fmt.Sprintf("The batch is still running: its 100 %% is the golden batch's length (%s), so it shows how far along it is if it runs as long.", hoursMinutes(length)))
+			} else {
+				notices = append(notices, "The batch is still running: its 100 % is now.")
+			}
+		}
+		toPercent(frames[:batchFrames], length)
+		if !batch.running {
+			// Every run ends at 100 %: the axis need not run past it. A
+			// running batch may outlast the golden length, so it stays open.
+			for _, f := range frames {
+				if len(f.Fields) > 0 && f.Fields[0].Name == elapsedField && f.Fields[0].Config != nil {
+					f.Fields[0].Config.Min, f.Fields[0].Config.Max = ptrConf(0), ptrConf(100)
+				}
+			}
 		}
 	}
 
@@ -603,4 +661,9 @@ func joinOnElapsed(frames data.Frames) *data.Frame {
 		}
 	}
 	return out
+}
+
+func ptrConf(v float64) *data.ConfFloat64 {
+	c := data.ConfFloat64(v)
+	return &c
 }

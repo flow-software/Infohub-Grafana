@@ -1127,15 +1127,16 @@ function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Part
         <InlineField
           label="Time axis"
           labelWidth={LABEL_WIDTH}
-          tooltip="Since batch start: every run from 0 s, to compare batches from different days side by side; use the Trend panel. Clock time: the batch at its real times, with the golden run laid from the batch's start (and past now while the batch runs, to show where it should be heading); use the Time series panel. Its series offer a Zoom to this batch link that sets the time range to the batch."
+          tooltip="Since batch start: every run from 0 s, to compare batches from different days side by side; use the Trend panel. % of batch: every run from 0 to 100 % of its own length, so batches of different lengths line up by phase (halfway is 50 % in both); a running batch's 100 % is the golden batch's length; use the Trend panel. Clock time: the batch at its real times, with the golden run laid from the batch's start (and past now while the batch runs, to show where it should be heading); use the Time series panel. Its series offer a Zoom to this batch link that sets the time range to the batch."
         >
-          <RadioButtonGroup<'elapsed' | 'clock'>
+          <RadioButtonGroup<'elapsed' | 'percent' | 'clock'>
             options={[
               { label: 'Since batch start', value: 'elapsed' },
+              { label: '% of batch', value: 'percent' },
               { label: 'Clock time', value: 'clock' },
             ]}
-            value={query.batchAxis === 'clock' ? 'clock' : 'elapsed'}
-            onChange={(v) => update({ batchAxis: v === 'clock' ? 'clock' : undefined })}
+            value={query.batchAxis ?? 'elapsed'}
+            onChange={(v) => update({ batchAxis: v === 'elapsed' ? undefined : v })}
           />
         </InlineField>
       )}
