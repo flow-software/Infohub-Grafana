@@ -8,12 +8,12 @@ Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in
 2. Add an **Infohub** data source: enter the Flow Bootstrap host and the Flow instance ID, and a server token (see [Configuration](#configuration)), then select **Save & test**.
 3. Open the data source's **Dashboards** tab and import the example dashboards. They pick measures, events and charts from dropdowns, so they work on any Flow model. Open any of their panels to see how its query is set up.
 
-| Dashboard                          | What it shows                                                                                                                           |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **Infohub: measure explorer**      | Pick any measure: its trend with a limit (pick more to compare) and comments, its latest value, what it is built from and what uses it. |
-| **Infohub: measures by attribute** | Pick a model attribute and its values (e.g. _Line_ = _Line 1_): the trend and latest values of every measure that carries them.         |
-| **Infohub: event analysis**        | Pick an event: its periods as a table and a timeline, and measures read per event period.                                               |
-| **Infohub: chart viewer**          | Pick a time-based Flow chart: it is shown as Flow lays it out, with limit colours and comments.                                         |
+| Dashboard                          | What it shows                                                                                                                             |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Infohub: measure explorer**      | Pick any measure: its trend with a limit (pick more to compare) and comments, its latest value, what it is built from and what uses it.   |
+| **Infohub: measures by attribute** | Pick a model attribute and its values (e.g. _Line_ = _Line 1_): the trend and latest values of every measure that carries them.           |
+| **Infohub: event analysis**        | Pick an event: its periods as a table and a timeline, and measures read per event period.                                                 |
+| **Infohub: golden batch**          | Pick an event, a batch and golden batches: each measure's trend from batch start against the golden ones, and what was recorded for each. |
 
 ## What you can do
 
@@ -136,7 +136,7 @@ Add a _Query_ variable with this data source. **List** picks what it is about, a
 |                      | _Values of an event attribute_ | Pick the **Event** (or give an **Event variable** such as `$event`, so the list follows it), then its **Attribute** from the list: the values seen in the last 90 days, e.g. every _Product_ (of every event created from it, for a template event)                                                                                                                                                | An event query's **Attribute** values                                                                           |
 |                      | _Periods (batches)_            | Each run of the event in the dashboard's time range, newest first: its start time (in the dashboard's time zone), with a **Label** attribute in front if picked (e.g. _Batch ID_ or _Product_). **Where** keeps only periods with some attribute values (e.g. _Product_ = `$product`, or a _Golden batch_ attribute = _Yes_). The value is `<event id>:<start ms>:<end ms>` (no end while running) | A batch picker, e.g. `$batch` and a golden-batch reference `$golden`; set **Refresh** to _On time range change_ |
 
-Chart variables made before 1.9.0, such as the Chart viewer dashboard's `$chart`, keep working and keep their **Charts** tab; new ones are not offered, since a chart query's **Choose chart** covers it.
+Chart variables made before 1.9.0 keep working and keep their **Charts** tab; new ones are not offered, since a chart query's **Choose chart** covers it.
 
 _Measures_ and _Values of an attribute_ can be narrowed with **Where** (a model attribute and values), which can use other variables, so lists can follow each other: a _Line_ variable, then the measures where _Line_ = `$line`. The attribute can be a variable too: with an _Attribute names_ variable `$attribute` and a _Values of an attribute_ variable `$value` of `$attribute`, the measures where `$attribute` = `$value` let people pick both. Model attributes are read for the whole model in one call and kept for five minutes.
 

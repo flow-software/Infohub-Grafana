@@ -26,7 +26,7 @@ const groupOf: Record<VariableKind, Group> = {
 };
 
 // Charts are not offered for new variables; an existing chart variable
-// (such as the Chart viewer dashboard's) still shows its tab.
+// still shows its tab.
 const groupOptions: Array<{ label: string; value: Group }> = [
   { label: 'Measures', value: 'measures' },
   { label: 'Model attributes', value: 'attributes' },

@@ -37,7 +37,6 @@
     { "type": "dashboard", "name": "Infohub: measure explorer", "path": "dashboards/measure-explorer.json" },
     { "type": "dashboard", "name": "Infohub: measures by attribute", "path": "dashboards/attribute-overview.json" },
     { "type": "dashboard", "name": "Infohub: event analysis", "path": "dashboards/event-analysis.json" },
-    { "type": "dashboard", "name": "Infohub: chart viewer", "path": "dashboards/chart-viewer.json" },
     { "type": "dashboard", "name": "Infohub: golden batch", "path": "dashboards/golden-batch.json" }
   ],
   "dependencies": {
