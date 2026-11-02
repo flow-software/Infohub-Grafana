@@ -1125,6 +1125,22 @@ function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Part
       </InlineField>
       {on && (
         <InlineField
+          label="Time axis"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Since batch start: every run from 0 s, to compare batches from different days side by side; use the Trend panel. Clock time: the batch at its real times, with the golden run laid from the batch's start (and past now while the batch runs, to show where it should be heading); use the Time series panel. Its series offer a Zoom to this batch link that sets the time range to the batch."
+        >
+          <RadioButtonGroup<'elapsed' | 'clock'>
+            options={[
+              { label: 'Since batch start', value: 'elapsed' },
+              { label: 'Clock time', value: 'clock' },
+            ]}
+            value={query.batchAxis === 'clock' ? 'clock' : 'elapsed'}
+            onChange={(v) => update({ batchAxis: v === 'clock' ? 'clock' : undefined })}
+          />
+        </InlineField>
+      )}
+      {on && (
+        <InlineField
           label="Values"
           labelWidth={LABEL_WIDTH}
           tooltip="As measured: the values as they are, for temperatures, pressures, levels. Change since start: each run's first value is subtracted, so every run starts at 0 and shows what it added. Use it for counters (energy, flow or production totals), whose raw reading only shows where the counter happened to be, so a batch can be compared with the golden one: lower at the end used less."

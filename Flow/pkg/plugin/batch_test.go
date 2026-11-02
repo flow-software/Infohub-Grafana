@@ -224,3 +224,55 @@ func TestBatchChangeSinceStart(t *testing.T) {
 		t.Errorf("rows = %s, want both runs from 0: batch +30, golden +20", got)
 	}
 }
+
+// On the clock axis the batch keeps its real times and the golden run is
+// laid from the batch's start, marked with how far it was moved.
+func TestBatchClockAxis(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		start := r.URL.Query().Get("start")
+		day, h := start[:10], start[11:13]
+		next := map[string]string{"00": "01", "10": "11"}[h]
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 300, "data": []map[string]any{
+			{"start": day + "T" + h + ":00:00Z", "value": 1},
+			{"start": day + "T" + next + ":00:00Z", "value": 2},
+		}}}})
+	}
+	d := testDatasource(srv)
+	ms := func(day, h int) int64 { return time.Date(2026, 10, day, h, 0, 0, 0, time.UTC).UnixMilli() }
+	qm := queryModel{
+		Items:     []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 300}},
+		Batch:     fmt.Sprintf("2:%d:%d", ms(6, 0), ms(6, 2)),
+		Golden:    fmt.Sprintf("2:%d:%d", ms(1, 10), ms(1, 12)),
+		BatchAxis: batchAxisClock,
+	}
+	b, _ := json.Marshal(qm)
+	resp := d.query(context.Background(), backend.DataQuery{RefID: "A", JSON: b})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if len(resp.Frames) != 2 {
+		t.Fatalf("frames = %d, want the batch and the golden run, not joined", len(resp.Frames))
+	}
+	times := func(fr *data.Frame) string {
+		var out []string
+		for i := 0; i < fr.Rows(); i++ {
+			out = append(out, fr.Fields[0].At(i).(time.Time).Format("02 15:04"))
+		}
+		return strings.Join(out, ",")
+	}
+	batch, golden := resp.Frames[0], resp.Frames[1]
+	if got := times(batch); got != "06 00:00,06 01:00" {
+		t.Errorf("batch times = %s, want its real times", got)
+	}
+	if got := times(golden); got != "06 00:00,06 01:00" {
+		t.Errorf("golden times = %s, want laid from the batch's start", got)
+	}
+	// Moved from 1 Oct 10:00 to 6 Oct 00:00: 4 days 14 hours.
+	if got := golden.Meta.Custom.(map[string]any)["goldenOffsetMs"]; got != int64((4*24+14)*time.Hour/time.Millisecond) {
+		t.Errorf("golden offset = %v", got)
+	}
+	if links := batch.Fields[1].Config.Links; len(links) != 1 || links[0].Title != "Zoom to this batch" || !strings.Contains(links[0].URL, fmt.Sprintf("from=%d", ms(6, 0)-6*60*1000)) {
+		t.Errorf("zoom link = %+v", links)
+	}
+}

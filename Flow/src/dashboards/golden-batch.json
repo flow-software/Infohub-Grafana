@@ -131,7 +131,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Pick an **Event** whose runs are your batches, the **Batch** to check, one or more **Golden batch**es to compare it with (both list the event's runs in the time range, newest first), and the **Measures** to compare, e.g. process tags. Each measure is drawn over the batch (solid) and the golden batch (dashed, same colour), from batch start, with a \u00b1 5 % band. With several golden batches, the dashed line is their mean and the band spans their lowest to highest values (plus the 5 %). Below, **What was recorded** lists each batch's attributes side by side. Open the trend panel's query (**Advanced \u2192 Batch**) to change the band."
+        "content": "Pick an **Event** whose runs are your batches, the **Batch** to check, one or more **Golden batch**es to compare it with (both list the event's runs in the time range, newest first), and the **Measures** to compare, e.g. process tags. Each measure is drawn over the batch (solid) and the golden batch (dashed, same colour), from batch start, with a \u00b1 5 % band. With several golden batches, the dashed line is their mean and the band spans their lowest to highest values (plus the 5 %). The second panel shows the batch on **clock time**, with the golden run laid from the batch's start and on past now while it runs; click a line for **Zoom to this batch**. Below, **What was recorded** lists each batch's attributes side by side. Open the trend panel's query (**Advanced \u2192 Batch**) to change the band."
       }
     },
     {
@@ -189,6 +189,60 @@
       ]
     },
     {
+      "id": 4,
+      "type": "timeseries",
+      "title": "$batch on clock time, golden laid from its start",
+      "description": "The batch at its real times and the golden run from the batch's start, past now while the batch runs: where it should be heading. Use a series' Zoom to this batch link to set the time range to the batch.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "datasource": {
+        "type": "flowsoftware-infohub-datasource",
+        "uid": "${ds}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-infohub-datasource",
+            "uid": "${ds}"
+          },
+          "queryType": "measures",
+          "items": [],
+          "measureVariable": "$measure",
+          "timeAt": "end",
+          "batch": "$batch",
+          "golden": "$golden",
+          "bandMode": "percent",
+          "band": 5,
+          "batchAxis": "clock"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
       "id": 3,
       "type": "table",
       "title": "What was recorded: $batch against golden $golden",
@@ -197,7 +251,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 30
       },
       "datasource": {
         "type": "flowsoftware-infohub-datasource",

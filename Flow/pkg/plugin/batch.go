@@ -19,6 +19,68 @@ const (
 	bandPercent  = "percent"
 )
 
+// batchAxisClock keeps real times (a Time series panel).
+const batchAxisClock = "clock"
+
+// clockFrames turns Elapsed back into times from the batch's start: the
+// batch at its real times, and a golden run as if it had started with the
+// batch. Golden frames (named "· golden") carry how far they were moved
+// (goldenOffset, when there is one golden batch), so the frontend can mark
+// them as Grafana marks its own time comparisons, which pairs them with the
+// batch's series in the tooltip.
+func clockFrames(frames data.Frames, start time.Time, goldenOffset time.Duration) data.Frames {
+	for _, f := range frames {
+		if len(f.Fields) == 0 || f.Fields[0].Name != elapsedField {
+			continue
+		}
+		secs := f.Fields[0]
+		times := make([]time.Time, secs.Len())
+		for i := range times {
+			times[i] = start.Add(time.Duration(secs.At(i).(float64) * float64(time.Second)))
+		}
+		f.Fields[0] = data.NewField("Time", nil, times)
+		if goldenOffset > 0 && strings.HasSuffix(f.Name, " · golden") {
+			if f.Meta == nil {
+				f.Meta = &data.FrameMeta{}
+			}
+			f.Meta.Custom = map[string]any{"goldenOffsetMs": goldenOffset.Milliseconds()}
+			// Grafana pairs a comparison with the series of the same name
+			// (adding "(comparison)" itself) to show the difference in the
+			// tooltip: the golden line takes the batch line's name.
+			if len(f.Fields) > 1 && f.Fields[1].Config != nil {
+				f.Fields[1].Config.DisplayNameFromDS = strings.TrimSuffix(f.Fields[1].Config.DisplayNameFromDS, " · golden")
+			}
+		}
+	}
+	return frames
+}
+
+// addZoomLink gives each series a "Zoom to this batch" link: the dashboard
+// with its variables, its time range from just before the batch's start to
+// just after the batch and golden run would end. A Time series panel shows
+// the dashboard's range, which the plugin cannot set itself.
+func addZoomLink(frames data.Frames, from, to time.Time) {
+	margin := to.Sub(from) / 20
+	url := fmt.Sprintf("/d/${__dashboard.uid}?${__all_variables}&from=%d&to=%d",
+		from.Add(-margin).UnixMilli(), to.Add(margin).UnixMilli())
+	for _, f := range frames {
+		if len(f.Fields) < 2 {
+			continue
+		}
+		if f.Fields[1].Config == nil {
+			f.Fields[1].Config = &data.FieldConfig{}
+		}
+		f.Fields[1].Config.Links = append(f.Fields[1].Config.Links, data.DataLink{Title: "Zoom to this batch", URL: url})
+	}
+}
+
+func maxTime(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
+}
+
 // batchValuesChange draws each run's change since its start.
 const batchValuesChange = "change"
 
@@ -143,6 +205,10 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 		notices = append(notices, "The batch is still running: it is shown up to now.")
 	}
 
+	// goldenEnd is when the longest golden run would end, laid on the
+	// batch's start: how far the clock axis's golden line reaches.
+	goldenEnd := batch.end
+	var goldenStarts []time.Time
 	if goldenValues := splitBatches(qm.Golden); len(goldenValues) > 0 {
 		gm := base
 		gm.Limits = ""
@@ -153,6 +219,8 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 			if err != nil {
 				return backend.DataResponse{}, err
 			}
+			goldenEnd = maxTime(goldenEnd, batch.start.Add(golden.end.Sub(golden.start)))
+			goldenStarts = append(goldenStarts, golden.start)
 			qg := q
 			qg.TimeRange = backend.TimeRange{From: golden.start, To: golden.end}
 			gresp, err := d.run(ctx, gm, qg)
@@ -188,8 +256,17 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 		}
 	}
 
-	// The Trend panel takes one frame: every series joined on Elapsed.
-	if joined := joinOnElapsed(frames); joined != nil {
+	if qm.BatchAxis == batchAxisClock {
+		// Real times for a Time series panel: the batch where it ran, the
+		// golden run from the batch's start (past now while it runs).
+		var offset time.Duration
+		if len(goldenStarts) == 1 {
+			offset = batch.start.Sub(goldenStarts[0])
+		}
+		frames = clockFrames(frames, batch.start, offset)
+		addZoomLink(frames, batch.start, maxTime(batch.end, goldenEnd))
+	} else if joined := joinOnElapsed(frames); joined != nil {
+		// The Trend panel takes one frame: every series joined on Elapsed.
 		frames = data.Frames{joined}
 	}
 	if len(notices) > 0 {
@@ -322,7 +399,7 @@ func bandFields(value *data.Field, upper, lower []*float64, bandColor string) []
 			Custom: map[string]any{
 				"lineWidth":  0,
 				"showPoints": "never",
-				"hideFrom":   map[string]any{"legend": true, "tooltip": false, "viz": false},
+				"hideFrom":   map[string]any{"legend": true, "tooltip": true, "viz": false},
 			},
 		}
 		return bf

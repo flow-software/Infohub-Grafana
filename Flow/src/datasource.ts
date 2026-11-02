@@ -36,6 +36,33 @@ const TIME_MARK = /\{\{time:(-?\d+)\}\}/g;
  * comment tooltips) in the dashboard's time zone, as panels show their time
  * axes: the backend is not told that zone.
  */
+/**
+ * Marks golden runs moved onto a batch's clock time (the backend sets
+ * meta.custom.goldenOffsetMs) the way Grafana marks a panel's time
+ * comparison, so the Time series tooltip shows the golden value and its
+ * difference next to the batch's. Grafana's marks are internal; if a
+ * version stops recognising them, the golden line is simply drawn as is.
+ */
+export function markGoldenComparison(response: DataQueryResponse): DataQueryResponse {
+  for (const frame of response.data ?? []) {
+    const diffMs = frame.meta?.custom?.goldenOffsetMs;
+    if (typeof diffMs !== 'number') {
+      continue;
+    }
+    frame.meta = { ...frame.meta, timeCompare: { diffMs, isTimeShiftQuery: true } } as typeof frame.meta;
+    // Only the golden value: the band's edges are not comparisons of their own.
+    for (const field of (frame.fields ?? []).slice(0, 2)) {
+      if (field.type === FieldType.number) {
+        field.config = {
+          ...field.config,
+          custom: { ...field.config?.custom, timeCompare: { diffMs, isTimeShiftQuery: true } },
+        };
+      }
+    }
+  }
+  return response;
+}
+
 export function localizeTimes(response: DataQueryResponse, timeZone?: string): DataQueryResponse {
   const show = (_: string, ms: string) => dateTimeFormat(Number(ms), { timeZone, format: 'YYYY-MM-DD HH:mm' });
   for (const frame of response.data ?? []) {
@@ -86,7 +113,9 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
   }
 
   query(request: DataQueryRequest<FlowQuery>): Observable<DataQueryResponse> {
-    return super.query(request).pipe(map((response) => localizeTimes(response, request.timezone)));
+    return super
+      .query(request)
+      .pipe(map((response) => markGoldenComparison(localizeTimes(response, request.timezone))));
   }
 
   /**

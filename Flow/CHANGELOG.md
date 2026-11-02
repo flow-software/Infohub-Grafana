@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Golden batch: **Time axis** _Clock time_ shows the batch at its real times in a Time series panel, with the golden run laid from the batch's start and on past now while the batch runs; each line has a **Zoom to this batch** link, and a single golden line pairs with the batch's in the tooltip as a comparison. The golden batch dashboard has a clock-time panel.
 - The **Infohub: chart viewer** example dashboard is no longer offered for import (dashboards already imported stay). A chart query's **Choose chart** shows any Flow chart.
 - Events table: **Batch** and **Compare with** (under **Advanced**) list only the picked batches, one row each (_Batch_, _Golden_, ...), with all their attributes, so what was recorded for a batch can be compared with its golden batch(es); the golden batch dashboard shows it transposed, side by side.
 - Golden batch: **Values** _Change since start_ draws each run from 0 (its first value subtracted), so counters such as energy totals compare by what each batch used.
