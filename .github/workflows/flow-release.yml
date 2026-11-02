@@ -67,6 +67,6 @@ jobs:
           Step-by-step instructions are in `INSTALL.md`, attached below and included in every zip.
           EOF
 
-          gh release create "$TAG" artifacts/*.zip artifacts/SHA256SUMS.txt Flow/INSTALL.md \
+          gh release create "$TAG" artifacts/*.zip artifacts/SHA256SUMS.txt artifacts/SHA1SUMS.txt Flow/INSTALL.md \
             --title "Flow data source $version" \
             --notes-file notes.md

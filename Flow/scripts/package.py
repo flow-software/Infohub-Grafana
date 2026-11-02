@@ -44,14 +44,16 @@ def main():
     binaries = [n for n in names if n.startswith("gpx_")]
     if not binaries:
         raise SystemExit("no backend binaries in dist/; run mage -v first")
-    common = [n for n in names if n not in binaries and n != "go_plugin_build_manifest" and not n.endswith(".map")]
+    # Source maps and the Go build manifest go in too: the Grafana catalog
+    # checks for both.
+    common = [n for n in names if n not in binaries]
 
     # gpx_infohub_windows_amd64.exe -> windows_amd64
     targets = {b.split("_", 2)[2].removesuffix(".exe"): [b] for b in binaries}
     targets["any"] = binaries
 
     os.makedirs(OUT, exist_ok=True)
-    sums = []
+    sums, sha1s = [], []
     for target, bins in targets.items():
         out = os.path.join(OUT, f"{PLUGIN_ID}-{version}.{target}.zip")
         with zipfile.ZipFile(out, "w") as z:
@@ -60,12 +62,16 @@ def main():
             add_file(z, "INSTALL.md", "INSTALL.md")
             # Apache-2.0 asks redistributors to pass the NOTICE on.
             add_file(z, "NOTICE", "NOTICE")
-        digest = hashlib.sha256(open(out, "rb").read()).hexdigest()
-        sums.append(f"{digest}  {os.path.basename(out)}")
+        content = open(out, "rb").read()
+        sums.append(f"{hashlib.sha256(content).hexdigest()}  {os.path.basename(out)}")
+        # The catalog's submission form asks for each zip's SHA-1.
+        sha1s.append(f"{hashlib.sha1(content).hexdigest()}  {os.path.basename(out)}")
         print(f"{os.path.getsize(out) / 1e6:6.1f} MB  {os.path.basename(out)}")
 
     with open(os.path.join(OUT, "SHA256SUMS.txt"), "w") as fh:
         fh.write("\n".join(sums) + "\n")
+    with open(os.path.join(OUT, "SHA1SUMS.txt"), "w") as fh:
+        fh.write("\n".join(sha1s) + "\n")
 
 
 if __name__ == "__main__":

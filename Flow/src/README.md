@@ -19,41 +19,41 @@ Chart [Flow](https://www.flow-software.com) measures, tags, events and charts in
 
 ### Trend measures and tags, with limits and comments
 
-![A measure's trend with its Flow limits as dashed lines and its value comments as markers](/public/plugins/%PLUGIN_ID%/img/screenshots/measures.png)
+![A measure's trend with its Flow limits as dashed lines and its value comments as markers](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/measures.png)
 
 Period measures (hourly, shift, daily, ...) are read per calendar period; tags (timestamp measures) raw, or each panel interval's minimum and maximum when there are more values than the panel can show, so spikes stay visible. **Show limit values** draws a measure's Flow limits as dashed lines (all of them, or the ones you pick), and an annotation query marks the comments on its values, with who wrote them and when.
 
 Flow keeps every version of a value: the original, recalculations and manual entries. **Mark corrections** marks each period whose value was changed; hover the mark for every version, newest first, with who changed it and when. **History table** lists them all, like Flow's History tab.
 
-![Corrected periods marked on a trend; the mark's tooltip lists every version of the value](/public/plugins/%PLUGIN_ID%/img/screenshots/versions.png)
+![Corrected periods marked on a trend; the mark's tooltip lists every version of the value](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/versions.png)
 
 Pick items in the query editor: **Browse** walks the model folder by folder, or searches folders, metrics and measures by name or a measure by ID (`4304`, `#4304` or `id:4304`), and can show only measures of some intervals (tags, hourly, daily, ...) or retrieval types (calculated, manual, ...). Each measure shows its ID, interval and retrieval type as Flow Config draws them. A folder stands for every measure below it, a metric for all of its measures, and a template metric or measure returns every model measure created from it, named by folder path so `Line 1/Production/Good` and `Line 2/Production/Good` stay apart.
 
-![The query editor: Measures tab with a measure variable and Show limit values on](/public/plugins/%PLUGIN_ID%/img/screenshots/editor.png)
+![The query editor: Measures tab with a measure variable and Show limit values on](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/editor.png)
 
 ### See how a measure is built
 
-![A dependency graph: each node is a measure with its latest value, its ring coloured by retrieval type](/public/plugins/%PLUGIN_ID%/img/screenshots/dependencies.png)
+![A dependency graph: each node is a measure with its latest value, its ring coloured by retrieval type](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/dependencies.png)
 
 The **Dependencies** query draws what a measure is calculated, aggregated, transformed, set or retrieved from, and theirs in turn, or the other way round, what uses it. Each node shows the measure's latest value; its ring colour is the retrieval type, and a red fill means the latest value is outside its limits. Click a node for its calculation, data source, limits, and the latest value's version: who entered or recalculated it, and when.
 
 ### Analyse events
 
-![Event periods as a table and as a state timeline, coloured as in Flow](/public/plugins/%PLUGIN_ID%/img/screenshots/events.png)
+![Event periods as a table and as a state timeline, coloured as in Flow](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/events.png)
 
 Event periods with their attributes as a table or a state timeline, coloured as in Flow, or shaded as annotations on other panels. Period measures can also be read per event period instead of per calendar period, with a series per attribute value, e.g. one per product:
 
-![A measure per event period, a series per product, drawn from each period's start to its end](/public/plugins/%PLUGIN_ID%/img/screenshots/event-context.png)
+![A measure per event period, a series per product, drawn from each period's start to its end](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/event-context.png)
 
 ### Show Flow charts
 
-![A Flow time-based chart shown as a table, as Flow lays it out](/public/plugins/%PLUGIN_ID%/img/screenshots/chart.png)
+![A Flow time-based chart shown as a table, as Flow lays it out](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/chart.png)
 
 Pick a time-based chart set up in Flow and see it as Flow lays it out: sections, measures, attribute and limit columns, one column per period, cells coloured by the chart's limit colours, and comments on hover. Or show any chart's **measures** instead, of any chart type, and chart them however you like in any Grafana panel.
 
 ### Build one dashboard for every line
 
-![Every measure where Line = Line 1, with a table of their latest values](/public/plugins/%PLUGIN_ID%/img/screenshots/attributes.png)
+![Every measure where Line = Line 1, with a table of their latest values](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/attributes.png)
 
 Dashboard variables are filled from Flow: model attributes (_Line_, _Site_, ...) and their values (every _Line_), measures, events, event attribute values, limit names and charts. Panels follow them through an attribute filter (_Line_ = `$line`) or a variable of measure, event or chart ids, so one dashboard serves every line, site or product.
 
