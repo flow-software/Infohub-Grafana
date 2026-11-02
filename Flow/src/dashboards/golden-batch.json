@@ -88,7 +88,7 @@
           "eventVariable": "$event"
         },
         "refresh": 2,
-        "multi": false,
+        "multi": true,
         "includeAll": false,
         "hide": 0,
         "sort": 0,
@@ -124,14 +124,14 @@
       "type": "text",
       "title": "",
       "gridPos": {
-        "h": 3,
+        "h": 4,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "Pick an **Event** whose runs are your batches, the **Batch** to check and a **Golden batch** to compare it with (both list the event's runs in the time range, newest first), and the **Measures** to compare, e.g. process tags. Each measure is drawn over the batch (solid) and the golden batch (dashed, same colour), from batch start, with a \u00b1 5 % band around the golden trend. Open the panel's query (**Advanced \u2192 Batch**) to change the band."
+        "content": "Pick an **Event** whose runs are your batches, the **Batch** to check, one or more **Golden batch**es to compare it with (both list the event's runs in the time range, newest first), and the **Measures** to compare, e.g. process tags. Each measure is drawn over the batch (solid) and the golden batch (dashed, same colour), from batch start, with a \u00b1 5 % band. With several golden batches, the dashed line is their mean and the band spans their lowest to highest values (plus the 5 %). Open the panel's query (**Advanced \u2192 Batch**) to change the band."
       }
     },
     {
@@ -142,7 +142,7 @@
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 4
       },
       "datasource": {
         "type": "flowsoftware-infohub-datasource",

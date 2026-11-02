@@ -102,7 +102,8 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
       eventValues: expandValues(query.eventValues, scopedVars),
       eventNumbers: expandValues(query.eventNumbers, scopedVars),
       batch: query.batch ? srv.replace(query.batch, scopedVars) : query.batch,
-      golden: query.golden ? srv.replace(query.golden, scopedVars) : query.golden,
+      // Several golden batches (a multi-value variable) come through as a,b,...
+      golden: query.golden ? srv.replace(query.golden, scopedVars, 'csv') : query.golden,
       // An empty variable (a measure without limits) leaves no names: all are drawn.
       limitNames: expandValues(query.limitNames, scopedVars)?.filter((n) => n !== ''),
       // Attribute names may be variables too, so one dashboard serves Line, Site, ...

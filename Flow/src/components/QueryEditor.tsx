@@ -1095,7 +1095,7 @@ function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Part
         <InlineField
           label="Compare with"
           labelWidth={LABEL_WIDTH}
-          tooltip="A reference (golden) batch, such as $golden: the same measures over that batch, aligned on its start, drawn dashed beside the batch's."
+          tooltip="A reference (golden) batch, such as $golden: the same measures over that batch, aligned on its start, drawn dashed beside the batch's. With several golden batches (a multi-value variable), the dashed line is their mean and the band spans their lowest to highest values, widened by Band if set."
         >
           <VariablePicker
             id="query-editor-golden"

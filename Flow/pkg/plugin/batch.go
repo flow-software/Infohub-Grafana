@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -102,28 +103,44 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 		notices = append(notices, "The batch is still running: it is shown up to now.")
 	}
 
-	if strings.TrimSpace(qm.Golden) != "" {
-		golden, err := parseBatch(qm.Golden, now)
-		if err != nil {
-			return backend.DataResponse{}, err
-		}
+	if goldenValues := splitBatches(qm.Golden); len(goldenValues) > 0 {
 		gm := base
 		gm.Limits = ""
-		qg := q
-		qg.TimeRange = backend.TimeRange{From: golden.start, To: golden.end}
-		gresp, err := d.run(ctx, gm, qg)
-		if err != nil {
-			return backend.DataResponse{}, fmt.Errorf("reading the golden batch: %w", err)
-		}
-		for _, n := range takeNotices(gresp.Frames) {
-			notices = append(notices, "Golden batch: "+n)
-		}
-		for _, f := range elapsedFrames(gresp.Frames, golden.start) {
-			color := ""
-			if len(f.Fields) > 1 {
-				color = colors[seriesKey(f.Fields[1])]
+		// Each golden batch's frames, on seconds since its own start.
+		var reads []data.Frames
+		for _, value := range goldenValues {
+			golden, err := parseBatch(value, now)
+			if err != nil {
+				return backend.DataResponse{}, err
 			}
-			frames = append(frames, goldenFrame(f, qm, color))
+			qg := q
+			qg.TimeRange = backend.TimeRange{From: golden.start, To: golden.end}
+			gresp, err := d.run(ctx, gm, qg)
+			if err != nil {
+				return backend.DataResponse{}, fmt.Errorf("reading the golden batch: %w", err)
+			}
+			for _, n := range takeNotices(gresp.Frames) {
+				// Several golden batches often say the same thing: once is enough.
+				if !slices.Contains(notices, "Golden batch: "+n) {
+					notices = append(notices, "Golden batch: "+n)
+				}
+			}
+			reads = append(reads, elapsedFrames(gresp.Frames, golden.start))
+		}
+		if len(reads) == 1 {
+			for _, f := range reads[0] {
+				color := ""
+				if len(f.Fields) > 1 {
+					color = colors[seriesKey(f.Fields[1])]
+				}
+				frames = append(frames, goldenFrame(f, qm, color))
+			}
+		} else {
+			points := int(q.MaxDataPoints)
+			if points <= 0 || points > 2000 {
+				points = 1000
+			}
+			frames = append(frames, envelopeFrames(reads, qm, colors, points)...)
 		}
 	}
 
@@ -216,19 +233,40 @@ func goldenFrame(f *data.Frame, qm queryModel, color string) *data.Frame {
 		return f
 	}
 	n := value.Len()
-	upper, lower := make([]*float64, n), make([]*float64, n)
-	for i := 0; i < n; i++ {
-		v := value.At(i).(*float64)
-		if v == nil {
+	vals := make([]*float64, n)
+	for i := range vals {
+		vals[i] = value.At(i).(*float64)
+	}
+	upper, lower := widen(vals, vals, vals, qm)
+	f.Fields = append(f.Fields, bandFields(value, upper, lower, bandColor)...)
+	return f
+}
+
+// widen adds the query's band (± amount, or ± % of the reference value) to
+// an upper and lower edge: around the golden values, or around the
+// envelope of several golden batches.
+func widen(ref, hi, lo []*float64, qm queryModel) (upper, lower []*float64) {
+	upper, lower = make([]*float64, len(ref)), make([]*float64, len(ref))
+	for i := range ref {
+		if ref[i] == nil || hi[i] == nil || lo[i] == nil {
 			continue
 		}
-		d := qm.Band
-		if qm.BandMode == bandPercent {
-			d = abs(*v) * qm.Band / 100
+		d := 0.0
+		if qm.Band > 0 {
+			d = qm.Band
+			if qm.BandMode == bandPercent {
+				d = abs(*ref[i]) * qm.Band / 100
+			}
 		}
-		hi, lo := *v+d, *v-d
-		upper[i], lower[i] = &hi, &lo
+		u, l := *hi[i]+d, *lo[i]-d
+		upper[i], lower[i] = &u, &l
 	}
+	return upper, lower
+}
+
+// bandFields are a band's upper and lower edges, filled between, in the
+// series' colour, left out of the legend.
+func bandFields(value *data.Field, upper, lower []*float64, bandColor string) []*data.Field {
 	base := strings.TrimSuffix(value.Config.DisplayNameFromDS, " · golden")
 	lowerName := base + " · golden lower"
 	band := func(field, display string, vals []*float64) *data.Field {
@@ -248,8 +286,129 @@ func goldenFrame(f *data.Frame, qm queryModel, color string) *data.Frame {
 	up := band("Golden upper", base+" · golden upper", upper)
 	up.Config.Custom["fillBelowTo"] = lowerName
 	up.Config.Custom["fillOpacity"] = 20
-	f.Fields = append(f.Fields, up, band("Golden lower", lowerName, lower))
-	return f
+	return []*data.Field{up, band("Golden lower", lowerName, lower)}
+}
+
+// splitBatches reads the golden batch value: one batch, or several from a
+// multi-value variable ("a,b", or "{a,b}").
+func splitBatches(s string) []string {
+	var out []string
+	for _, part := range strings.Split(strings.Trim(strings.TrimSpace(s), "{}"), ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// envelopeFrames combine several golden batches into one reference per
+// measure: on a shared grid of seconds since start, the mean of the golden
+// batches (dashed) and their minimum and maximum (filled, widened by the
+// band if any). Each golden batch is read between its own points
+// (linearly) and only within its own run, so a shorter one adds nothing
+// past its end.
+func envelopeFrames(reads []data.Frames, qm queryModel, colors map[string]string, points int) data.Frames {
+	type run struct{ xs, ys []float64 }
+	runs := map[string][]run{}
+	templates := map[string]*data.Frame{}
+	var order []string
+	maxX := 0.0
+	for _, frames := range reads {
+		for _, f := range frames {
+			if len(f.Fields) < 2 || f.Fields[1].Type() != data.FieldTypeNullableFloat64 {
+				continue
+			}
+			key := seriesKey(f.Fields[1])
+			if _, ok := templates[key]; !ok {
+				templates[key] = f
+				order = append(order, key)
+			}
+			var r run
+			for i := 0; i < f.Fields[0].Len(); i++ {
+				if v := f.Fields[1].At(i).(*float64); v != nil {
+					x := f.Fields[0].At(i).(float64)
+					r.xs, r.ys = append(r.xs, x), append(r.ys, *v)
+					maxX = max(maxX, x)
+				}
+			}
+			if len(r.xs) > 0 {
+				runs[key] = append(runs[key], r)
+			}
+		}
+	}
+	if maxX <= 0 || points < 2 {
+		return nil
+	}
+	grid := make([]float64, points)
+	for i := range grid {
+		grid[i] = maxX * float64(i) / float64(points-1)
+	}
+	at := func(r run, x float64) (float64, bool) {
+		j := sort.SearchFloat64s(r.xs, x)
+		switch {
+		case j < len(r.xs) && r.xs[j] == x:
+			return r.ys[j], true
+		case j == 0 || j == len(r.xs):
+			return 0, false
+		}
+		x0, x1, y0, y1 := r.xs[j-1], r.xs[j], r.ys[j-1], r.ys[j]
+		return y0 + (y1-y0)*(x-x0)/(x1-x0), true
+	}
+	var out data.Frames
+	for _, key := range order {
+		mean, lo, hi := make([]*float64, points), make([]*float64, points), make([]*float64, points)
+		for i, x := range grid {
+			n, sum, mn, mx := 0, 0.0, 0.0, 0.0
+			for _, r := range runs[key] {
+				if v, ok := at(r, x); ok {
+					if n == 0 || v < mn {
+						mn = v
+					}
+					if n == 0 || v > mx {
+						mx = v
+					}
+					sum += v
+					n++
+				}
+			}
+			if n > 0 {
+				m := sum / float64(n)
+				mean[i], lo[i], hi[i] = &m, &mn, &mx
+			}
+		}
+		tpl := templates[key]
+		value := data.NewField(tpl.Fields[1].Name, tpl.Fields[1].Labels, mean)
+		value.Config = &data.FieldConfig{}
+		if tpl.Fields[1].Config != nil {
+			c := *tpl.Fields[1].Config
+			value.Config = &c
+		}
+		name := value.Config.DisplayNameFromDS
+		if name == "" {
+			name = tpl.Name
+		}
+		value.Config.DisplayNameFromDS = fmt.Sprintf("%s · golden (mean of %d)", name, len(reads))
+		value.Config.Custom = map[string]any{"lineStyle": map[string]any{"fill": "dash", "dash": []int{10, 10}}}
+		color := colors[key]
+		bandColor := "yellow"
+		if color != "" {
+			setColor(value, color)
+			bandColor = color
+		}
+		elapsed := data.NewField(elapsedField, nil, grid)
+		elapsed.Config = tpl.Fields[0].Config
+		f := data.NewFrame(tpl.Name+" · golden", elapsed, value)
+		upper, lower := widen(mean, hi, lo, qm)
+		// The band's names follow the batch line's, as with one golden batch.
+		named := data.NewField(value.Name, value.Labels, []*float64{})
+		named.Config = &data.FieldConfig{DisplayNameFromDS: name}
+		f.Fields = append(f.Fields, bandFields(named, upper, lower, bandColor)...)
+		for _, bf := range f.Fields[2:] {
+			bf.Config.Unit = value.Config.Unit
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 // batchPalette is Grafana's classic palette, in its order: batch lines get
