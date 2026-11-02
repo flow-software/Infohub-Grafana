@@ -19,6 +19,43 @@ const (
 	bandPercent  = "percent"
 )
 
+// batchValuesChange draws each run's change since its start.
+const batchValuesChange = "change"
+
+// sinceStart makes each series its change since the run's start: its first
+// value is subtracted from every value, so every run starts at 0. A
+// counter (an energy or flow total) then shows what this run used, which
+// can be compared with the golden run's; its raw reading only shows where
+// the counter happened to be. Limit lines and other fields are dropped:
+// they do not shift with the values.
+func sinceStart(frames data.Frames) {
+	for _, f := range frames {
+		if len(f.Fields) < 2 || f.Fields[1].Type() != data.FieldTypeNullableFloat64 {
+			continue
+		}
+		value := f.Fields[1]
+		var first *float64
+		for i := 0; i < value.Len() && first == nil; i++ {
+			first = value.At(i).(*float64)
+		}
+		if first == nil {
+			continue
+		}
+		base := *first
+		for i := 0; i < value.Len(); i++ {
+			if v := value.At(i).(*float64); v != nil {
+				d := *v - base
+				value.Set(i, &d)
+			}
+		}
+		if value.Config == nil {
+			value.Config = &data.FieldConfig{}
+		}
+		value.Config.Description = strings.TrimSpace("Change since the batch's start. " + value.Config.Description)
+		f.Fields = f.Fields[:2]
+	}
+}
+
 // elapsedField names the x field of batch frames: seconds since the
 // batch's start, so batches that ran at different times line up.
 const elapsedField = "Elapsed"
@@ -89,6 +126,9 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 	}
 	notices := takeNotices(resp.Frames)
 	frames := elapsedFrames(resp.Frames, batch.start)
+	if qm.BatchValues == batchValuesChange {
+		sinceStart(frames)
+	}
 	// Each measure keeps one colour, so its golden line (dashed) and band
 	// pair visibly with its batch line, however many measures there are.
 	colors := map[string]string{}
@@ -125,7 +165,11 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 					notices = append(notices, "Golden batch: "+n)
 				}
 			}
-			reads = append(reads, elapsedFrames(gresp.Frames, golden.start))
+			read := elapsedFrames(gresp.Frames, golden.start)
+			if qm.BatchValues == batchValuesChange {
+				sinceStart(read)
+			}
+			reads = append(reads, read)
 		}
 		if len(reads) == 1 {
 			for _, f := range reads[0] {

@@ -81,6 +81,9 @@ type queryModel struct {
 	Golden   string  `json:"golden"`
 	BandMode string  `json:"bandMode"`
 	Band     float64 `json:"band"`
+	// BatchValues "change" draws each run's change since its start (its
+	// first value subtracted), for counters such as energy totals.
+	BatchValues string `json:"batchValues"`
 	// PeriodLabel names the event attribute that labels each period in an
 	// event periods variable, e.g. Batch ID.
 	PeriodLabel string `json:"periodLabel"`

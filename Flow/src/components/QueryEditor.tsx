@@ -1093,6 +1093,22 @@ function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Part
       </InlineField>
       {on && (
         <InlineField
+          label="Values"
+          labelWidth={LABEL_WIDTH}
+          tooltip="As measured: the values as they are, for temperatures, pressures, levels. Change since start: each run's first value is subtracted, so every run starts at 0 and shows what it added. Use it for counters (energy, flow or production totals), whose raw reading only shows where the counter happened to be, so a batch can be compared with the golden one: lower at the end used less."
+        >
+          <RadioButtonGroup<'measured' | 'change'>
+            options={[
+              { label: 'As measured', value: 'measured' },
+              { label: 'Change since start', value: 'change' },
+            ]}
+            value={query.batchValues === 'change' ? 'change' : 'measured'}
+            onChange={(v) => update({ batchValues: v === 'change' ? 'change' : undefined })}
+          />
+        </InlineField>
+      )}
+      {on && (
+        <InlineField
           label="Compare with"
           labelWidth={LABEL_WIDTH}
           tooltip="A reference (golden) batch, such as $golden: the same measures over that batch, aligned on its start, drawn dashed beside the batch's. With several golden batches (a multi-value variable), the dashed line is their mean and the band spans their lowest to highest values, widened by Band if set."

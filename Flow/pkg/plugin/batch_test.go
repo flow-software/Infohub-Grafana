@@ -184,3 +184,43 @@ func TestBatchAgainstSeveralGoldens(t *testing.T) {
 		t.Errorf("at 1800 s = %s, want mean 7, max 9, min 5", got)
 	}
 }
+
+// Change since start makes every run start at 0: a counter's batch and
+// golden runs compare by what they added, not where the counter stood.
+func TestBatchChangeSinceStart(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	f.handlers["/api/v1/data/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		start := r.URL.Query().Get("start")
+		v0, v1 := 1000, 1030 // the batch: +30
+		if strings.HasPrefix(start, "2026-10-01") {
+			v0, v1 = 400, 420 // the golden batch: +20
+		}
+		day, h := start[:10], start[11:13]
+		next := map[string]string{"00": "01", "10": "11"}[h]
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{{"id": 300, "data": []map[string]any{
+			{"start": day + "T" + h + ":00:00Z", "value": v0},
+			{"start": day + "T" + next + ":00:00Z", "value": v1},
+		}}}})
+	}
+	d := testDatasource(srv)
+	ms := func(day, h int) int64 { return time.Date(2026, 10, day, h, 0, 0, 0, time.UTC).UnixMilli() }
+	qm := queryModel{
+		Items:       []queryItem{{Tree: flow.TreeModel, Type: itemMeasure, ID: 300}},
+		Batch:       fmt.Sprintf("2:%d:%d", ms(6, 0), ms(6, 2)),
+		Golden:      fmt.Sprintf("2:%d:%d", ms(1, 10), ms(1, 12)),
+		BatchValues: batchValuesChange,
+	}
+	b, _ := json.Marshal(qm)
+	resp := d.query(context.Background(), backend.DataQuery{RefID: "A", JSON: b})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	fr := resp.Frames[0]
+	var rows []string
+	for i := 0; i < fr.Rows(); i++ {
+		rows = append(rows, fmt.Sprintf("%v/%v/%v", fr.Fields[0].At(i), *fr.Fields[1].At(i).(*float64), *fr.Fields[2].At(i).(*float64)))
+	}
+	if got := strings.Join(rows, " "); got != "0/0/0 3600/30/20" {
+		t.Errorf("rows = %s, want both runs from 0: batch +30, golden +20", got)
+	}
+}

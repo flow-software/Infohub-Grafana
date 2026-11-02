@@ -73,6 +73,8 @@ export interface FlowQuery extends DataQuery {
   /** A band around the golden values: ± band (absolute) or ± band % (percent). */
   bandMode?: 'absolute' | 'percent';
   band?: number;
+  /** "change": each run's change since its start, for counters (energy, flow totals). */
+  batchValues?: 'change';
   /** Event attributes the table returns as numbers (may be variables); others stay text. */
   eventNumbers?: string[];
 
