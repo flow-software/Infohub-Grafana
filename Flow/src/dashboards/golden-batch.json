@@ -131,7 +131,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Pick an **Event** whose runs are your batches, the **Batch** to check, one or more **Golden batch**es to compare it with (both list the event's runs in the time range, newest first), and the **Measures** to compare, e.g. process tags. Each measure is drawn over the batch (solid) and the golden batch (dashed, same colour), from batch start, with a \u00b1 5 % band. With several golden batches, the dashed line is their mean and the band spans their lowest to highest values (plus the 5 %). Open the panel's query (**Advanced \u2192 Batch**) to change the band."
+        "content": "Pick an **Event** whose runs are your batches, the **Batch** to check, one or more **Golden batch**es to compare it with (both list the event's runs in the time range, newest first), and the **Measures** to compare, e.g. process tags. Each measure is drawn over the batch (solid) and the golden batch (dashed, same colour), from batch start, with a \u00b1 5 % band. With several golden batches, the dashed line is their mean and the band spans their lowest to highest values (plus the 5 %). Below, **What was recorded** lists each batch's attributes side by side. Open the trend panel's query (**Advanced \u2192 Batch**) to change the band."
       }
     },
     {
@@ -187,6 +187,50 @@
           "band": 5
         }
       ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "What was recorded: $batch against golden $golden",
+      "description": "Each batch's event period with everything Flow recorded for it (its attributes), side by side: the batch first, then the golden batch(es).",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "datasource": {
+        "type": "flowsoftware-infohub-datasource",
+        "uid": "${ds}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-infohub-datasource",
+            "uid": "${ds}"
+          },
+          "queryType": "events",
+          "eventFormat": "table",
+          "items": [],
+          "batch": "$batch",
+          "golden": "$golden"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "transpose",
+          "options": {}
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
     }
   ]
 }

@@ -666,6 +666,37 @@ function EventsQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
           onChange={(eventNumbers) => update({ eventNumbers })}
         />
       )}
+      {query.refId !== ANNOTATION_REF_ID && query.eventFormat !== 'timeline' && (
+        <AdvancedSection open={!!(query.batch || query.golden)}>
+          <GroupHeading title="Batch" />
+          <InlineField
+            label="Batch"
+            labelWidth={LABEL_WIDTH}
+            tooltip="Only this batch, a Periods (batches) variable such as $batch: one row with everything recorded for it. With Compare with, its golden batch(es) follow, one row each, so their attributes can be compared. The event comes from the batch, so none needs picking above. Grafana's Transpose transformation turns the rows into columns: one row per attribute, Batch and Golden side by side."
+          >
+            <VariablePicker
+              id="query-editor-events-batch"
+              kind="eventPeriods"
+              placeholder="$batch"
+              value={query.batch}
+              onChange={(batch) => update({ batch })}
+            />
+          </InlineField>
+          <InlineField
+            label="Compare with"
+            labelWidth={LABEL_WIDTH}
+            tooltip="The golden batch or batches, such as $golden: a row each, named Golden (Golden 1, Golden 2, ... for several)."
+          >
+            <VariablePicker
+              id="query-editor-events-golden"
+              kind="eventPeriods"
+              placeholder="$golden"
+              value={query.golden}
+              onChange={(golden) => update({ golden })}
+            />
+          </InlineField>
+        </AdvancedSection>
+      )}
     </>
   );
 }

@@ -153,7 +153,8 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
       case 'chart':
         return !!query.chartId || !!query.chartVariable;
       case 'events':
-        return (query.items?.length ?? 0) > 0 || !!query.eventVariable;
+        // A table of picked batches names its event through the batches.
+        return (query.items?.length ?? 0) > 0 || !!query.eventVariable || !!query.batch || !!query.golden;
       case 'variable':
         return true;
       default:

@@ -166,6 +166,9 @@ func (d *Datasource) query(ctx context.Context, q backend.DataQuery) backend.Dat
 		resp, err = d.runChart(ctx, qm, q)
 	case qm.QueryType == queryTypeVariable:
 		resp, err = d.runVariable(ctx, qm, q.TimeRange)
+	case qm.QueryType == queryTypeEvents && eventBatches(qm):
+		// The batches name their event: no events need picking.
+		resp, err = d.runEventBatches(ctx, qm)
 	case len(qm.Items) == 0:
 		return backend.DataResponse{}
 	case qm.QueryType == queryTypeDeps:

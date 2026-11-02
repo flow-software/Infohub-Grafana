@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -370,5 +371,37 @@ func TestEventPeriodsVariable(t *testing.T) {
 	}
 	if got := run(queryModel{EventID: 2, EventAttribute: "Product", EventValues: []string{"coke"}}); len(got) != 1 || !strings.HasPrefix(got[0], at(0)+"=2:") {
 		t.Errorf("Coke only = %v", got)
+	}
+}
+
+// An events table of picked batches has one row per batch, in the picked
+// order, named Batch and Golden, with the event's attributes.
+func TestEventsTableOfBatches(t *testing.T) {
+	_, d := eventServer(t)
+	ms := func(h int) int64 { return time.Date(2026, 10, 6, h, 0, 0, 0, time.UTC).UnixMilli() }
+	qm := queryModel{
+		QueryType: queryTypeEvents,
+		Batch:     fmt.Sprintf("2:%d:", ms(3)),
+		Golden:    fmt.Sprintf("2:%d:%d,2:%d:%d", ms(0), ms(1), ms(9), ms(10)),
+	}
+	b, _ := json.Marshal(qm)
+	resp := d.query(context.Background(), backend.DataQuery{RefID: "A", JSON: b})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	f := resp.Frames[0]
+	if got := strings.Join(column(t, f, "Batch"), ","); got != "Batch,Golden 1" {
+		t.Errorf("rows = %s, want the batch then the first golden batch", got)
+	}
+	if got := strings.Join(column(t, f, "Product"), ","); got != "Juice,Coke" {
+		t.Errorf("Product = %s", got)
+	}
+	// The second golden batch has no period at 09:00: the panel says so.
+	var notices []string
+	for _, n := range f.Meta.Notices {
+		notices = append(notices, n.Text)
+	}
+	if !strings.Contains(strings.Join(notices, ";"), "Golden 2: Flow has no period of this event starting at") {
+		t.Errorf("notices = %v", notices)
 	}
 }
