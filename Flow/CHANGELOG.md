@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Measures editor's **Period measures**, **Tags** and **Display** sections can be folded away by their headings (open by default), like **Advanced**.
 - Golden batch: **Time axis** _% of batch_ puts every run on 0-100 % of its own length, so batches of different lengths line up by phase; a running batch is measured against the golden batch's length.
 - Golden batch: **Time axis** _Clock time_ shows the batch at its real times in a Time series panel, with the golden run laid from the batch's start and on past now while the batch runs; each line has a **Zoom to this batch** link, and a single golden line pairs with the batch's in the tooltip as a comparison. The golden batch dashboard has a clock-time panel.
 - The **Infohub: chart viewer** example dashboard is no longer offered for import (dashboards already imported stay). A chart query's **Choose chart** shows any Flow chart.

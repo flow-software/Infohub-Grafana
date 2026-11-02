@@ -285,7 +285,6 @@ function MeasuresQueryEditor({
   const showPeriods = (items.length > 0 && (!summary || summary.periodMeasures > 0)) || fromVariable;
   const showTags = items.length > 0 && (!summary || summary.tags > 0);
   const eventContext = query.context === 'event';
-  const showCalendar = showPeriods && !eventContext;
 
   const update = (patch: Partial<FlowQuery>) => {
     onChange({ ...query, ...patch });
@@ -357,97 +356,96 @@ function MeasuresQueryEditor({
         </InlineField>
       )}
 
-      {showPeriods && <GroupHeading title="Period measures" count={summary?.periodMeasures} />}
-      {showPeriods && offerEventContext && (
-        <InlineField
-          label="Context"
-          labelWidth={LABEL_WIDTH}
-          tooltip="Calendar: a value per calendar period (hour, shift, day, ...). Event: a value per period of an event the measures have as context in Flow, such as a batch or a product run."
-        >
-          <RadioButtonGroup<'calendar' | 'event'>
-            options={[
-              { label: 'Calendar', value: 'calendar' },
-              { label: 'Event', value: 'event' },
-            ]}
-            value={eventContext ? 'event' : 'calendar'}
-            onChange={(v) =>
-              // Event periods are best drawn whole; calendar periods have no such option.
-              update(
-                v === 'event'
-                  ? { context: 'event', timeAt: 'period' }
-                  : { context: undefined, timeAt: query.timeAt === 'period' ? 'end' : query.timeAt }
-              )
-            }
-          />
-        </InlineField>
-      )}
-      {showPeriods && eventContext && (
-        <EventContextFields datasource={datasource} query={query} items={items} update={update} />
-      )}
-      {showPeriods && eventContext && (
-        <InlineField
-          label="Event variable"
-          labelWidth={LABEL_WIDTH}
-          tooltip="A dashboard variable holding an event id, such as an Events variable of this data source: $event. Its event replaces the one picked above; with several selected, the first."
-        >
-          <Input
-            id="query-editor-context-event-variable"
-            width={30}
-            placeholder="$event"
-            defaultValue={query.eventVariable ?? ''}
-            onBlur={(e) => update({ eventVariable: e.currentTarget.value.trim() || undefined })}
-          />
-        </InlineField>
-      )}
-      {showCalendar && (
-        <CalendarField
-          datasource={datasource}
-          value={query.calendarId}
-          context={fromVariable ? undefined : summary?.context}
-          onChange={(calendarId) => update({ calendarId })}
-          tooltip="Period measures (hourly, shift, daily, ...) are read in this calendar. Only the calendars the selected measures have as context in Flow are listed."
-        />
-      )}
       {showPeriods && (
-        <InlineField
-          label="Time at"
-          labelWidth={LABEL_WIDTH}
-          tooltip={
-            eventContext
-              ? "Whole period draws each value as a line from its event period's start to its end, with a gap until the next period, so you see when each period ran. Period start or end places the value at one of them; a running period has no end yet, so its value stays at the start."
-              : "Place each period's value at the start or the end of the period."
-          }
-        >
-          <RadioButtonGroup<'start' | 'end' | 'period'>
-            options={[
-              ...(eventContext ? [{ label: 'Whole period', value: 'period' as const }] : []),
-              { label: 'Period start', value: 'start' },
-              { label: 'Period end', value: 'end' },
-            ]}
-            value={!eventContext && query.timeAt === 'period' ? 'start' : (query.timeAt ?? 'start')}
-            onChange={(v) => update({ timeAt: v })}
-          />
-        </InlineField>
+        <CollapsibleSection title="Period measures" count={summary?.periodMeasures}>
+          {offerEventContext && (
+            <InlineField
+              label="Context"
+              labelWidth={LABEL_WIDTH}
+              tooltip="Calendar: a value per calendar period (hour, shift, day, ...). Event: a value per period of an event the measures have as context in Flow, such as a batch or a product run."
+            >
+              <RadioButtonGroup<'calendar' | 'event'>
+                options={[
+                  { label: 'Calendar', value: 'calendar' },
+                  { label: 'Event', value: 'event' },
+                ]}
+                value={eventContext ? 'event' : 'calendar'}
+                onChange={(v) =>
+                  // Event periods are best drawn whole; calendar periods have no such option.
+                  update(
+                    v === 'event'
+                      ? { context: 'event', timeAt: 'period' }
+                      : { context: undefined, timeAt: query.timeAt === 'period' ? 'end' : query.timeAt }
+                  )
+                }
+              />
+            </InlineField>
+          )}
+          {eventContext && <EventContextFields datasource={datasource} query={query} items={items} update={update} />}
+          {eventContext && (
+            <InlineField
+              label="Event variable"
+              labelWidth={LABEL_WIDTH}
+              tooltip="A dashboard variable holding an event id, such as an Events variable of this data source: $event. Its event replaces the one picked above; with several selected, the first."
+            >
+              <Input
+                id="query-editor-context-event-variable"
+                width={30}
+                placeholder="$event"
+                defaultValue={query.eventVariable ?? ''}
+                onBlur={(e) => update({ eventVariable: e.currentTarget.value.trim() || undefined })}
+              />
+            </InlineField>
+          )}
+          {!eventContext && (
+            <CalendarField
+              datasource={datasource}
+              value={query.calendarId}
+              context={fromVariable ? undefined : summary?.context}
+              onChange={(calendarId) => update({ calendarId })}
+              tooltip="Period measures (hourly, shift, daily, ...) are read in this calendar. Only the calendars the selected measures have as context in Flow are listed."
+            />
+          )}
+          <InlineField
+            label="Time at"
+            labelWidth={LABEL_WIDTH}
+            tooltip={
+              eventContext
+                ? "Whole period draws each value as a line from its event period's start to its end, with a gap until the next period, so you see when each period ran. Period start or end places the value at one of them; a running period has no end yet, so its value stays at the start."
+                : "Place each period's value at the start or the end of the period."
+            }
+          >
+            <RadioButtonGroup<'start' | 'end' | 'period'>
+              options={[
+                ...(eventContext ? [{ label: 'Whole period', value: 'period' as const }] : []),
+                { label: 'Period start', value: 'start' },
+                { label: 'Period end', value: 'end' },
+              ]}
+              value={!eventContext && query.timeAt === 'period' ? 'start' : (query.timeAt ?? 'start')}
+              onChange={(v) => update({ timeAt: v })}
+            />
+          </InlineField>
+        </CollapsibleSection>
       )}
 
-      {showTags && <GroupHeading title="Tags" count={summary?.tags} />}
       {showTags && (
-        <InlineField
-          label="Values"
-          labelWidth={LABEL_WIDTH}
-          tooltip="How a tag with more values than the panel can show is drawn. Auto: each panel interval's minimum and maximum, so spikes and dips stay visible. Average: each interval's average, a smoother line. Raw: every stored value, which can be slow over long ranges. While the values fit the panel, Auto and Average draw them raw."
-        >
-          <RadioButtonGroup<TagValues>
-            options={tagValueOptions}
-            value={query.aggregation === 'raw' ? 'raw' : query.aggregation === 'average' ? 'average' : 'auto'}
-            onChange={(v) => update({ aggregation: v === 'auto' ? undefined : v })}
-          />
-        </InlineField>
+        <CollapsibleSection title="Tags" count={summary?.tags}>
+          <InlineField
+            label="Values"
+            labelWidth={LABEL_WIDTH}
+            tooltip="How a tag with more values than the panel can show is drawn. Auto: each panel interval's minimum and maximum, so spikes and dips stay visible. Average: each interval's average, a smoother line. Raw: every stored value, which can be slow over long ranges. While the values fit the panel, Auto and Average draw them raw."
+          >
+            <RadioButtonGroup<TagValues>
+              options={tagValueOptions}
+              value={query.aggregation === 'raw' ? 'raw' : query.aggregation === 'average' ? 'average' : 'auto'}
+              onChange={(v) => update({ aggregation: v === 'auto' ? undefined : v })}
+            />
+          </InlineField>
+        </CollapsibleSection>
       )}
 
-      {(items.length > 0 || fromVariable) && query.refId !== ANNOTATION_REF_ID && <GroupHeading title="Display" />}
       {(items.length > 0 || fromVariable) && query.refId !== ANNOTATION_REF_ID && (
-        <>
+        <CollapsibleSection title="Display">
           <InlineField
             label="Legend"
             labelWidth={LABEL_WIDTH}
@@ -513,7 +511,7 @@ function MeasuresQueryEditor({
             </InlineField>
           )}
           <LimitsField datasource={datasource} query={query} items={items} update={update} />
-        </>
+        </CollapsibleSection>
       )}
 
       {(items.length > 0 || fromVariable) && query.refId !== ANNOTATION_REF_ID && (
@@ -521,6 +519,25 @@ function MeasuresQueryEditor({
           <BatchFields query={query} update={update} />
         </AdvancedSection>
       )}
+    </>
+  );
+}
+
+/**
+ * A section of the editor under a heading that folds it away: open by
+ * default, a click on the heading closes or reopens it.
+ */
+function CollapsibleSection({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+  const styles = useStyles2(getStyles);
+  const [shown, setShown] = useState(true);
+  return (
+    <>
+      <button type="button" className={styles.sectionToggle} aria-expanded={shown} onClick={() => setShown(!shown)}>
+        <Icon name={shown ? 'angle-down' : 'angle-right'} />
+        {title}
+        {count !== undefined && <span className={styles.groupCount}>{count}</span>}
+      </button>
+      {shown && children}
     </>
   );
 }
@@ -1371,6 +1388,21 @@ const getStyles = (theme: GrafanaTheme2) => ({
     border: `1px solid ${theme.colors.border.weak}`,
   }),
   chipLabel: css({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+  sectionToggle: css({
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    marginTop: theme.spacing(1),
+    padding: 0,
+    background: 'none',
+    border: 'none',
+    color: theme.colors.text.secondary,
+    fontSize: theme.typography.bodySmall.fontSize,
+    fontWeight: theme.typography.fontWeightMedium,
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+    '&:hover': { color: theme.colors.text.primary },
+  }),
   advanced: css({
     display: 'flex',
     alignItems: 'center',
