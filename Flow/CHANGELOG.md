@@ -1,6 +1,28 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
+
+First production release of **Infohub**, Flow Software's Grafana data source for Flow. It reads Flow through its public API with a server token.
+
+- **Measures and tags**: trend any measure, metric, folder or template from the model. Period measures are read per calendar period or per event period; tags raw, or as each panel interval's minimum and maximum (or average) when there are more values than the panel can show, so spikes stay visible. Browse the model folder by folder, or search by name or measure ID.
+- **Limits**: a measure's Flow limits as dashed lines that follow their dated settings, including limit values taken from another measure.
+- **Values and their history**: each value's quality and version; corrected periods marked on the trend with every version on hover; a history table like Flow's; value comments as annotations.
+- **Dependencies**: what a measure is built from, or what uses it, as a node graph with each measure's latest value and its retrieval type.
+- **Events**: event periods as a table (with numeric attributes as numbers), a state timeline or annotations; measures read per event period, with a series per attribute value.
+- **Charts**: Flow's time-based charts as Flow lays them out, or the measures of any chart.
+- **Golden batch**: compare a batch with one or more golden batches, lined up on time since batch start, % of batch or clock time (with the golden run projected past now while a batch runs), as measured or as change since start, with a band or the golden batches' envelope, and what Flow recorded for each batch side by side.
+- **Variables**: model attributes and their values, measures, events, event attribute values, batches (event periods) and limit names, so one dashboard serves every line, site, product or batch.
+- **Alerting**: alert rules on Flow measures and tags.
+- **Example dashboards**: measure explorer, measures by attribute, event analysis and golden batch, ready to import from the data source's Dashboards tab.
+- **Connection**: enter the Flow Bootstrap host, port and instance ID (or a full URL), a server token from Flow Config, and the default calendar.
+
+Known limitation: Flow's API returns only a limit's latest setting, so limit lines start at that setting's date until Flow returns them all.
+
+## Internal builds before 1.0.0
+
+Builds numbered 1.0.0 to 1.8.0 were internal pre-releases before the first production release; their notes are kept for reference.
+
+### Changes after internal build 1.8.0
 
 - The Measures editor's **Period measures**, **Tags** and **Display** sections can be folded away by their headings (open by default), like **Advanced**.
 - Golden batch: **Time axis** _% of batch_ puts every run on 0-100 % of its own length, so batches of different lengths line up by phase; a running batch is measured against the golden batch's length.
@@ -30,12 +52,12 @@
 - Event variables: **Only** (was _Of_) now narrows the list to the picked events too, not just to template events' instances. _Values of an event attribute_ takes one event (a template event gives the values of every event created from it), and its **Attribute** is a list of the event's attributes instead of a text box. The event can also come from an **Event variable** (`$event`), so the values follow an events dropdown.
 - The attribute pickers (**Where** and _Values of an attribute_'s **Attribute**) list dashboard variables too, so a measures variable can follow an attribute-names variable and a values variable: _Where_ `$attribute` = `$value`.
 
-## 1.8.0
+### Internal build 1.8.0
 
 - Whole folders can be picked: a folder stands for every measure in it and the folders below it (new measures included), in measures, dependency and variable queries. Folders show up in the browser's search, and a ticked folder shows how many measures it holds.
 - The **Filter** lists only the model attributes the selected measures carry, and only the values among them; with measures from a variable, it lists all of them as before.
 
-## 1.7.0
+### Internal build 1.7.0
 
 - Times in dependency node menus, correction and comment tooltips are shown in the dashboard's time zone (they were UTC), and a node's **Value at** is now its **Period**, e.g. _2026-10-07 06:00 – 2026-10-08 06:00_.
 - Dependencies: each node's menu shows its latest value's version (number, type, who and when) and its retrieval type. With retrieval-type rings the subtitle no longer repeats the retrieval type.
@@ -44,7 +66,7 @@
 - Charts can be shown as their **measures**: **Show** _Measures_ in the Chart tab reads the measures in any chart, of any chart type (event-based tables and forms, widgets, trends), as series for any panel, with every option of the Measures tab. _As configured_ is the Flow layout as before. Template measures in a chart come back as their instances, and an event-based chart starts in its event's context.
 - A measures query with no calendar picked, whose measures Flow cannot read in the default calendar, now reads them in the calendar they have and says so, instead of failing.
 
-## 1.6.0
+### Internal build 1.6.0
 
 - The plugin is now **Infohub by Flow**, with the ID `flowsoftware-infohub-datasource` (was `flowsoftware-flow-datasource`) and the backend `gpx_infohub`. Grafana treats it as a new plugin: install it into the folder `flowsoftware-infohub-datasource`, allow that ID in `allow_loading_unsigned_plugins`, and recreate data sources and dashboards made with the old one. The example dashboards are now _Infohub: measure explorer_, _Infohub: measures by attribute_, _Infohub: event analysis_ and _Infohub: chart viewer_.
 - Dependencies can show how far the engine has got with each measure, as the Flow Config monitor counts it: periods behind, pending, and queued to become pending. The counts lead each node's subtitle and are in full in its menu, and **Ring colour** _Processing_ colours rings green (up to date), orange (behind or pending) or yellow (inactive: a measure that is not deployed, which the engine does not process). It is read from the Flow database, for the graph's measures only, so it needs the new, optional **Flow database** connection in the data source settings (server, database, read-only login); **Save & test** checks it. Quarantine is not included: Flow keeps it in the engine, not the database.
@@ -52,11 +74,11 @@
 - The editor offers only the calendars the selected measures have as context in Flow (noting how many measures have each when not all do), for measures and dependencies, and offers event context only when a selected measure has an event as context. With measures from a variable, or when Flow's context cannot be read, everything is offered as before.
 - The measure browser can also show only measures of some retrieval types: a second row of chips (Aggregated, Calculated, Manual, Retrieved, Replicated, with Flow's retrieval marks) narrows the tree and the search results, together with the interval chips.
 
-## 1.5.0
+### Internal build 1.5.0
 
 - The measure browser can show only measures of some intervals: chips under the search box (Tag, Minutely, Hourly, Shift, Daily, Weekly, Monthly, Quarterly, Yearly) narrow the tree and the search results.
 
-## 1.4.0
+### Internal build 1.4.0
 
 - Example dashboards ship with the plugin: import them from the data source's **Dashboards** tab. _Measure explorer_, _Measures by attribute_, _Event analysis_ and _Chart viewer_ pick measures, events and charts from dropdowns, so they work on any Flow model.
 - The plugin's Overview page is a feature tour with screenshots, and the screenshots are listed in the plugin's gallery.
@@ -66,12 +88,12 @@
 - One tag Flow cannot read no longer fails the whole query: when Flow rejects a read of several tags (for example "Could not determine a latch source" for a Latch transform without a latch source), the tags are read one at a time, the others are shown, and each rejected tag is named in a warning.
 - Dependencies: tag transforms (Latch, Exception, ...) are linked to the tag they transform, with the transform type on the node and the arrow. Flow describes them as `tagTransform` metadata from the build after 7.2.0 `08964ed26`; earlier builds return a server error for these measures, which the plugin reports as before.
 
-## 1.3.1
+### Internal build 1.3.1
 
 - Tag aggregations removed from the Measures tab: tags are read raw, averaged per panel interval only when there are more values than the panel can show, or every raw value with All raw values. Panels saved with an aggregation read as before this option, raw/averaged.
 - The annotation query editor offers only Measures (value comments) and Events (event periods). Chart and Dependencies were listed but could not produce annotations.
 
-## 1.3.0
+### Internal build 1.3.0
 
 - Dashboard variables: model attribute values, measures (template instances or a metric's measures, valued by id), events and event attribute values, each optionally narrowed by a model attribute that can use other variables.
 - Measures can be filtered by a model attribute (e.g. Line = `$line`, multi-value and All supported), and taken from a variable of measure ids. Model measures outside the filter are not read.
@@ -80,11 +102,11 @@
 - Dependency node graph: with Show limits on, a node whose latest value is outside its limits (as Flow flags it) is filled red, keeping its type colour on the ring, and its click menu names the limit. The panel's legend lists the ring colours in the graph and explains the red fill, instead of "mainstat / color".
 - The model browser and the picked-measure chips show Flow's retrieval marks on each measure's interval icon, as Flow Config does: a triangle for aggregated, an equals sign for calculated, a tray with a plus for manual, a cylinder for retrieved and a boxed cross for replicated, in Flow's blue.
 
-## 1.2.0
+### Internal build 1.2.0
 
 - Chart queries show the chart's model attribute columns (after UOM, titled as in Flow), one per attribute. A measure without a value for the attribute gets a blank cell; charts without model attribute columns are unchanged.
 
-## 1.1.0
+### Internal build 1.1.0
 
 - Events query (second tab): event periods and their attributes as a table (attribute cells coloured as in Flow) or a state timeline, and as annotations on other panels through a dashboard annotation query. The events browser lists only folders that hold events; events can also be searched by name.
 - The model browser shows each measure's interval as a symbol (circled M, H, S, D for minutely to daily; calendar boxes W, M, Q, Y for weekly to yearly) and marks measures with event context with a lightning bolt that names the events. Search results show intervals too.
@@ -92,7 +114,7 @@
 - Dependency queries have a Calendar picker: period measures show their latest value in that calendar. Measures that do not have the calendar as context in Flow show a dash, and their node says why.
 - Fixed: searching the model browser for names with characters such as "-" or "." (e.g. "110-FQ") found nothing, because the search box escaped them.
 
-## 1.0.0
+### Internal build 1.0.0
 
 First release.
 

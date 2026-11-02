@@ -51,11 +51,17 @@ Event periods with their attributes as a table or a state timeline, coloured as 
 
 Pick a time-based chart set up in Flow and see it as Flow lays it out: sections, measures, attribute and limit columns, one column per period, cells coloured by the chart's limit colours, and comments on hover. Or show any chart's **measures** instead, of any chart type, and chart them however you like in any Grafana panel.
 
+### Compare a batch with a golden batch
+
+![A batch's energy use since its start against the mean of two golden batches, with their envelope](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/golden-batch.png)
+
+Pick a batch (a run of a Flow event) and one or more golden batches, runs that went right, and see each measure over the batch against them, lined up on time since batch start, on % of batch so runs of different lengths line up by phase, or on clock time with the golden run projected past now while a batch is still running. Counters such as energy totals compare by their change since batch start; a band, or the envelope of several golden batches, shows where the batch strays. A table puts what Flow recorded for each batch side by side. The **Infohub: golden batch** example dashboard has it set up.
+
 ### Build one dashboard for every line
 
 ![Every measure where Line = Line 1, with a table of their latest values](https://raw.githubusercontent.com/flow-software/Infohub-Grafana/main/Flow/src/img/screenshots/attributes.png)
 
-Dashboard variables are filled from Flow: model attributes (_Line_, _Site_, ...) and their values (every _Line_), measures, events, event attribute values, limit names and charts. Panels follow them through an attribute filter (_Line_ = `$line`) or a variable of measure, event or chart ids, so one dashboard serves every line, site or product.
+Dashboard variables are filled from Flow: model attributes (_Line_, _Site_, ...) and their values (every _Line_), measures, events, event attribute values, batches (event periods) and limit names. Panels follow them through an attribute filter (_Line_ = `$line`) or a variable of measure or event ids, so one dashboard serves every line, site or product.
 
 ### Alert on Flow data
 

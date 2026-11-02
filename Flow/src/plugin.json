@@ -28,7 +28,8 @@
       { "name": "Event periods", "path": "img/screenshots/events.png" },
       { "name": "Measures per event period", "path": "img/screenshots/event-context.png" },
       { "name": "Flow chart", "path": "img/screenshots/chart.png" },
-      { "name": "Measures by attribute", "path": "img/screenshots/attributes.png" }
+      { "name": "Measures by attribute", "path": "img/screenshots/attributes.png" },
+      { "name": "Golden batch", "path": "img/screenshots/golden-batch.png" }
     ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
