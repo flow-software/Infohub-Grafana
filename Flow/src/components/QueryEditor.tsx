@@ -33,6 +33,7 @@ import {
 } from '../types';
 import { AttributeFilterField, dashboardVariables } from './AttributeFilterField';
 import { ChartBrowser } from './ChartBrowser';
+import { VariablePicker } from './VariablePicker';
 import { MeasureIcon } from './MeasureIcon';
 import { ModelBrowser } from './ModelBrowser';
 
@@ -307,12 +308,12 @@ function MeasuresQueryEditor({
           labelWidth={LABEL_WIDTH}
           tooltip="A dashboard variable holding measure ids, such as a Measures variable of this data source: $measure. Its measures are added to those picked above; with Multi-value or All, every selected one."
         >
-          <Input
+          <VariablePicker
             id="query-editor-measure-variable"
-            width={30}
+            kind="measures"
             placeholder="$measure"
-            defaultValue={query.measureVariable ?? ''}
-            onBlur={(e) => update({ measureVariable: e.currentTarget.value.trim() || undefined })}
+            value={query.measureVariable}
+            onChange={(measureVariable) => update({ measureVariable })}
           />
         </InlineField>
       )}
@@ -1070,12 +1071,12 @@ function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Part
         labelWidth={LABEL_WIDTH}
         tooltip="A Periods (batches) variable of this data source, such as $batch. The measures are read over that batch instead of the dashboard's time range, with time as seconds since the batch's start: use the Trend panel. Empty: the dashboard's time range, as usual."
       >
-        <Input
+        <VariablePicker
           id="query-editor-batch"
-          width={30}
+          kind="eventPeriods"
           placeholder="$batch"
-          defaultValue={query.batch ?? ''}
-          onBlur={(e) => update({ batch: e.currentTarget.value.trim() || undefined })}
+          value={query.batch}
+          onChange={(batch) => update({ batch })}
         />
       </InlineField>
       {on && (
@@ -1084,12 +1085,12 @@ function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Part
           labelWidth={LABEL_WIDTH}
           tooltip="A reference (golden) batch, such as $golden: the same measures over that batch, aligned on its start, drawn dashed beside the batch's."
         >
-          <Input
+          <VariablePicker
             id="query-editor-golden"
-            width={30}
+            kind="eventPeriods"
             placeholder="$golden"
-            defaultValue={query.golden ?? ''}
-            onBlur={(e) => update({ golden: e.currentTarget.value.trim() || undefined })}
+            value={query.golden}
+            onChange={(golden) => update({ golden })}
           />
         </InlineField>
       )}
