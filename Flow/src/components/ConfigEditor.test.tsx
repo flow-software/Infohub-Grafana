@@ -1,7 +1,7 @@
 import { buildFlowUrl, parseFlowUrl } from './ConfigEditor';
 
 describe('Flow Server address', () => {
-  const id = '7828D35F-D2C7-4D09-AF8C-333C046F1A77';
+  const id = '3F2504E0-4F89-11D3-9A0C-0305E82C3301';
 
   it('is built from host, port and instance', () => {
     expect(buildFlowUrl({ https: false, host: 'flow-server', port: '', instanceId: id })).toBe(

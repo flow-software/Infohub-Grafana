@@ -174,7 +174,7 @@ export function ConfigEditor({ options, onOptionsChange }: Props) {
             </Field>
             <Field
               label="Instance ID"
-              description="The Flow instance's ID, a GUID such as 7828D35F-D2C7-4D09-AF8C-333C046F1A77 (not its name). It is part of the Flow Server address in Flow Config and of the Swagger page's address."
+              description="The Flow instance's ID, a GUID such as 3F2504E0-4F89-11D3-9A0C-0305E82C3301 (not its name). It is part of the Flow Server address in Flow Config and of the Swagger page's address."
               required
               invalid={badId}
               error={badId ? 'An instance ID is a GUID: 8-4-4-4-12 hexadecimal characters.' : undefined}
