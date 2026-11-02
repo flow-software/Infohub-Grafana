@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Golden batch: each measure's golden line and band take its batch line's colour; **Band** reads _± amount_ (in the measure's unit) or _± %_, with the unit shown, and switching between them no longer carries the number over (0.1 % became an invisible ± 0.1); new example dashboard **Infohub: golden batch**.
 - A new panel's first query now also starts on **Period end** (Grafana does not always apply the data source's default query there).
 - **Removed: limit evaluation** (whether a value is within or outside its limits). Flow's API cannot evaluate limits reliably yet: it fails for measures with a limit taken from another measure, mixes in other calendars' limits, and does not name the limit a value breaks. The dependency graph no longer fills nodes red, and its **Limits** switch is gone. It will return once Flow's API is fixed; **Show limit values** (the limit lines) stays.
 - New queries place period values at the **period end** (**Time at**); saved queries keep their setting.

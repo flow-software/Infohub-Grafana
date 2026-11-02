@@ -1,0 +1,192 @@
+{
+  "uid": "infohub-golden-batch",
+  "title": "Infohub: golden batch",
+  "description": "Compare a batch with a golden (reference) batch: the same measures over both, lined up on time since batch start, with a band around the golden trend.",
+  "tags": [
+    "infohub",
+    "flow"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "refresh": "",
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "ds",
+        "label": "Infohub",
+        "type": "datasource",
+        "query": "flowsoftware-infohub-datasource",
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "options": []
+      },
+      {
+        "name": "event",
+        "label": "Event",
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-infohub-datasource",
+          "uid": "${ds}"
+        },
+        "query": {
+          "variableKind": "events",
+          "refId": "event",
+          "queryType": "variable"
+        },
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
+      },
+      {
+        "name": "batch",
+        "label": "Batch",
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-infohub-datasource",
+          "uid": "${ds}"
+        },
+        "query": {
+          "variableKind": "eventPeriods",
+          "refId": "batch",
+          "queryType": "variable",
+          "eventVariable": "$event"
+        },
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
+      },
+      {
+        "name": "golden",
+        "label": "Golden batch",
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-infohub-datasource",
+          "uid": "${ds}"
+        },
+        "query": {
+          "variableKind": "eventPeriods",
+          "refId": "golden",
+          "queryType": "variable",
+          "eventVariable": "$event"
+        },
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
+      },
+      {
+        "name": "measure",
+        "label": "Measures",
+        "type": "query",
+        "datasource": {
+          "type": "flowsoftware-infohub-datasource",
+          "uid": "${ds}"
+        },
+        "query": {
+          "variableKind": "measures",
+          "refId": "measure",
+          "queryType": "variable"
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": false,
+        "hide": 0,
+        "sort": 0,
+        "options": [],
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Pick an **Event** whose runs are your batches, the **Batch** to check and a **Golden batch** to compare it with (both list the event's runs in the time range, newest first), and the **Measures** to compare, e.g. process tags. Each measure is drawn over the batch (solid) and the golden batch (dashed, same colour), from batch start, with a \u00b1 5 % band around the golden trend. Open the panel's query (**Advanced \u2192 Batch**) to change the band."
+      }
+    },
+    {
+      "id": 2,
+      "type": "trend",
+      "title": "$batch against golden $golden",
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "datasource": {
+        "type": "flowsoftware-infohub-datasource",
+        "uid": "${ds}"
+      },
+      "options": {
+        "xField": "Time since batch start",
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "flowsoftware-infohub-datasource",
+            "uid": "${ds}"
+          },
+          "queryType": "measures",
+          "items": [],
+          "measureVariable": "$measure",
+          "timeAt": "end",
+          "batch": "$batch",
+          "golden": "$golden",
+          "bandMode": "percent",
+          "band": 5
+        }
+      ]
+    }
+  ]
+}

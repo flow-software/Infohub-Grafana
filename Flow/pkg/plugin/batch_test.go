@@ -106,6 +106,11 @@ func TestBatchAgainstGolden(t *testing.T) {
 		t.Errorf("rows = %s", got)
 	}
 	golden := fr
+	// The golden line and its band take the batch line's colour.
+	batchColor := fr.Fields[1].Config.Color["fixedColor"]
+	if batchColor == nil || fr.Fields[2].Config.Color["fixedColor"] != batchColor || fr.Fields[3].Config.Color["fixedColor"] != batchColor {
+		t.Errorf("colours: batch %v, golden %v, band %v", batchColor, fr.Fields[2].Config.Color["fixedColor"], fr.Fields[3].Config.Color["fixedColor"])
+	}
 	if !strings.HasSuffix(golden.Fields[2].Config.DisplayNameFromDS, " · golden") || golden.Fields[3].Config.Custom["fillBelowTo"] != golden.Fields[4].Config.DisplayNameFromDS {
 		t.Errorf("golden config: %q, fillBelowTo %v", golden.Fields[2].Config.DisplayNameFromDS, golden.Fields[3].Config.Custom["fillBelowTo"])
 	}

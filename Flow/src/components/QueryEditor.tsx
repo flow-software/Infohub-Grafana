@@ -1110,34 +1110,38 @@ function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Part
         <InlineField
           label="Band"
           labelWidth={LABEL_WIDTH}
-          tooltip="A shaded band around the golden batch's values, to see where the batch strays from it: ± an amount in the measure's unit, or ± a percentage of the golden value."
+          tooltip="A shaded band around the golden batch's values, to see where the batch strays from it. ± amount: a fixed amount in the measure's own unit (kg, °C, ...), e.g. 20 for ± 20 kg. ± %: a percentage of the golden value at each point, e.g. 5 for ± 5 %."
         >
           <Stack gap={1} alignItems="center">
             <RadioButtonGroup<'none' | 'absolute' | 'percent'>
               options={[
                 { label: 'None', value: 'none' },
-                { label: '± value', value: 'absolute' },
+                { label: '± amount', value: 'absolute' },
                 { label: '± %', value: 'percent' },
               ]}
-              value={query.band ? (query.bandMode ?? 'absolute') : 'none'}
+              value={query.bandMode ?? (query.band ? 'absolute' : 'none')}
               onChange={(v) =>
                 update(
                   v === 'none'
                     ? { band: undefined, bandMode: undefined }
-                    : { bandMode: v, band: query.band || (v === 'percent' ? 5 : 1) }
+                    : // Each mode starts afresh: the other mode's number means something else.
+                      { bandMode: v, band: v === 'percent' ? 5 : undefined }
                 )
               }
             />
-            {!!query.band && (
+            {(query.bandMode ?? (query.band ? 'absolute' : undefined)) && (
               <Input
+                key={query.bandMode ?? 'absolute'}
                 id="query-editor-band"
                 type="number"
-                width={10}
+                width={22}
                 min={0}
-                defaultValue={query.band}
+                placeholder={query.bandMode === 'percent' ? '5' : 'amount'}
+                suffix={query.bandMode === 'percent' ? '%' : "in the measure's unit"}
+                defaultValue={query.band ?? ''}
                 onBlur={(e) => {
                   const v = Number(e.currentTarget.value);
-                  update({ band: v > 0 ? v : undefined, bandMode: v > 0 ? query.bandMode : undefined });
+                  update({ band: v > 0 ? v : undefined });
                 }}
               />
             )}

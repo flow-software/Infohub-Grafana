@@ -88,6 +88,16 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 	}
 	notices := takeNotices(resp.Frames)
 	frames := elapsedFrames(resp.Frames, batch.start)
+	// Each measure keeps one colour, so its golden line (dashed) and band
+	// pair visibly with its batch line, however many measures there are.
+	colors := map[string]string{}
+	for i, f := range frames {
+		if len(f.Fields) > 1 {
+			c := batchPalette[i%len(batchPalette)]
+			colors[seriesKey(f.Fields[1])] = c
+			setColor(f.Fields[1], c)
+		}
+	}
 	if batch.running {
 		notices = append(notices, "The batch is still running: it is shown up to now.")
 	}
@@ -109,7 +119,11 @@ func (d *Datasource) runBatch(ctx context.Context, qm queryModel, q backend.Data
 			notices = append(notices, "Golden batch: "+n)
 		}
 		for _, f := range elapsedFrames(gresp.Frames, golden.start) {
-			frames = append(frames, goldenFrame(f, qm))
+			color := ""
+			if len(f.Fields) > 1 {
+				color = colors[seriesKey(f.Fields[1])]
+			}
+			frames = append(frames, goldenFrame(f, qm, color))
 		}
 	}
 
@@ -176,7 +190,7 @@ func elapsedFrames(frames data.Frames, start time.Time) data.Frames {
 // goldenFrame marks a frame as the golden batch: its value dashed and
 // named "· golden", and with a band, the band's upper and lower edges
 // filled between, in gold.
-func goldenFrame(f *data.Frame, qm queryModel) *data.Frame {
+func goldenFrame(f *data.Frame, qm queryModel, color string) *data.Frame {
 	f.Name += " · golden"
 	if len(f.Fields) < 2 {
 		return f
@@ -191,6 +205,11 @@ func goldenFrame(f *data.Frame, qm queryModel) *data.Frame {
 	}
 	value.Config.DisplayNameFromDS = strings.TrimSuffix(name, " · golden") + " · golden"
 	value.Config.Custom = map[string]any{"lineStyle": map[string]any{"fill": "dash", "dash": []int{10, 10}}}
+	bandColor := "yellow"
+	if color != "" {
+		setColor(value, color)
+		bandColor = color
+	}
 	// Only the golden value itself; limits and evaluations belong to the batch.
 	f.Fields = f.Fields[:2]
 	if qm.Band <= 0 || value.Type() != data.FieldTypeNullableFloat64 {
@@ -217,7 +236,7 @@ func goldenFrame(f *data.Frame, qm queryModel) *data.Frame {
 		bf.Config = &data.FieldConfig{
 			DisplayNameFromDS: display,
 			Unit:              value.Config.Unit,
-			Color:             map[string]any{"mode": "fixed", "fixedColor": "yellow"},
+			Color:             map[string]any{"mode": "fixed", "fixedColor": bandColor},
 			Custom: map[string]any{
 				"lineWidth":  0,
 				"showPoints": "never",
@@ -231,6 +250,24 @@ func goldenFrame(f *data.Frame, qm queryModel) *data.Frame {
 	up.Config.Custom["fillOpacity"] = 20
 	f.Fields = append(f.Fields, up, band("Golden lower", lowerName, lower))
 	return f
+}
+
+// batchPalette is Grafana's classic palette, in its order: batch lines get
+// the colours a panel would give them anyway, fixed so that each golden
+// line can take its batch line's.
+var batchPalette = []string{"#73BF69", "#F2CC0C", "#8AB8FF", "#FF780A", "#F2495C", "#5794F2", "#B877D9", "#705DA0", "#37872D", "#FADE2A"}
+
+// seriesKey identifies a measure's series across the batch and golden
+// reads: its labels (measure id, and the value of a split attribute).
+func seriesKey(f *data.Field) string {
+	return f.Labels.String()
+}
+
+func setColor(f *data.Field, color string) {
+	if f.Config == nil {
+		f.Config = &data.FieldConfig{}
+	}
+	f.Config.Color = map[string]any{"mode": "fixed", "fixedColor": color}
 }
 
 func abs(v float64) float64 {
