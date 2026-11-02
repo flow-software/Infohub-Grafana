@@ -551,7 +551,7 @@ function AdvancedSection({ open, children }: { open: boolean; children: React.Re
   const [shown, setShown] = useState(open);
   return (
     <>
-      <button type="button" className={styles.advanced} aria-expanded={shown} onClick={() => setShown(!shown)}>
+      <button type="button" className={styles.sectionToggle} aria-expanded={shown} onClick={() => setShown(!shown)}>
         <Icon name={shown ? 'angle-down' : 'angle-right'} />
         Advanced
       </button>
@@ -1393,21 +1393,6 @@ const getStyles = (theme: GrafanaTheme2) => ({
     alignItems: 'center',
     gap: theme.spacing(0.5),
     marginTop: theme.spacing(1),
-    padding: 0,
-    background: 'none',
-    border: 'none',
-    color: theme.colors.text.secondary,
-    fontSize: theme.typography.bodySmall.fontSize,
-    fontWeight: theme.typography.fontWeightMedium,
-    textTransform: 'uppercase',
-    cursor: 'pointer',
-    '&:hover': { color: theme.colors.text.primary },
-  }),
-  advanced: css({
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.5),
-    marginTop: theme.spacing(2),
     padding: 0,
     background: 'none',
     border: 'none',
