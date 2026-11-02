@@ -1,4 +1,4 @@
-# Publishes a GitHub Release with the Flow plugin zips.
+# Publishes a GitHub Release with the Infohub plugin zips.
 #
 # Bump "version" in Flow/package.json and add a CHANGELOG.md section for
 # it, then push a matching tag:
@@ -54,7 +54,7 @@ jobs:
 
           ## Install
 
-          Unsigned build: Grafana must list `flowsoftware-infohub-datasource` in `allow_loading_unsigned_plugins`. Self-hosted Grafana only, not Grafana Cloud.
+          Once Infohub is in the Grafana plugin catalog, install it from there (Administration → Plugins) or with `grafana cli plugins install flowsoftware-infohub-datasource`. These zips are for installing by hand. Until Grafana has signed the plugin they are unsigned: Grafana must then list `flowsoftware-infohub-datasource` in `allow_loading_unsigned_plugins` (self-hosted Grafana only, not Grafana Cloud).
 
           | Zip | For |
           | --- | --- |
@@ -68,5 +68,5 @@ jobs:
           EOF
 
           gh release create "$TAG" artifacts/*.zip artifacts/SHA256SUMS.txt artifacts/SHA1SUMS.txt Flow/INSTALL.md \
-            --title "Flow data source $version" \
+            --title "Infohub $version" \
             --notes-file notes.md
