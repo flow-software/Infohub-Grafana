@@ -1105,6 +1105,7 @@ function LimitsField({
  * on time since their start, with a band around the golden values.
  */
 function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Partial<FlowQuery>) => void }) {
+  const styles = useStyles2(getStyles);
   const on = !!query.batch;
   return (
     <>
@@ -1181,10 +1182,10 @@ function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Part
                 key={query.bandMode ?? 'absolute'}
                 id="query-editor-band"
                 type="number"
-                width={22}
+                width={12}
                 min={0}
-                placeholder={query.bandMode === 'percent' ? '5' : 'amount'}
-                suffix={query.bandMode === 'percent' ? '%' : "in the measure's unit"}
+                placeholder={query.bandMode === 'percent' ? '5' : 'e.g. 20'}
+                suffix={query.bandMode === 'percent' ? '%' : undefined}
                 defaultValue={query.band ?? ''}
                 onBlur={(e) => {
                   const v = Number(e.currentTarget.value);
@@ -1192,6 +1193,7 @@ function BatchFields({ query, update }: { query: FlowQuery; update: (patch: Part
                 }}
               />
             )}
+            {query.bandMode === 'absolute' && <span className={styles.hint}>in the measure&apos;s unit</span>}
           </Stack>
         </InlineField>
       )}
