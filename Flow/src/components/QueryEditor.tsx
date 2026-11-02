@@ -361,7 +361,7 @@ function MeasuresQueryEditor({
               update(
                 v === 'event'
                   ? { context: 'event', timeAt: 'period' }
-                  : { context: undefined, timeAt: query.timeAt === 'period' ? 'start' : query.timeAt }
+                  : { context: undefined, timeAt: query.timeAt === 'period' ? 'end' : query.timeAt }
               )
             }
           />
@@ -414,10 +414,6 @@ function MeasuresQueryEditor({
             onChange={(v) => update({ timeAt: v })}
           />
         </InlineField>
-      )}
-
-      {(items.length > 0 || fromVariable) && query.refId !== ANNOTATION_REF_ID && (
-        <BatchFields query={query} update={update} />
       )}
 
       {showTags && <GroupHeading title="Tags" count={summary?.tags} />}
@@ -505,6 +501,30 @@ function MeasuresQueryEditor({
           <LimitsField datasource={datasource} query={query} items={items} update={update} />
         </>
       )}
+
+      {(items.length > 0 || fromVariable) && query.refId !== ANNOTATION_REF_ID && (
+        <AdvancedSection open={!!query.batch}>
+          <BatchFields query={query} update={update} />
+        </AdvancedSection>
+      )}
+    </>
+  );
+}
+
+/**
+ * Options few queries need, at the end of the editor and collapsed until
+ * opened; open from the start when one of them is in use.
+ */
+function AdvancedSection({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const styles = useStyles2(getStyles);
+  const [shown, setShown] = useState(open);
+  return (
+    <>
+      <button type="button" className={styles.advanced} aria-expanded={shown} onClick={() => setShown(!shown)}>
+        <Icon name={shown ? 'angle-down' : 'angle-right'} />
+        Advanced
+      </button>
+      {shown && children}
     </>
   );
 }
@@ -1289,6 +1309,21 @@ const getStyles = (theme: GrafanaTheme2) => ({
     border: `1px solid ${theme.colors.border.weak}`,
   }),
   chipLabel: css({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+  advanced: css({
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    marginTop: theme.spacing(2),
+    padding: 0,
+    background: 'none',
+    border: 'none',
+    color: theme.colors.text.secondary,
+    fontSize: theme.typography.bodySmall.fontSize,
+    fontWeight: theme.typography.fontWeightMedium,
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+    '&:hover': { color: theme.colors.text.primary },
+  }),
   group: css({
     display: 'flex',
     alignItems: 'center',

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- New queries place period values at the **period end** (**Time at**); saved queries keep their setting.
+- The Measures tab's **Batch** section moved to an **Advanced** section at the end of the editor, collapsed unless the query uses a batch.
 - The Measures tab's **Variable**, **Batch** and **Compare with** fields are dropdowns of the dashboard's variables, with this data source's variables of the right kind first (e.g. Measures variables for **Variable**); another value can still be typed.
 - **Removed: processing and the Flow database connection.** Dependencies no longer show how far the engine has got with each measure, and the data source no longer has the optional Flow database (SQL Server) settings: the plugin now uses only Flow's public API. Rings are always coloured by retrieval type; dependency queries saved with _Processing_ rings show retrieval-type rings. Processing will return once Flow's API exposes it.
 - The plugin is titled **Infohub** in Grafana (by Flow Software), with an up-to-date description.

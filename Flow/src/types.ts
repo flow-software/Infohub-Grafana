@@ -149,9 +149,11 @@ export interface FlowQuery extends DataQuery {
   legend?: string;
 }
 
+// New queries place period values at the period end. Queries saved without
+// timeAt keep meaning the start, so existing panels do not move.
 export const DEFAULT_QUERY: Partial<FlowQuery> = {
   items: [],
-  timeAt: 'start',
+  timeAt: 'end',
 };
 
 /** Settings stored in jsonData. The Flow Server base URL is the datasource's top-level url. */
