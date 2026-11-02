@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
-	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flowdb"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 )
 
@@ -266,34 +265,6 @@ func (d *Datasource) depMeasureValues(ctx context.Context, g *depGraph, rows []d
 		}
 	}
 	return values, notices
-}
-
-// depStats is how a node describes the way a measure gets its values: its
-// period, then its retrieval type, e.g. "hourly · calculated".
-// depProcessing reads how far the engine has got with the graph's model
-// measures from the Flow database. Without the database set up it says so
-// and returns nil, which leaves processing out of the graph.
-func (d *Datasource) depProcessing(ctx context.Context, rows []depRow, treeOf map[string]flow.Tree) (map[int]flowdb.Processing, []string) {
-	if d.db == nil {
-		return nil, []string{"Processing needs the Flow database: set it up in the data source settings."}
-	}
-	var ids []int
-	for _, r := range rows {
-		if r.Type == "measure" && treeOf[r.ID] == flow.TreeModel {
-			ids = appendUnique(ids, r.MeasureID)
-		}
-	}
-	dbCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	proc, err := d.db.Processing(dbCtx, ids)
-	if err != nil {
-		return nil, []string{"Could not read processing from the Flow database: " + err.Error()}
-	}
-	return proc, nil
-}
-
-func depStats(m flow.Measure) string {
-	return strings.Trim(fmt.Sprintf("%s · %s", m.Interval, m.Retrieval), " ·")
 }
 
 // inCalendarContext reports whether a measure has the calendar as context.

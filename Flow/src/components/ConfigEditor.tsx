@@ -10,7 +10,6 @@ import {
   InlineField,
   InlineSwitch,
   Input,
-  RadioButtonGroup,
   SecretInput,
   SecretTextArea,
   Stack,
@@ -275,77 +274,6 @@ export function ConfigEditor({ options, onOptionsChange }: Props) {
               onReset={resetSecret('tlsCACert')}
             />
           </Field>
-        )}
-      </FieldSet>
-
-      <FieldSet label="Flow database (optional)">
-        <p>
-          Lets dependency queries show how far the engine has got with each measure (periods behind, pending and
-          queued), as the Flow Config monitor does. The public API does not expose this, so it is read from the Flow
-          database, only for the measures in a graph. Use a read-only login, e.g. one with <code>db_datareader</code> on
-          the Flow database. Leave the server empty to skip it.
-        </p>
-        <Field label="Server" description="SQL Server host, host:port or host\instance.">
-          <Input
-            id="config-sql-server"
-            width={60}
-            value={jsonData.sqlServer ?? ''}
-            placeholder="sql-server:1433"
-            onChange={(e) => setJson('sqlServer', e.currentTarget.value || undefined)}
-          />
-        </Field>
-        {!!jsonData.sqlServer && (
-          <>
-            <Field label="Database" required>
-              <Input
-                id="config-sql-database"
-                width={40}
-                value={jsonData.sqlDatabase ?? ''}
-                placeholder="Flow"
-                onChange={(e) => setJson('sqlDatabase', e.currentTarget.value || undefined)}
-              />
-            </Field>
-            <Field label="User" description="SQL Server authentication." required>
-              <Input
-                id="config-sql-user"
-                width={40}
-                value={jsonData.sqlUser ?? ''}
-                onChange={(e) => setJson('sqlUser', e.currentTarget.value || undefined)}
-              />
-            </Field>
-            <Field label="Password">
-              <SecretInput
-                id="config-sql-password"
-                width={40}
-                isConfigured={!!secureJsonFields.sqlPassword}
-                value={secureJsonData.sqlPassword ?? ''}
-                onChange={setSecret('sqlPassword')}
-                onReset={resetSecret('sqlPassword')}
-              />
-            </Field>
-            <Field
-              label="Encryption"
-              description="Login only encrypts the login, as SQL Server clients do by default. Required encrypts everything; Strict uses TDS 8."
-            >
-              <RadioButtonGroup<string>
-                options={[
-                  { label: 'Login only', value: 'false' },
-                  { label: 'Required', value: 'true' },
-                  { label: 'Strict', value: 'strict' },
-                  { label: 'Off', value: 'disable' },
-                ]}
-                value={jsonData.sqlEncrypt ?? 'false'}
-                onChange={(v) => setJson('sqlEncrypt', v as FlowOptions['sqlEncrypt'])}
-              />
-            </Field>
-            <Field label="Trust server certificate" description="Accept a self-signed SQL Server certificate.">
-              <Switch
-                id="config-sql-trust-cert"
-                value={!!jsonData.sqlTrustServerCertificate}
-                onChange={(e) => setJson('sqlTrustServerCertificate', e.currentTarget.checked || undefined)}
-              />
-            </Field>
-          </>
         )}
       </FieldSet>
     </>

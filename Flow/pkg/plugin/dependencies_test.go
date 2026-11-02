@@ -3,16 +3,12 @@ package plugin
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flowdb"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
@@ -344,115 +340,6 @@ func TestDependenciesNodeGraph(t *testing.T) {
 	}
 	if frames[0].Meta.PreferredVisualization != data.VisTypeNodeGraph {
 		t.Errorf("meta = %+v", frames[0].Meta)
-	}
-}
-
-// fakeProcessing stands in for the Flow database.
-type fakeProcessing struct {
-	state map[int]flowdb.Processing
-	asked []int
-	err   error
-}
-
-func (f *fakeProcessing) Check(context.Context) (string, error) { return "Flow", f.err }
-func (f *fakeProcessing) Close() error                          { return nil }
-func (f *fakeProcessing) Processing(_ context.Context, ids []int) (map[int]flowdb.Processing, error) {
-	f.asked = ids
-	return f.state, f.err
-}
-
-func TestDependenciesProcessing(t *testing.T) {
-	_, d := depServer(t)
-	qm := queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}, DepProcessing: true}
-
-	// Without the Flow database: the graph as before, and a note why.
-	frames := runDeps(t, d, qm)
-	if f, _ := frames[0].FieldByName("detail__processing"); f == nil {
-		t.Fatal("no processing detail field")
-	} else if got := nodeCol(t, frames, "detail__processing")["model:measure:10"]; got != "" {
-		t.Errorf("processing without a database = %q", got)
-	}
-	if n := frames[0].Meta.Notices; len(n) == 0 || !strings.Contains(n[0].Text, "Flow database") {
-		t.Errorf("notices = %+v", n)
-	}
-
-	fake := &fakeProcessing{state: map[int]flowdb.Processing{
-		11: {Behind: 12, BehindBy: []flowdb.CalendarBehind{{Calendar: "Production", Periods: 12}}},
-		13: {Pending: 3, Queued: 1},
-		12: {Inactive: true},
-	}}
-	d.db = fake
-	frames = runDeps(t, d, qm)
-	// Only the graph's measures are looked up.
-	if got := fmt.Sprint(slices.Sorted(slices.Values(fake.asked))); got != "[10 11 12 13]" {
-		t.Errorf("asked for %s", got)
-	}
-	proc := nodeCol(t, frames, "detail__processing")
-	if proc["model:measure:10"] != "Up to date" ||
-		proc["model:measure:11"] != "12 periods behind (Production 12)" ||
-		proc["model:measure:13"] != "3 periods pending; 1 period queued to become pending (if this stays, something is stuck)" ||
-		proc["model:measure:12"] != "Inactive: the measure is not deployed, so the engine does not process it" {
-		t.Errorf("processing = %q", proc)
-	}
-	sub := nodeCol(t, frames, "subtitle")
-	// With retrieval-type rings the subtitle leaves the retrieval type out.
-	if sub["model:measure:10"] != "hourly" || sub["model:measure:11"] != "12 behind · hourly" || sub["model:measure:13"] != "3 pending · 1 queued · hourly" || sub["model:measure:12"] != "inactive · hourly" {
-		t.Errorf("subtitles = %q", sub)
-	}
-	// Rings keep the retrieval type unless asked for processing.
-	if f, _ := frames[0].FieldByName("arc__busy"); f != nil {
-		t.Error("processing rings without asking")
-	}
-	qm.DepRing = depRingProcessing
-	frames = runDeps(t, d, qm)
-	busy := nodeCol(t, frames, "arc__busy")
-	if busy["model:measure:11"] != "1" || busy["model:measure:10"] != "0" {
-		t.Errorf("busy arcs = %q", busy)
-	}
-	if inactive := nodeCol(t, frames, "arc__inactive"); inactive["model:measure:12"] != "1" || inactive["model:measure:11"] != "0" {
-		t.Errorf("inactive arcs = %q", inactive)
-	}
-	if f, _ := frames[0].FieldByName("arc__calculated"); f != nil {
-		t.Error("retrieval rings with processing rings")
-	}
-	// The ring no longer shows the retrieval type, so the subtitle does.
-	if got := nodeCol(t, frames, "subtitle")["model:measure:11"]; got != "12 behind · hourly · aggregated" {
-		t.Errorf("subtitle with processing rings = %q", got)
-	}
-
-	// A database error leaves processing out and says so.
-	fake.err = errors.New("login failed")
-	frames = runDeps(t, d, qm)
-	if n := frames[0].Meta.Notices; len(n) == 0 || !strings.Contains(n[0].Text, "login failed") {
-		t.Errorf("notices = %+v", n)
-	}
-}
-
-// A node's menu shows its latest value's version and its retrieval type;
-// the subtitle, under a retrieval-type ring, leaves the type out.
-func TestDependenciesValueVersion(t *testing.T) {
-	_, d := depServer(t)
-	qm := queryModel{Items: []queryItem{{Tree: "model", Type: itemMeasure, ID: 10}}}
-	frames := runDeps(t, d, qm)
-	if got := nodeCol(t, frames, "detail__version")["model:measure:12"]; got != "v2 · Updated · "+timeText(time.Date(2026, 10, 6, 2, 30, 0, 0, time.UTC)) {
-		t.Errorf("version = %q", got)
-	}
-	if got := nodeCol(t, frames, "detail__retrieval")["model:measure:12"]; got != "manual" {
-		t.Errorf("retrieval = %q", got)
-	}
-	if sub := nodeCol(t, frames, "subtitle"); sub["model:measure:12"] != "hourly" {
-		t.Errorf("subtitles = %q", sub)
-	}
-
-}
-
-func TestProcessingText(t *testing.T) {
-	p := flowdb.Processing{Behind: 1, BehindBy: []flowdb.CalendarBehind{{Calendar: "A", Periods: 1}}}
-	if got := processingText(p); got != "1 period behind (A 1)" {
-		t.Errorf("got %q", got)
-	}
-	if got := processingShort(flowdb.Processing{Pending: 2}); got != "2 pending" {
-		t.Errorf("got %q", got)
 	}
 }
 

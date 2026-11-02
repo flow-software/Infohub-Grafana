@@ -59,10 +59,6 @@ export interface FlowQuery extends DataQuery {
   depValues?: 'none';
   /** "measure" titles nodes by the measure's own name ("WTD"); unset uses Flow's full Metric.Measure name. */
   depNames?: 'measure';
-  /** Adds how far the engine has got with each measure, from the Flow database. */
-  depProcessing?: boolean;
-  /** "processing" colours rings by processing state instead of retrieval type. */
-  depRing?: 'processing';
 
   /** Events queries: table (default), state timeline, or annotations. */
   eventFormat?: EventFormat;
@@ -164,20 +160,12 @@ export interface FlowOptions extends DataSourceJsonData {
   /** Standard Grafana TLS keys, read by the backend's HTTP client. */
   tlsSkipVerify?: boolean;
   tlsAuthWithCACert?: boolean;
-  /** The optional Flow database, for the processing state of measures. */
-  sqlServer?: string;
-  sqlDatabase?: string;
-  sqlUser?: string;
-  /** The SQL Server driver's encrypt option; unset is "false" (login only). */
-  sqlEncrypt?: 'false' | 'true' | 'strict' | 'disable';
-  sqlTrustServerCertificate?: boolean;
 }
 
 /** Secrets: write-only from the browser, decrypted only in the backend. */
 export interface FlowSecureJsonData {
   token?: string;
   tlsCACert?: string;
-  sqlPassword?: string;
 }
 
 /** One row from the backend's browse and search resources. */

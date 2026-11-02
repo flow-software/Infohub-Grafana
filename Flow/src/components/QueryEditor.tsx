@@ -870,7 +870,6 @@ function EventContextFields({
 function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Props) {
   const items = useMemo(() => query.items ?? [], [query.items]);
   const summary = useSummary(datasource, items);
-  const ringProcessing = query.depRing === 'processing' || !!query.depProcessing;
   const update = (patch: Partial<FlowQuery>) => {
     onChange({ ...query, ...patch });
     onRunQuery();
@@ -949,26 +948,6 @@ function DependenciesQueryEditor({ datasource, query, onChange, onRunQuery }: Pr
           />
         </InlineField>
       )}
-      <InlineField
-        label="Ring colour"
-        labelWidth={LABEL_WIDTH}
-        tooltip={
-          'Retrieval type: calculated, aggregated, manual, ... (the subtitle then leaves it out; the node menu always has it, next to the version of the latest value). Processing: how far the engine has got with each measure, as the Flow Config monitor counts it. Rings turn green when up to date and orange when periods are behind, pending or queued to become pending (queued ones that stay mean something is stuck); the counts lead each subtitle and are in full in the node menu. Grey is what the monitor does not track (tags, events, templates). Quarantine is not shown: Flow keeps it in the engine, not the database.' +
-          (datasource.processingAvailable
-            ? ''
-            : ' Processing needs the Flow database: set it up in the data source settings.')
-        }
-      >
-        <RadioButtonGroup<'retrieval' | 'processing'>
-          options={[
-            { label: 'Retrieval type', value: 'retrieval' },
-            { label: 'Processing', value: 'processing' },
-          ]}
-          disabledOptions={datasource.processingAvailable || ringProcessing ? [] : ['processing']}
-          value={ringProcessing ? 'processing' : 'retrieval'}
-          onChange={(v) => update({ depRing: v === 'processing' ? 'processing' : undefined, depProcessing: undefined })}
-        />
-      </InlineField>
       <InlineField
         label="Names"
         labelWidth={LABEL_WIDTH}

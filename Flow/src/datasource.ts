@@ -57,12 +57,8 @@ export function localizeTimes(response: DataQueryResponse, timeZone?: string): D
 export type BrowseKind = 'measures' | 'events';
 
 export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
-  /** Whether the Flow database is set up, so dependency queries can show processing. */
-  readonly processingAvailable: boolean;
-
   constructor(instanceSettings: DataSourceInstanceSettings<FlowOptions>) {
     super(instanceSettings);
-    this.processingAvailable = !!instanceSettings.jsonData?.sqlServer?.trim();
     // Annotations on any panel: the annotation editor is the query editor,
     // started on an events query. Events become regions; on the Measures tab
     // the measures' value comments become markers.

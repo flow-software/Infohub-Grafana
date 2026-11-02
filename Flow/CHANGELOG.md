@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Removed: processing and the Flow database connection.** Dependencies no longer show how far the engine has got with each measure, and the data source no longer has the optional Flow database (SQL Server) settings: the plugin now uses only Flow's public API. Rings are always coloured by retrieval type; dependency queries saved with _Processing_ rings show retrieval-type rings. Processing will return once Flow's API exposes it.
 - The plugin is titled **Infohub** in Grafana (by Flow Software), with an up-to-date description.
 - Connection settings ask for the Flow Bootstrap **host**, **port** (default 4501), **HTTPS** and the **instance ID**, and build the Flow Server address from them, showing it. Existing data sources are split into these fields; pasting a Flow Server or Swagger address into Host fills them all; **Enter a full URL instead** keeps any other address (e.g. a reverse proxy).
 - Metrics show a cube icon in the browser and in the selection chips.

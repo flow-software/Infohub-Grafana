@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flow"
-	"github.com/flow-software/Infohub-Grafana/Flow/pkg/flowdb"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
@@ -399,15 +398,6 @@ func (d *Datasource) runDependencies(ctx context.Context, qm queryModel, q backe
 	}
 
 	opt := depGraphOptions{ownNames: qm.DepNames == depNamesMeasure, limits: qm.Limits == limitsLines}
-	// Ring colour "processing" brings the counts too; DepProcessing alone
-	// (queries saved before the two were merged) shows them with retrieval rings.
-	if qm.DepProcessing || qm.DepRing == depRingProcessing {
-		proc, warn := d.depProcessing(ctx, rows, treeOf)
-		notices = append(notices, warn...)
-		if proc != nil {
-			opt.processing, opt.ringProcessing = proc, qm.DepRing == depRingProcessing
-		}
-	}
 	frames := depNodeGraph(rows, names, values, treeOf, graphs, direction, opt)
 	if len(notices) > 0 {
 		frames[0].Meta.Notices = append(frames[0].Meta.Notices, noticesOf(notices)...)
@@ -663,79 +653,6 @@ var nodeKinds = []struct{ key, label, color string }{
 // depGraphOptions are the query's display choices for depNodeGraph.
 type depGraphOptions struct {
 	ownNames, limits bool
-	// processing is each model measure's processing state; nil leaves it
-	// out (not asked for, or the Flow database is not set up).
-	processing map[int]flowdb.Processing
-	// ringProcessing colours rings by processing state, not retrieval type.
-	ringProcessing bool
-}
-
-// depRingProcessing is the query value that colours rings by processing.
-const depRingProcessing = "processing"
-
-// Processing states, as ring colours.
-const (
-	procUpToDate = "uptodate"
-	procBusy     = "busy"
-	procInactive = "inactive"
-	procNone     = "none"
-)
-
-var procKinds = []struct{ key, label, color string }{
-	{procUpToDate, "Up to date", "#73BF69"},
-	{procBusy, "Behind or pending", "#FF9830"},
-	{procInactive, "Inactive (not deployed)", "#FADE2A"},
-	{procNone, "Not tracked", "#8E8E8E"},
-}
-
-// processingText describes a measure's processing state for its menu.
-func processingText(p flowdb.Processing) string {
-	if p.Inactive {
-		return "Inactive: the measure is not deployed, so the engine does not process it"
-	}
-	if p.UpToDate() {
-		return "Up to date"
-	}
-	var parts []string
-	if p.Behind > 0 {
-		var by []string
-		for _, c := range p.BehindBy {
-			by = append(by, fmt.Sprintf("%s %d", c.Calendar, c.Periods))
-		}
-		text := plural(p.Behind, "period") + " behind"
-		if len(by) > 0 {
-			text += " (" + strings.Join(by, ", ") + ")"
-		}
-		parts = append(parts, text)
-	}
-	if p.Pending > 0 {
-		parts = append(parts, plural(p.Pending, "period")+" pending")
-	}
-	if p.Queued > 0 {
-		parts = append(parts, plural(p.Queued, "period")+" queued to become pending (if this stays, something is stuck)")
-	}
-	return strings.Join(parts, "; ")
-}
-
-// processingShort is the state for the node's subtitle, e.g. "12 behind".
-func processingShort(p flowdb.Processing) string {
-	var parts []string
-	for _, x := range []struct {
-		n    int
-		word string
-	}{{p.Behind, "behind"}, {p.Pending, "pending"}, {p.Queued, "queued"}} {
-		if x.n > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s", x.n, x.word))
-		}
-	}
-	return strings.Join(parts, " · ")
-}
-
-func plural(n int, word string) string {
-	if n == 1 {
-		return "1 " + word
-	}
-	return fmt.Sprintf("%d %ss", n, word)
 }
 
 // The legend entry explaining the red fill Grafana draws inside a
@@ -772,7 +689,7 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 	type node struct {
 		id, title, subtitle, mainstat, kind, measureID             string
 		path, calculation, aggregation, source, enteredBy, valueAt string
-		limits, note, processing, procKind, version                string
+		limits, note, version                                      string
 		retrieval                                                  string
 		outside                                                    bool
 	}
@@ -803,12 +720,8 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 				}
 			}
 			if m, ok := graphs[tree].measures[r.MeasureID]; ok && r.Type == "measure" {
-				// The ring shows the retrieval type by default, so the subtitle
-				// leaves it out; with another ring colour it says it.
+				// The ring shows the retrieval type, so the subtitle leaves it out.
 				n.subtitle = m.Interval
-				if opt.ringProcessing {
-					n.subtitle = depStats(m)
-				}
 				n.retrieval = strings.ToLower(m.Retrieval)
 				info := depInfoOf(m)
 				n.calculation, n.aggregation, n.source = info.Calculation, info.Aggregation, depSource(info, tree, names)
@@ -828,30 +741,6 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 				} else if ok {
 					n.mainstat = "–"
 					n.note = v.Note
-				}
-			}
-			if opt.processing != nil {
-				n.procKind = procNone
-				if m, ok := graphs[tree].measures[r.MeasureID]; ok && r.Type == "measure" && tree == flow.TreeModel {
-					p := opt.processing[r.MeasureID]
-					switch {
-					case p.Inactive:
-						// Not deployed: no backlog to show, and "up to date"
-						// would suggest the engine is processing it.
-						n.processing = processingText(p)
-						n.procKind = procInactive
-						n.subtitle = strings.Trim("inactive · "+n.subtitle, " ·")
-					case strings.EqualFold(m.Interval, "timestamp"):
-						n.processing = "Not counted for tags, as in the Flow Config monitor."
-					default:
-						n.processing = processingText(p)
-						n.procKind = procUpToDate
-						if !p.UpToDate() {
-							n.procKind = procBusy
-							// First: Grafana cuts long subtitles, and this is the news.
-							n.subtitle = strings.Trim(processingShort(p)+" · "+n.subtitle, " ·")
-						}
-					}
 				}
 			}
 			if r.Type == "event" {
@@ -910,7 +799,6 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 		detail("valueTime", "Period", func(n node) string { return n.valueAt }),
 		detail("version", "Version", func(n node) string { return n.version }),
 		detail("limits", "Limits", func(n node) string { return n.limits }),
-		detail("processing", "Processing", func(n node) string { return n.processing }),
 		detail("note", "Note", func(n node) string { return n.note }),
 	)
 	// A value outside its limits fills the node: Grafana draws a highlighted
@@ -925,9 +813,6 @@ func depNodeGraph(rows []depRow, names map[string]depName, values map[string]dep
 	// the panel then lists them as its legend. Only the kinds in this graph
 	// get a field, so the legend stays short.
 	kinds, kindOf := nodeKinds, func(n node) string { return n.kind }
-	if opt.ringProcessing {
-		kinds, kindOf = procKinds, func(n node) string { return n.procKind }
-	}
 	present := map[string]bool{}
 	for _, n := range nodes {
 		present[kindOf(n)] = true
