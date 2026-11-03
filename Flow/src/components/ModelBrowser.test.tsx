@@ -22,6 +22,16 @@ function fakeDatasource() {
     ),
     search: jest.fn(() => Promise.resolve([])),
     getSummary: jest.fn(() => Promise.resolve({ periodMeasures: 3, tags: 1 })),
+    // Folder 1 and metric 20 hold the model's measures: they match when one
+    // of those measures does.
+    browseMatches: jest.fn((tree: string, intervals: string[], retrievals: string[]) => {
+      const hit = nodes['model:metric:20'].some(
+        (m) =>
+          (intervals.length === 0 || intervals.includes(m.interval ?? '')) &&
+          (retrievals.length === 0 || retrievals.includes(m.retrieval ?? ''))
+      );
+      return Promise.resolve(tree === 'model' && hit ? { folders: [1], metrics: [20] } : { folders: [], metrics: [] });
+    }),
   } as unknown as DataSource;
 }
 
@@ -73,11 +83,13 @@ describe('ModelBrowser', () => {
     fireEvent.click(screen.getByRole('button', { name: /Hourly/ }));
     expect(screen.getByText('Good')).toBeInTheDocument();
     expect(screen.queryByText('Speed')).not.toBeInTheDocument();
-    // Folders and metrics stay: what they hold is only known once opened.
+    // Folders and metrics that hold hourly measures stay.
     expect(screen.getByText('Production')).toBeInTheDocument();
 
+    // No yearly measures anywhere: the folder itself is hidden.
     fireEvent.click(screen.getByRole('button', { name: /Hourly/ }));
     fireEvent.click(screen.getByRole('button', { name: /Yearly/ }));
+    await waitFor(() => expect(screen.queryByText('Site')).not.toBeInTheDocument());
     expect(screen.getByText('No yearly measures here')).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'All' })[0]);
@@ -96,6 +108,7 @@ describe('ModelBrowser', () => {
 
     // Both filters apply: no hourly measure is retrieved.
     fireEvent.click(screen.getByRole('button', { name: /Hourly/ }));
+    await waitFor(() => expect(screen.queryByText('Site')).not.toBeInTheDocument());
     expect(screen.getByText('No hourly retrieved measures here')).toBeInTheDocument();
   });
 

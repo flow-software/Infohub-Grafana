@@ -54,6 +54,7 @@ type browseNode struct {
 //	GET charts                             root chart folders
 //	GET charts?id=N                        a chart folder's folders and charts
 //	GET summary?item=<tree>:<type>:<id>..  how many period measures and tags a selection holds
+//	GET browseMatches?tree=..&interval=..&retrieval=..  folders and metrics holding such measures
 func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
 	reply := func(status int, body any) error {
 		b, err := json.Marshal(body)
@@ -112,6 +113,11 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 	case "charts":
 		id, _ := strconv.Atoi(params.Get("id"))
 		body, err = d.browseCharts(ctx, id)
+	case "browseMatches":
+		if !tree.Valid() {
+			return fail(http.StatusBadRequest, "tree must be model or template")
+		}
+		body, err = d.browseMatchesResource(ctx, tree, params["interval"], params["retrieval"])
 	case "summary":
 		body, err = d.summary(ctx, params["item"])
 	case "chartEvents":

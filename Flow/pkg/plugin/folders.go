@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -97,6 +98,77 @@ func (d *Datasource) folderMeasures(ctx context.Context, tree flow.Tree, folderI
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+
+// browseMatches are the folders and metrics that hold, at any depth, a
+// measure of one of the intervals and one of the retrieval types (empty
+// lists match all), so the browser can hide the rest while those filters
+// are on.
+type browseMatches struct {
+	Folders []int `json:"folders"`
+	Metrics []int `json:"metrics"`
+}
+
+func (d *Datasource) browseMatchesResource(ctx context.Context, tree flow.Tree, intervals, retrievals []string) (browseMatches, error) {
+	l, err := d.treeLists(ctx, tree)
+	if err != nil {
+		return browseMatches{}, err
+	}
+	all := l.measures
+	if tree == flow.TreeModel {
+		byID, err := d.modelMeasures(ctx)
+		if err != nil {
+			return browseMatches{}, err
+		}
+		all = make([]flow.Measure, 0, len(byID))
+		for _, m := range byID {
+			all = append(all, m)
+		}
+	}
+	matches := func(list []string, v string) bool {
+		if len(list) == 0 {
+			return true
+		}
+		for _, x := range list {
+			if strings.EqualFold(x, v) {
+				return true
+			}
+		}
+		return false
+	}
+	metrics := map[int]bool{}
+	for _, m := range all {
+		if m.Metric != nil && matches(intervals, m.Interval) && matches(retrievals, m.Retrieval) {
+			metrics[m.Metric.ID] = true
+		}
+	}
+	parent := map[int]int{}
+	for _, f := range l.folders {
+		if f.Parent != nil {
+			parent[f.ID] = f.Parent.ID
+		}
+	}
+	folders := map[int]bool{}
+	for _, m := range l.metrics {
+		if !metrics[m.ID] || m.Folder == nil {
+			continue
+		}
+		// The metric's folder and every folder above it.
+		for id, seen := m.Folder.ID, 0; id != 0 && !folders[id] && seen < len(l.folders)+1; seen++ {
+			folders[id] = true
+			id = parent[id]
+		}
+	}
+	out := browseMatches{Folders: []int{}, Metrics: []int{}}
+	for id := range folders {
+		out.Folders = append(out.Folders, id)
+	}
+	for id := range metrics {
+		out.Metrics = append(out.Metrics, id)
+	}
+	sort.Ints(out.Folders)
+	sort.Ints(out.Metrics)
 	return out, nil
 }
 

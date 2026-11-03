@@ -223,6 +223,15 @@ export class DataSource extends DataSourceWithBackend<FlowQuery, FlowOptions> {
    * Children of a folder or metric; no parent lists the root folders. With
    * kind "events", folders hold events instead of metrics.
    */
+  /** The folders and metrics that hold measures of these intervals and retrieval types, at any depth. */
+  browseMatches(
+    tree: Tree,
+    intervals: string[],
+    retrievals: string[]
+  ): Promise<{ folders: number[]; metrics: number[] }> {
+    return this.getResource('browseMatches', { tree, interval: intervals, retrieval: retrievals });
+  }
+
   browse(tree: Tree, parent?: Pick<BrowseNode, 'type' | 'id'>, kind?: BrowseKind): Promise<BrowseNode[]> {
     const params: Record<string, string | number> = { tree };
     if (parent) {

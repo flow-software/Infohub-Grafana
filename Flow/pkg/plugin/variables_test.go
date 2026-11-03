@@ -411,3 +411,36 @@ func TestLimitFromAnotherMeasure(t *testing.T) {
 		t.Errorf("description = %q", field.Config.Description)
 	}
 }
+
+// Browse matches are the folders (with every folder above them) and
+// metrics that hold a measure of the picked intervals and retrieval types.
+func TestBrowseMatches(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	// Every model measure, as Flow lists them without ids.
+	f.handlers["/api/v1/model/measures"] = func(w http.ResponseWriter, r *http.Request) {
+		var all []any
+		for _, m := range modelMeasures {
+			all = append(all, m)
+		}
+		writeJSON(w, 200, map[string]any{"measures": all})
+	}
+	d := testDatasource(srv)
+	got := func(intervals, retrievals []string) string {
+		m, err := d.browseMatchesResource(context.Background(), flow.TreeModel, intervals, retrievals)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fmt.Sprintf("folders %v metrics %v", m.Folders, m.Metrics)
+	}
+	// Hourly measures sit in metrics 20 and 30, in Line 1 and Line 2 under Site.
+	if g := got([]string{"hourly"}, nil); g != "folders [1 2 3] metrics [20 30]" {
+		t.Errorf("hourly: %s", g)
+	}
+	if g := got([]string{"Daily"}, nil); g != "folders [] metrics []" {
+		t.Errorf("daily: %s", g)
+	}
+	// Both filters apply together: no measure here is manual.
+	if g := got([]string{"timestamp"}, []string{"manual"}); g != "folders [] metrics []" {
+		t.Errorf("tags and manual: %s", g)
+	}
+}

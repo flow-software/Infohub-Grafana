@@ -81,14 +81,45 @@ export function ModelBrowser({ datasource, selected, onApply, onDismiss, kind = 
   );
   const [search, setSearch] = useState('');
   // Intervals and retrieval types to show measures of; an empty set shows
-  // them all, and both apply together. Folders and metrics always show: what
-  // they hold is only known once opened.
+  // them all, and both apply together. With either on, folders and metrics
+  // that hold no such measure (at any depth) are hidden too, once the
+  // backend has said which do; until then they all show.
   const [intervals, setIntervals] = useState<Set<string>>(new Set());
   const [retrievals, setRetrievals] = useState<Set<string>>(new Set());
-  const shown = (node: BrowseNode) =>
-    node.type !== 'measure' ||
-    ((intervals.size === 0 || intervals.has(node.interval ?? '')) &&
-      (retrievals.size === 0 || retrievals.has(node.retrieval?.toLowerCase() ?? '')));
+  const filterKey = `${tree}|${[...intervals].sort().join(',')}|${[...retrievals].sort().join(',')}`;
+  const filtering = !events && (intervals.size > 0 || retrievals.size > 0);
+  const [matches, setMatches] = useState<{ key: string; folders: Set<number>; metrics: Set<number> }>();
+  useEffect(() => {
+    if (!filtering) {
+      return;
+    }
+    let cancelled = false;
+    datasource
+      .browseMatches(tree, [...intervals], [...retrievals])
+      .then(
+        (m) => !cancelled && setMatches({ key: filterKey, folders: new Set(m.folders), metrics: new Set(m.metrics) })
+      )
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // filterKey stands for tree, intervals and retrievals.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasource, filterKey, filtering]);
+  const known = filtering && matches?.key === filterKey ? matches : undefined;
+  const shown = (node: BrowseNode) => {
+    if (node.type === 'folder') {
+      return !known || known.folders.has(node.id);
+    }
+    if (node.type === 'metric') {
+      return !known || known.metrics.has(node.id);
+    }
+    return (
+      node.type !== 'measure' ||
+      ((intervals.size === 0 || intervals.has(node.interval ?? '')) &&
+        (retrievals.size === 0 || retrievals.has(node.retrieval?.toLowerCase() ?? '')))
+    );
+  };
   const filteredOut = (nodes: BrowseNode[]) => {
     const picked = (filters: typeof INTERVAL_FILTERS, set: Set<string>) =>
       filters
