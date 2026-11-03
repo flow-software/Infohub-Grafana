@@ -213,6 +213,36 @@ export function VariableQueryEditor({ datasource, query, onChange }: Props) {
 
       {kind === 'eventPeriods' && (
         <>
+          <InlineField
+            label="Batches from"
+            labelWidth={LABEL_WIDTH}
+            tooltip="Time range: the batches in the dashboard's time range, following the time picker. Last days: the batches of the last so many days, whatever the time picker shows, so zooming in on one batch (for example with Zoom to this batch) does not drop a golden batch from the list. Use Last days for batch and golden batch pickers."
+          >
+            <Stack gap={1} alignItems="center">
+              <RadioButtonGroup<'range' | 'days'>
+                options={[
+                  { label: 'Time range', value: 'range' },
+                  { label: 'Last days', value: 'days' },
+                ]}
+                value={query.periodDays ? 'days' : 'range'}
+                onChange={(v) => update({ periodDays: v === 'days' ? 30 : undefined })}
+              />
+              {!!query.periodDays && (
+                <Input
+                  key="period-days"
+                  type="number"
+                  width={10}
+                  min={1}
+                  defaultValue={query.periodDays}
+                  suffix="days"
+                  onBlur={(e) => {
+                    const v = Math.round(Number(e.currentTarget.value));
+                    update({ periodDays: v > 0 ? v : 30 });
+                  }}
+                />
+              )}
+            </Stack>
+          </InlineField>
           <EventAttributeField
             datasource={datasource}
             event={variableEvent ?? items.find((it) => it.type === 'event')}

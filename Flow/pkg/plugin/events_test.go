@@ -405,3 +405,30 @@ func TestEventsTableOfBatches(t *testing.T) {
 		t.Errorf("notices = %v", notices)
 	}
 }
+
+// A periods variable with PeriodDays lists the batches of the last days,
+// whatever the dashboard's time range: zooming in keeps a golden batch.
+func TestEventPeriodsVariableLastDays(t *testing.T) {
+	f, srv := newFakeFlow(t)
+	var from, to string
+	f.handlers["/api/v1/data/events"] = func(w http.ResponseWriter, r *http.Request) {
+		from, to = r.URL.Query().Get("start"), r.URL.Query().Get("end")
+		writeJSON(w, 200, map[string]any{"values": []map[string]any{}})
+	}
+	d := testDatasource(srv)
+	b, _ := json.Marshal(queryModel{QueryType: queryTypeVariable, VariableKind: varEventPeriods, EventID: 2, PeriodDays: 30})
+	resp := d.query(context.Background(), backend.DataQuery{RefID: "A", JSON: b, TimeRange: backend.TimeRange{
+		From: time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC), To: time.Date(2026, 1, 1, 18, 0, 0, 0, time.UTC),
+	}})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	start, err1 := time.Parse(time.RFC3339, from)
+	end, err2 := time.Parse(time.RFC3339, to)
+	if err1 != nil || err2 != nil {
+		t.Fatalf("start %q end %q", from, to)
+	}
+	if d := end.Sub(start); d < 29*24*time.Hour || d > 31*24*time.Hour || time.Since(end) > time.Minute {
+		t.Errorf("read %s to %s, want the last 30 days, not the time range", from, to)
+	}
+}

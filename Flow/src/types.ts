@@ -118,6 +118,8 @@ export interface FlowQuery extends DataQuery {
   variableKind?: VariableKind;
   /** eventPeriods: the event attribute that labels each period, e.g. Batch ID. */
   periodLabel?: string;
+  /** eventPeriods: list the batches of the last so many days instead of the dashboard's time range. */
+  periodDays?: number;
   /** attributeValues: the model attribute to list the values of. */
   variableAttribute?: string;
 

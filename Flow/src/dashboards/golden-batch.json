@@ -63,9 +63,10 @@
           "variableKind": "eventPeriods",
           "refId": "batch",
           "queryType": "variable",
-          "eventVariable": "$event"
+          "eventVariable": "$event",
+          "periodDays": 30
         },
-        "refresh": 2,
+        "refresh": 1,
         "multi": false,
         "includeAll": false,
         "hide": 0,
@@ -85,9 +86,10 @@
           "variableKind": "eventPeriods",
           "refId": "golden",
           "queryType": "variable",
-          "eventVariable": "$event"
+          "eventVariable": "$event",
+          "periodDays": 30
         },
-        "refresh": 2,
+        "refresh": 1,
         "multi": true,
         "includeAll": false,
         "hide": 0,

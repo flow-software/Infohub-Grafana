@@ -319,6 +319,10 @@ func (d *Datasource) variableEventValues(ctx context.Context, qm queryModel) ([]
 // dashboard can pick from. EventAttribute with EventValues keeps only
 // periods with one of those values, e.g. Product = $product.
 func (d *Datasource) variableEventPeriods(ctx context.Context, qm queryModel, tr backend.TimeRange) ([]variableOption, error) {
+	if qm.PeriodDays > 0 {
+		now := time.Now()
+		tr = backend.TimeRange{From: now.AddDate(0, 0, -qm.PeriodDays), To: now}
+	}
 	req := flow.EventDataRequest{From: tr.From, To: tr.To, Limit: eventPeriodLimit}
 	for _, it := range qm.Items {
 		if it.Type != itemEvent {

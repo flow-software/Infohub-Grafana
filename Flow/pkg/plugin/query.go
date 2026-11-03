@@ -93,6 +93,11 @@ type queryModel struct {
 	// PeriodLabel names the event attribute that labels each period in an
 	// event periods variable, e.g. Batch ID.
 	PeriodLabel string `json:"periodLabel"`
+	// PeriodDays lists an event periods variable's batches over the last so
+	// many days instead of the dashboard's time range, so zooming the time
+	// picker to one batch does not drop the others (a golden batch) from
+	// the list. Zero uses the time range.
+	PeriodDays int `json:"periodDays"`
 
 	// Context "event" reads period measures per period of EventID instead
 	// of per calendar period. EventAttribute with EventValues keeps only
