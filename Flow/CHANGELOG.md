@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 
 - Browse: with interval or retrieval-type filters on, folders and metrics that hold no such measure (at any depth) are hidden, not just the measures, as in the search results.
 - Golden batch: **Zoom to this batch** replaced the golden batch with the batch itself, because the zoomed time range dropped the golden batch from its dropdown. _Periods (batches)_ variables can now list the batches of the **Last days** (whatever the time picker shows) instead of the dashboard's time range, and the golden batch dashboard's **Batch** and **Golden batch** use the last 30 days.
