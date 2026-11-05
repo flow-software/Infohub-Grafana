@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- Built with Go 1.26.10 and golang.org/x/net 0.62.0, which fix the security advisories reported against 1.0.1 (Go standard library, and HTML parsing in x/net).
+
 ## 1.0.1
 
 - Browse: with interval or retrieval-type filters on, folders and metrics that hold no such measure (at any depth) are hidden, not just the measures, as in the search results.

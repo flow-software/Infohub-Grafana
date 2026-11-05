@@ -9,7 +9,7 @@
   "backend": true,
   "executable": "gpx_infohub",
   "info": {
-    "description": "Chart Flow measures, tags, events and charts in Grafana, and see how each measure is built and how far the engine has got with it.",
+    "description": "Chart Flow measures, tags, events and charts in Grafana, and see how each measure is built.",
     "author": {
       "name": "Flow Software",
       "url": "https://www.flow-software.com"
